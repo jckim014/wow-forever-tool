@@ -1,0 +1,1159 @@
+{
+ "_doc": "Default disenchant table (Classic item-level bands). Same defaults as build_forever_shuffle_sheet.py. User edits override these in the app.",
+ "materials": [
+  {
+   "item": 10940,
+   "name": "Strange Dust"
+  },
+  {
+   "item": 11083,
+   "name": "Soul Dust"
+  },
+  {
+   "item": 11137,
+   "name": "Vision Dust"
+  },
+  {
+   "item": 11176,
+   "name": "Dream Dust"
+  },
+  {
+   "item": 16204,
+   "name": "Illusion Dust"
+  },
+  {
+   "item": 10938,
+   "name": "Lesser Magic Essence"
+  },
+  {
+   "item": 10939,
+   "name": "Greater Magic Essence"
+  },
+  {
+   "item": 10998,
+   "name": "Lesser Astral Essence"
+  },
+  {
+   "item": 11082,
+   "name": "Greater Astral Essence"
+  },
+  {
+   "item": 11134,
+   "name": "Lesser Mystic Essence"
+  },
+  {
+   "item": 11135,
+   "name": "Greater Mystic Essence"
+  },
+  {
+   "item": 11174,
+   "name": "Lesser Nether Essence"
+  },
+  {
+   "item": 11175,
+   "name": "Greater Nether Essence"
+  },
+  {
+   "item": 16202,
+   "name": "Lesser Eternal Essence"
+  },
+  {
+   "item": 16203,
+   "name": "Greater Eternal Essence"
+  },
+  {
+   "item": 10978,
+   "name": "Small Glimmering Shard"
+  },
+  {
+   "item": 11084,
+   "name": "Large Glimmering Shard"
+  },
+  {
+   "item": 11138,
+   "name": "Small Glowing Shard"
+  },
+  {
+   "item": 11139,
+   "name": "Large Glowing Shard"
+  },
+  {
+   "item": 11177,
+   "name": "Small Radiant Shard"
+  },
+  {
+   "item": 11178,
+   "name": "Large Radiant Shard"
+  },
+  {
+   "item": 14343,
+   "name": "Small Brilliant Shard"
+  },
+  {
+   "item": 14344,
+   "name": "Large Brilliant Shard"
+  },
+  {
+   "item": 20725,
+   "name": "Nexus Crystal"
+  }
+ ],
+ "bands": [
+  {
+   "band": "Uncommon Armor 5-15",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 5,
+   "ilvlMax": 15,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.8,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10938,
+     "name": "Lesser Magic Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 5-15",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 5,
+   "ilvlMax": 15,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10938,
+     "name": "Lesser Magic Essence",
+     "chance": 0.8,
+     "min": 1,
+     "max": 2
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 5-15",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 5,
+   "ilvlMax": 15,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": "No shard listed below 16; assumed Small Glimmering"
+  },
+  {
+   "band": "Epic 5-15",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 5,
+   "ilvlMax": 15,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 16-20",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 16,
+   "ilvlMax": 20,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.75,
+     "min": 2,
+     "max": 3
+    },
+    {
+     "item": 10939,
+     "name": "Greater Magic Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 16-20",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 16,
+   "ilvlMax": 20,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.2,
+     "min": 2,
+     "max": 3
+    },
+    {
+     "item": 10939,
+     "name": "Greater Magic Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 16-20",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 16,
+   "ilvlMax": 20,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 16-20",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 16,
+   "ilvlMax": 20,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 21-25",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 21,
+   "ilvlMax": 25,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.75,
+     "min": 4,
+     "max": 6
+    },
+    {
+     "item": 10998,
+     "name": "Lesser Astral Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 21-25",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 21,
+   "ilvlMax": 25,
+   "results": [
+    {
+     "item": 10940,
+     "name": "Strange Dust",
+     "chance": 0.2,
+     "min": 4,
+     "max": 6
+    },
+    {
+     "item": 10998,
+     "name": "Lesser Astral Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 21-25",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 21,
+   "ilvlMax": 25,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 21-25",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 21,
+   "ilvlMax": 25,
+   "results": [
+    {
+     "item": 10978,
+     "name": "Small Glimmering Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 26-30",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 26,
+   "ilvlMax": 30,
+   "results": [
+    {
+     "item": 11083,
+     "name": "Soul Dust",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11082,
+     "name": "Greater Astral Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11084,
+     "name": "Large Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 26-30",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 26,
+   "ilvlMax": 30,
+   "results": [
+    {
+     "item": 11083,
+     "name": "Soul Dust",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11082,
+     "name": "Greater Astral Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11084,
+     "name": "Large Glimmering Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 26-30",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 26,
+   "ilvlMax": 30,
+   "results": [
+    {
+     "item": 11084,
+     "name": "Large Glimmering Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 26-30",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 26,
+   "ilvlMax": 30,
+   "results": [
+    {
+     "item": 11084,
+     "name": "Large Glimmering Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 31-35",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 31,
+   "ilvlMax": 35,
+   "results": [
+    {
+     "item": 11083,
+     "name": "Soul Dust",
+     "chance": 0.75,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 11134,
+     "name": "Lesser Mystic Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11138,
+     "name": "Small Glowing Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 31-35",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 31,
+   "ilvlMax": 35,
+   "results": [
+    {
+     "item": 11083,
+     "name": "Soul Dust",
+     "chance": 0.2,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 11134,
+     "name": "Lesser Mystic Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11138,
+     "name": "Small Glowing Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 31-35",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 31,
+   "ilvlMax": 35,
+   "results": [
+    {
+     "item": 11138,
+     "name": "Small Glowing Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 31-35",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 31,
+   "ilvlMax": 35,
+   "results": [
+    {
+     "item": 11138,
+     "name": "Small Glowing Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 36-40",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 36,
+   "ilvlMax": 40,
+   "results": [
+    {
+     "item": 11137,
+     "name": "Vision Dust",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11135,
+     "name": "Greater Mystic Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11139,
+     "name": "Large Glowing Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 36-40",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 36,
+   "ilvlMax": 40,
+   "results": [
+    {
+     "item": 11137,
+     "name": "Vision Dust",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11135,
+     "name": "Greater Mystic Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11139,
+     "name": "Large Glowing Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 36-40",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 36,
+   "ilvlMax": 40,
+   "results": [
+    {
+     "item": 11139,
+     "name": "Large Glowing Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 36-40",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 36,
+   "ilvlMax": 40,
+   "results": [
+    {
+     "item": 11139,
+     "name": "Large Glowing Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 41-45",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 41,
+   "ilvlMax": 45,
+   "results": [
+    {
+     "item": 11137,
+     "name": "Vision Dust",
+     "chance": 0.75,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 11174,
+     "name": "Lesser Nether Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11177,
+     "name": "Small Radiant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 41-45",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 41,
+   "ilvlMax": 45,
+   "results": [
+    {
+     "item": 11137,
+     "name": "Vision Dust",
+     "chance": 0.2,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 11174,
+     "name": "Lesser Nether Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11177,
+     "name": "Small Radiant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 41-45",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 41,
+   "ilvlMax": 45,
+   "results": [
+    {
+     "item": 11177,
+     "name": "Small Radiant Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 41-45",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 41,
+   "ilvlMax": 45,
+   "results": [
+    {
+     "item": 11177,
+     "name": "Small Radiant Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 46-50",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 46,
+   "ilvlMax": 50,
+   "results": [
+    {
+     "item": 11176,
+     "name": "Dream Dust",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11175,
+     "name": "Greater Nether Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11178,
+     "name": "Large Radiant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 46-50",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 46,
+   "ilvlMax": 50,
+   "results": [
+    {
+     "item": 11176,
+     "name": "Dream Dust",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11175,
+     "name": "Greater Nether Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 11178,
+     "name": "Large Radiant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 46-50",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 46,
+   "ilvlMax": 50,
+   "results": [
+    {
+     "item": 11178,
+     "name": "Large Radiant Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 46-50",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 46,
+   "ilvlMax": 50,
+   "results": [
+    {
+     "item": 11178,
+     "name": "Large Radiant Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 51-55",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 51,
+   "ilvlMax": 55,
+   "results": [
+    {
+     "item": 11176,
+     "name": "Dream Dust",
+     "chance": 0.75,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 16202,
+     "name": "Lesser Eternal Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 14343,
+     "name": "Small Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 51-55",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 51,
+   "ilvlMax": 55,
+   "results": [
+    {
+     "item": 11176,
+     "name": "Dream Dust",
+     "chance": 0.2,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 16202,
+     "name": "Lesser Eternal Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 14343,
+     "name": "Small Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 51-55",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 51,
+   "ilvlMax": 55,
+   "results": [
+    {
+     "item": 14343,
+     "name": "Small Brilliant Shard",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 51-55",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 51,
+   "ilvlMax": 55,
+   "results": [
+    {
+     "item": 14343,
+     "name": "Small Brilliant Shard",
+     "chance": 1,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 56-60",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 56,
+   "ilvlMax": 60,
+   "results": [
+    {
+     "item": 16204,
+     "name": "Illusion Dust",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 16203,
+     "name": "Greater Eternal Essence",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 56-60",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 56,
+   "ilvlMax": 60,
+   "results": [
+    {
+     "item": 16204,
+     "name": "Illusion Dust",
+     "chance": 0.2,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 16203,
+     "name": "Greater Eternal Essence",
+     "chance": 0.75,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 56-60",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 56,
+   "ilvlMax": 60,
+   "results": [
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.995,
+     "min": 1,
+     "max": 1
+    },
+    {
+     "item": 20725,
+     "name": "Nexus Crystal",
+     "chance": 0.005,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 56-60",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 56,
+   "ilvlMax": 60,
+   "results": [
+    {
+     "item": 20725,
+     "name": "Nexus Crystal",
+     "chance": 1,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Armor 61-+",
+   "quality": "Uncommon",
+   "type": "Armor",
+   "ilvlMin": 61,
+   "ilvlMax": 999,
+   "results": [
+    {
+     "item": 16204,
+     "name": "Illusion Dust",
+     "chance": 0.75,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 16203,
+     "name": "Greater Eternal Essence",
+     "chance": 0.2,
+     "min": 2,
+     "max": 3
+    },
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Uncommon Weapon 61-+",
+   "quality": "Uncommon",
+   "type": "Weapon",
+   "ilvlMin": 61,
+   "ilvlMax": 999,
+   "results": [
+    {
+     "item": 16204,
+     "name": "Illusion Dust",
+     "chance": 0.2,
+     "min": 2,
+     "max": 5
+    },
+    {
+     "item": 16203,
+     "name": "Greater Eternal Essence",
+     "chance": 0.75,
+     "min": 2,
+     "max": 3
+    },
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.05,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Rare 61-+",
+   "quality": "Rare",
+   "type": "Any",
+   "ilvlMin": 61,
+   "ilvlMax": 999,
+   "results": [
+    {
+     "item": 14344,
+     "name": "Large Brilliant Shard",
+     "chance": 0.995,
+     "min": 1,
+     "max": 1
+    },
+    {
+     "item": 20725,
+     "name": "Nexus Crystal",
+     "chance": 0.005,
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "note": ""
+  },
+  {
+   "band": "Epic 61-+",
+   "quality": "Epic",
+   "type": "Any",
+   "ilvlMin": 61,
+   "ilvlMax": 999,
+   "results": [
+    {
+     "item": 20725,
+     "name": "Nexus Crystal",
+     "chance": 1,
+     "min": 1,
+     "max": 2
+    }
+   ],
+   "note": ""
+  }
+ ]
+}

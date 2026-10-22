@@ -1,0 +1,22 @@
+{
+ "_doc": "Defaults for settings and rules the user can change in the app. Same defaults as build_forever_shuffle_sheet.py v2.5.",
+ "settings": {
+  "useVendorBuy": true,
+  "useImports": true,
+  "importColumn": 1,
+  "salvagerOn": false,
+  "salvagerProcChance": 0.10,
+  "salvagerExtraPerProc": 1,
+  "salvagerFlatBonus": 0,
+  "ahCut": 0.05,
+  "chainsByProfession": {
+   "Tailoring": true, "Leatherworking": true, "Blacksmithing": true, "Engineering": true, "Enchanting": true,
+   "Alchemy": true, "First Aid": true, "Cooking": true, "Mining": true
+  }
+ },
+ "cooldownCrafts": {
+  "_doc": "Intermediates made by these recipes default to Allow crafting = No (cooldowns). Prefix match on recipe name, plus exact names.",
+  "namePrefixes": ["Transmute"],
+  "names": ["Mooncloth"]
+ }
+}

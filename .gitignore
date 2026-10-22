@@ -1,0 +1,13 @@
+# Private inputs: raw Wowhead pages, workbooks, your edits and price scans. Never commit (the repo is public).
+data/private/
+*.xlsx
+*.lua
+Auctionator*.zip
+
+# Build output and dependencies
+node_modules/
+dist/
+app/dist/
+__pycache__/
+*.pyc
+.DS_Store
