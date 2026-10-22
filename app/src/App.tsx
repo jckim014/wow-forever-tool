@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { config, loadGameData } from './data'
 import { RecipesGrid, type RecipeFilters } from './grid/RecipesGrid'
-import { DataMenu } from './DataMenu'
+import { DataMenu, importEditsFile } from './DataMenu'
 import { compute, type GameData } from './model'
+import { plural, usePageDrop, usePriceImport } from './PriceImport'
 import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
 import './App.css'
@@ -15,6 +16,8 @@ export function App() {
   const [message, setMessage] = useState<string | null>(null)
   const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false })
   const [count, setCount] = useState(0)
+  const prices = usePriceImport(store, setMessage)
+  const dragging = usePageDrop((f) => (/\.json$/i.test(f.name) ? importEditsFile(store, f, setMessage) : prices.importFile(f)))
 
   useEffect(() => {
     loadGameData().then(setGame, (e: Error) => setError(e.message))
@@ -54,7 +57,7 @@ export function App() {
           Hide unpriced
         </label>
         <span className="count">{count} of {result.recipes.length} recipes</span>
-        <DataMenu store={store} onMessage={setMessage} />
+        <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
       </header>
       <nav className="chips">
         <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
@@ -65,10 +68,18 @@ export function App() {
         ))}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
         {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && (
-          <span className="note">No prices yet: use File &gt; Import edits file, or open your save file.</span>
+          <span className="note">No prices yet: drop Auctionator.zip on the page, or use the File menu.</span>
+        )}
+        {edits.importsInfo && (
+          <span className="note prices-info" title="Drop a new Auctionator.zip on the page to refresh">
+            Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
+            {plural(edits.importsInfo.count, 'item')}
+          </span>
         )}
       </nav>
       <RecipesGrid rows={result.recipes} filters={filters} onCount={setCount} />
+      {prices.dialogs}
+      {dragging && <div className="drop-overlay">Drop Auctionator.zip (or a price .csv, or an edits .json) to import</div>}
     </div>
   )
 }

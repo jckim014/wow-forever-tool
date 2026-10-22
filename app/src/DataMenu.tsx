@@ -42,10 +42,27 @@ function StatusLine({ status, localOk, onReconnect }: { status: SaveStatus; loca
   }
 }
 
-export function DataMenu({ store, onMessage }: { store: Store; onMessage: (m: string) => void }) {
+/** Edits files (.json), from the menu or dropped on the page. */
+export async function importEditsFile(store: Store, file: File, onMessage: (m: string) => void) {
+  try {
+    const warnings = await store.importFile(file)
+    if (warnings === null) return
+    onMessage(`Imported ${file.name}` + (warnings.length ? ` with ${warnings.length} warning(s): ${warnings.slice(0, 3).join('; ')}` : ''))
+  } catch (e) {
+    onMessage(`Could not import ${file.name}: ${(e as Error).message}`)
+  }
+}
+
+export function DataMenu({ store, onMessage, onImportPrices, onPastePrices }: {
+  store: Store
+  onMessage: (m: string) => void
+  onImportPrices: (f: File) => void
+  onPastePrices: () => void
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const priceInput = useRef<HTMLInputElement>(null)
   const connected = store.status.kind === 'saved' || store.status.kind === 'saving' || store.status.kind === 'needs-permission' ||
     (store.status.kind === 'error' && store.status.file !== null)
   const fileApi = !(store.status.kind === 'browser-only' && !store.status.fileApi)
@@ -62,15 +79,7 @@ export function DataMenu({ store, onMessage }: { store: Store; onMessage: (m: st
     fn()
   }
 
-  async function onImport(file: File) {
-    try {
-      const warnings = await store.importFile(file)
-      if (warnings === null) return
-      onMessage(`Imported ${file.name}` + (warnings.length ? ` with ${warnings.length} warning(s): ${warnings.slice(0, 3).join('; ')}` : ''))
-    } catch (e) {
-      onMessage(`Could not import ${file.name}: ${(e as Error).message}`)
-    }
-  }
+  const onImport = (file: File) => importEditsFile(store, file, onMessage)
 
   return (
     <div className="data">
@@ -79,6 +88,9 @@ export function DataMenu({ store, onMessage }: { store: Store; onMessage: (m: st
         <button className="button" onClick={() => setOpen(!open)} aria-expanded={open}>File ▾</button>
         {open && (
           <div className="menu-panel" role="menu">
+            <button role="menuitem" onClick={act(() => priceInput.current?.click())}>Import Auctionator.zip…</button>
+            <button role="menuitem" onClick={act(onPastePrices)}>Paste prices…</button>
+            <hr />
             <button role="menuitem" onClick={act(() => fileInput.current?.click())}>Import edits file…</button>
             <button role="menuitem" onClick={act(store.exportFile)}>Export edits (backup)</button>
             <hr />
@@ -95,6 +107,14 @@ export function DataMenu({ store, onMessage }: { store: Store; onMessage: (m: st
           const f = e.target.files?.[0]
           e.target.value = ''
           if (f) onImport(f)
+        }}
+      />
+      <input
+        ref={priceInput} type="file" accept=".zip,.lua,.csv,.tsv,.txt" hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) onImportPrices(f)
         }}
       />
     </div>

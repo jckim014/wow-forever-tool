@@ -1,10 +1,10 @@
-import type { DeBand, Edits, ImportRow, Settings } from './types'
+import type { DeBand, Edits, ImportRow, ImportsInfo, Settings } from './types'
 
 export const EDITS_FORMAT = 'shuffle-edits'
 export const EDITS_VERSION = 1
 
 export function emptyEdits(): Edits {
-  return { typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [] }
+  return { typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [], importsInfo: null }
 }
 
 // Workbook setting names (Settings tab, column A) -> app settings keys
@@ -100,6 +100,10 @@ export function normalizeEdits(raw: unknown): { edits: Edits; warnings: string[]
       continue
     }
     e.imports.push({ item, name: (row.name as string) ?? null, p1: num(row.p1), p2: num(row.p2), p3: num(row.p3) } as ImportRow)
+  }
+  const info = r.importsInfo as Partial<ImportsInfo> | null | undefined
+  if (info && typeof info.source === 'string' && typeof info.at === 'string' && typeof info.count === 'number') {
+    e.importsInfo = { source: info.source, at: info.at, count: info.count }
   }
   return { edits: e, warnings }
 }

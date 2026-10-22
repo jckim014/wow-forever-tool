@@ -94,6 +94,15 @@ export interface Edits {
   useChainsNo: number[]
   deTable: DeBand[] | null
   imports: ImportRow[]
+  /** Where the imported prices came from, for display (e.g. "Auctionator (Forever - Alliance)"). */
+  importsInfo: ImportsInfo | null
+}
+
+export interface ImportsInfo {
+  source: string
+  /** ISO time of the import */
+  at: string
+  count: number
 }
 
 // ---------- model output ----------

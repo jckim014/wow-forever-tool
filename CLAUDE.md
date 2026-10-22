@@ -47,6 +47,10 @@ app/                            the web app (to be built: Vite + React + TypeScr
   `tools/auctionator_to_imports.py` to TypeScript (unzip with a small library such as fflate; Lua string unescape;
   minimal CBOR decoder). It yields per item ID: p1 = latest lowest buyout, p2 = median of the last 7 daily lows,
   p3 = lowest of those. Also keep a paste/CSV import with the same columns (item ID, name, p1, p2, p3) for other sources.
+  Done in `app/src/prices/` (a bare Auctionator.lua is accepted too: the browser reads it as bytes, so it cannot be
+  text-mangled). A price import replaces only `imports` (and `importsInfo`: source, time, count, shown in the toolbar);
+  typed prices and other edits are untouched. The Vitest suite runs the Python reference on the same synthetic zip when
+  Python is available and requires identical rows.
 - **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices) are
   one JSON document in the `shuffle-edits` format (`format: "shuffle-edits", version: 1`, what
   `export_workbook_edits.py` writes), with Export/Import of a JSON file.
@@ -142,8 +146,9 @@ headless Chrome (playwright-core with the installed Chrome, scripts kept out of 
 2. Recipes grid: **done**. Result group (best exit, profit) sits right after Skill; money filters are in gold; groups start collapsed.
 3. Edits storage: **done**. `app/src/storage/`: File menu (Import, Export, Create/Open save file, Stop saving), save
    status in the toolbar, newest `savedAt` wins between file and browser, an unreadable save file is never overwritten.
-4. Auctionator zip drop (and paste/CSV import): next.
-5. GitHub Pages workflow. Josh is fine waiting until here for the live site.
+4. Auctionator import: **done**. Drop a file anywhere on the page (.zip/.lua prices, .csv prices, .json edits), or use
+   File > Import Auctionator.zip / Paste prices; a realm picker appears when the file has several realms.
+5. GitHub Pages workflow: next. Josh is fine waiting until here for the live site.
 After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.
 
 ## Deploy

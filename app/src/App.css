@@ -24,7 +24,7 @@ body { margin: 0; }
 .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .gold { width: 70px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; }
 .count { color: var(--muted); font-variant-numeric: tabular-nums; }
-.button { margin-left: auto; padding: 5px 10px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; background: #fff; }
+.button { padding: 5px 10px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; background: #fff; }
 .button:hover { background: #eef3fc; }
 
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 8px; }
@@ -45,7 +45,7 @@ body { margin: 0; }
 .status.warn { color: #8a5a00; }
 .status.bad { color: var(--neg-fg); max-width: 520px; }
 .link { background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; }
-.toolbar .button { margin-left: 0; font: inherit; }
+.button { font: inherit; }
 .menu { position: relative; }
 .menu-panel {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 210px; padding: 4px 0;
@@ -56,3 +56,18 @@ body { margin: 0; }
 .menu-panel button:disabled { color: #a3a9b5; cursor: default; }
 .menu-panel hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 .menu-note { margin: 4px 14px 6px; font-size: 12px; color: var(--muted); }
+
+.prices-info { margin-left: auto; }
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgb(47 90 168 / 0.12); border: 3px dashed var(--accent); font-size: 20px; color: var(--accent); pointer-events: none;
+}
+.modal-back { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / 0.3); padding: 16px; }
+.modal { background: #fff; border-radius: 8px; padding: 18px 20px; width: min(640px, 100%); box-shadow: 0 10px 40px rgb(0 0 0 / 0.25); }
+.modal h2 { margin: 0 0 8px; font-size: 16px; }
+.modal p { margin: 6px 0; line-height: 1.4; }
+.modal textarea { width: 100%; box-sizing: border-box; font: 12px ui-monospace, Consolas, monospace; padding: 6px; border: 1px solid var(--line); border-radius: 4px; }
+.muted { color: var(--muted); font-size: 13px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.button.primary, .button.primary:hover { background: var(--accent); color: #fff; }
+.button:disabled { opacity: 0.5; cursor: default; }

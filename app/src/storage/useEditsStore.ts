@@ -105,8 +105,9 @@ export function useEditsStore() {
     })()
   }, [sync])
 
-  /** Replace the edits and save them everywhere. */
-  const update = useCallback((next: Edits) => {
+  /** Replace the edits (or derive them from the current ones) and save them everywhere. */
+  const update = useCallback((nextOrFn: Edits | ((cur: Edits) => Edits)) => {
+    const next = typeof nextOrFn === 'function' ? nextOrFn(current.current) : nextOrFn
     current.current = next
     savedAt.current = new Date().toISOString()
     setEdits(next)

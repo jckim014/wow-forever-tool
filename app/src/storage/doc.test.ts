@@ -12,6 +12,7 @@ const sample: Edits = {
   allowCrafting: { '12360': false, '4407': true },
   useChainsNo: [1250791],
   imports: [{ item: 36, name: null, p1: 100, p2: null, p3: null }],
+  importsInfo: { source: 'Auctionator (Forever - Alliance)', at: '2026-10-22T12:00:00.000Z', count: 1 },
 }
 
 describe('edits document', () => {

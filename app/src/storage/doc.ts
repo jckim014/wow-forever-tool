@@ -14,6 +14,7 @@ export function toDoc(edits: Edits, savedAt = new Date().toISOString()) {
     useChainsNo: edits.useChainsNo,
     deTable: edits.deTable ?? [],
     imports: edits.imports,
+    importsInfo: edits.importsInfo,
   }
 }
 
