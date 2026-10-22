@@ -9,5 +9,6 @@ node_modules/
 dist/
 app/dist/
 __pycache__/
+*.tsbuildinfo
 *.pyc
 .DS_Store

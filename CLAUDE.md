@@ -102,8 +102,9 @@ always), the priced one with the highest value; ties go Vendor, then Disenchant,
 **Beats reagents?** per exit: exit value > reagents vendor value. "Any exit" = Yes if any is Yes, else "No", or
 "No (DE, AH unpriced)" when exits are unpriced.
 
-Known workbook quirks to preserve or consciously change (ask): items are matched by name in the workbook, so two
-items sharing a name share one price row; six same-name recipe pairs exist and are told apart by recipe ID.
+Known workbook quirks to preserve or consciously change (ask): six same-name recipe pairs exist and are told apart
+by recipe ID. Decided: the workbook matched items by name, so two items sharing a name shared one price row; the app
+prices every item by its own ID (Josh, 2026-10-22). Parity differences this causes are listed in `parity.test.ts`.
 
 ## UI (what Josh wants)
 
