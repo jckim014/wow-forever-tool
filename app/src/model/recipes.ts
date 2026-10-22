@@ -110,6 +110,7 @@ export function computeRecipe(
 
   return {
     recipe: r, productName: name(r.product), qtyMade: q,
+    reagentsText: r.reagents.map((g) => `${g.qty}x ${name(g.item)}`).join(', '),
     unitSell, vendorValue, reagentsVendorValue, reagentsWithoutSell, vendorBeats,
     buyAll, reagentsPriced, useChains, cheapest, craftedInputs: crafted.length ? crafted.join(', ') : null,
     quality: item?.quality ?? null, ilvl: item?.ilvl ?? null, deBand: band, deValue,

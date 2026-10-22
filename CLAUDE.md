@@ -137,8 +137,8 @@ app is called done; report them to Josh rather than adjusting the reference.
 
 Josh's way of working: one step at a time, stop after each for him to check, one commit per approved step.
 1. Model + Vitest parity tests: **done** (293337f). Known differences are listed in `parity.test.ts`.
-2. Recipes grid: next.
-3. Edits storage (file on disk + localStorage fallback, see Architecture) with Export/Import of `edits-v2.5.json`.
+2. Recipes grid: **done**. Result group (best exit, profit) sits right after Skill; money filters are in gold; groups start collapsed.
+3. Edits storage, next: (file on disk + localStorage fallback, see Architecture) with Export/Import of `edits-v2.5.json`.
 4. Auctionator zip drop (and paste/CSV import).
 5. GitHub Pages workflow. Josh is fine waiting until here for the live site.
 After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.

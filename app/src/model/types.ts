@@ -134,6 +134,8 @@ export type ExitName = 'Vendor' | 'Disenchant' | 'AH'
 export interface RecipeRow {
   recipe: Recipe
   productName: string
+  /** "2x Linen Cloth, 1x Coarse Thread" */
+  reagentsText: string
   qtyMade: number
   // vendor
   unitSell: Money
