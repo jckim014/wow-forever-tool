@@ -47,9 +47,15 @@ app/                            the web app (to be built: Vite + React + TypeScr
   `tools/auctionator_to_imports.py` to TypeScript (unzip with a small library such as fflate; Lua string unescape;
   minimal CBOR decoder). It yields per item ID: p1 = latest lowest buyout, p2 = median of the last 7 daily lows,
   p3 = lowest of those. Also keep a paste/CSV import with the same columns (item ID, name, p1, p2, p3) for other sources.
-- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices) live
-  in `localStorage` under one versioned key, with Export/Import of a JSON file. The import format is what
-  `export_workbook_edits.py` writes (`format: "shuffle-edits", version: 1`). Wrap storage access in try/catch.
+- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices) are
+  one JSON document in the `shuffle-edits` format (`format: "shuffle-edits", version: 1`, what
+  `export_workbook_edits.py` writes), with Export/Import of a JSON file.
+  Storage (decided with Josh, 2026-10-22): the primary store is a file on Josh's disk that he picks once (e.g.
+  `data/private/shuffle-edits.json` or a OneDrive folder), auto-saved on every edit via the File System Access API
+  (Chrome/Edge), with a visible save status. `localStorage` (one versioned key) is the fallback and cache, and the
+  only store in browsers without that API. All storage goes through one module (load / save / status / choose
+  location), so the backend can be swapped later (e.g. a cloud database) without touching the model or UI. Wrap
+  storage access in try/catch.
 - **Updates**: new Wowhead pages -> run `parse_pages.py`, review the printed changes, commit `game-data.json`.
   New prices -> drop the Auctionator zip in the app (no commit). Rule or UI changes -> code.
 
@@ -126,6 +132,16 @@ against `data/private/parity-v2.5.json` (per recipe: buyAll, cheapest, vendorVal
 profits, bestExit, craftedInputs; per intermediate: buy, craft, best, source). Tolerance 0.5 copper. Skip with a clear
 message when the private files are missing. Every difference must be explained (e.g. name vs ID matching) before the
 app is called done; report them to Josh rather than adjusting the reference.
+
+## Build plan and status
+
+Josh's way of working: one step at a time, stop after each for him to check, one commit per approved step.
+1. Model + Vitest parity tests: **done** (293337f). Known differences are listed in `parity.test.ts`.
+2. Recipes grid: next.
+3. Edits storage (file on disk + localStorage fallback, see Architecture) with Export/Import of `edits-v2.5.json`.
+4. Auctionator zip drop (and paste/CSV import).
+5. GitHub Pages workflow. Josh is fine waiting until here for the live site.
+After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.
 
 ## Deploy
 
