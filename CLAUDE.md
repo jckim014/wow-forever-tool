@@ -159,6 +159,20 @@ Next phase, in this order (same way of working: one step, stop, one commit):
 6. Recipes List redesign with expanding detail cards (includes the drill-down): **done**, see UI section.
 7. Settings view. 8. Prices view. 9. Intermediates view (+ Use chains toggle). 10. DE table editor.
 
+Paused 2026-10-22 (Josh out of usage). Resume with step 7 (Settings): first show Josh what it will include, then build.
+Open items to raise when relevant:
+- Optional, offered: in the detail card, when buying a craftable reagent beats crafting, show what crafting would
+  cost (display only; `IntermediateRow.craft` already has it). Josh hasn't decided; could fold into step 7.
+- Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
+  (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
+  empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader. Desktop WTF copies at
+  `C:\Users\bavvb\Desktop\WTF` are old backups, not the Forever install.
+- Not exercised for real yet: Chrome's file-picker and permission prompts for the save file (Josh has since created
+  his save file, so they work at least for creation).
+- Revisit whether to keep the Table view (and AG Grid) once the List has been used for a while.
+- Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;
+  reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`).
+
 ## Deploy
 
 GitHub Pages via GitHub Actions on push to `main` (`.github/workflows/deploy.yml`: `npm ci`, tests, build `app/`,
