@@ -5,6 +5,7 @@ import type { Config, DeBand, Edits, GameData, ModelResult, Settings } from './t
 
 export * from './types'
 export { emptyEdits, normalizeEdits } from './edits'
+export { recipeDetail, type CostLine, type ExitDetail, type RecipeDetail, type SubLine } from './detail'
 
 /** Builds the config from data/config/defaults.json and data/config/de-table.json. */
 export function makeConfig(defaults: { settings: Settings; cooldownCrafts: Config['cooldownCrafts'] }, deTable: { bands: DeBand[] }): Config {

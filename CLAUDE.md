@@ -119,11 +119,17 @@ prices every item by its own ID (Josh, 2026-10-22). Parity differences this caus
 ## UI (what Josh wants)
 
 The core is a clean, fast way to view and filter everything the Recipes tab shows.
-- Recipes grid (AG Grid Community): Profession, Recipe, Skill pinned left. Collapsible column groups: vendor detail,
-  item/DE detail, AH detail, with the key value column of each staying visible. Sort and filter on any column,
-  quick filters for profession, minimum profit at best exit, and hiding unpriced rows. Green/red profit cells.
-- Recipe drill-down (replaces the Chain view tab): reagents with buy vs craft, one level of sub-reagents, totals
-  that reconcile to the cheapest path.
+- Recipes **List** (the main view; redesigned with Josh on 2026-10-22 after the workbook-style grid proved too
+  wide to scan): one compact row per recipe (name with profession · skill · product underneath, best-exit badge,
+  amber marker for unpriced exits, profit green/red, cost, return), sortable, with quick filters for search,
+  profession, minimum profit at best exit and hiding unpriced rows. Clicking a row expands it in place into a
+  two-column card: left = each exit's value and profit with a plain-language line on how it is worked out (best
+  starred), plus item info; right = cost breakdown (each reagent's price and source, crafted reagents with one level
+  of sub-reagents scaled to the quantity needed and the buy-instead comparison, cheapest path and buy-all totals,
+  unpriced reagents). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
+  cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
+- Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
+  filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
 - Intermediates view with the Allow crafting toggle; Prices view (typed price entry in g/s/c, vendor-buy curation,
   which source each price came from, item usage: reagent / DE material / craftable / product); DE table editor;
   Settings; Auctionator drop zone; Export/Import of edits.
@@ -149,7 +155,9 @@ headless Chrome (playwright-core with the installed Chrome, scripts kept out of 
 4. Auctionator import: **done**. Drop a file anywhere on the page (.zip/.lua prices, .csv prices, .json edits), or use
    File > Import Auctionator.zip / Paste prices; a realm picker appears when the file has several realms.
 5. GitHub Pages workflow: **done** (`.github/workflows/deploy.yml`). First pass complete once pushed and live.
-After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.
+Next phase, in this order (same way of working: one step, stop, one commit):
+6. Recipes List redesign with expanding detail cards (includes the drill-down): **done**, see UI section.
+7. Settings view. 8. Prices view. 9. Intermediates view (+ Use chains toggle). 10. DE table editor.
 
 ## Deploy
 

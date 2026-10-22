@@ -175,7 +175,14 @@ export interface RecipeRow {
   profitVendor: Money
   profitDE: Money
   profitAH: Money
+  /** e.g. "Vendor (DE, AH unpriced)", as in the workbook */
   bestExit: string
+  /** the priced exit worth the most (null: no priced exit) */
+  bestExitName: ExitName | null
+  /** applicable exits without a price, as named in bestExit: 'DE', 'AH' */
+  unpricedExits: string[]
+  /** value of the best priced exit */
+  bestValue: Money
   profitBest: Money
   beatsAny: string
 }

@@ -1,6 +1,6 @@
-import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ColGroupDef, type GridApi, type IRowNode, type SortComparatorFn } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ColGroupDef, type SortComparatorFn } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { formatMoney, formatQty, QUALITY_NAMES } from '../format'
 import type { Money, RecipeRow } from '../model'
 
@@ -111,39 +111,13 @@ const columns: (Col | ColGroupDef<RecipeRow>)[] = [
   text('Reagents', (r) => r.reagentsText, { width: 380 }),
 ]
 
-export interface RecipeFilters {
-  search: string
-  professions: Set<string>
-  minProfitGold: number | null
-  hideUnpriced: boolean
-}
-
-export function RecipesGrid({ rows, filters, onCount }: { rows: RecipeRow[]; filters: RecipeFilters; onCount: (n: number) => void }) {
-  const apiRef = useRef<GridApi<RecipeRow> | null>(null)
-  const filtersRef = useRef(filters)
-  filtersRef.current = filters
-  const [ready, setReady] = useState(false)
-
+/** The full-column table (secondary view). Rows arrive already filtered by the toolbar; its own column filters
+ * can narrow them further, and onCount reports what is displayed. */
+export default function RecipesGrid({ rows, onCount }: { rows: RecipeRow[]; onCount: (n: number) => void }) {
   const defaultColDef = useMemo<Col>(() => ({
     sortable: true, resizable: true, comparator: blanksLast, wrapHeaderText: true, autoHeaderHeight: true,
     filterParams: { buttons: ['reset'], maxNumConditions: 1 },
   }), [])
-
-  const isExternalFilterPresent = useCallback(() => {
-    const f = filtersRef.current
-    return f.hideUnpriced || f.minProfitGold !== null || f.professions.size > 0
-  }, [])
-  const doesExternalFilterPass = useCallback((node: IRowNode<RecipeRow>) => {
-    const f = filtersRef.current, r = node.data!
-    if (f.professions.size && !f.professions.has(r.recipe.profession)) return false
-    if (f.hideUnpriced && r.profitBest === null) return false
-    if (f.minProfitGold !== null && (r.profitBest === null || r.profitBest < f.minProfitGold * 10000)) return false
-    return true
-  }, [])
-
-  useEffect(() => {
-    if (ready) apiRef.current?.onFilterChanged()
-  }, [filters.professions, filters.minProfitGold, filters.hideUnpriced, ready])
 
   return (
     <div className="grid">
@@ -153,13 +127,9 @@ export function RecipesGrid({ rows, filters, onCount }: { rows: RecipeRow[]; fil
         columnDefs={columns}
         defaultColDef={defaultColDef}
         getRowId={(p) => String(p.data.recipe.id)}
-        quickFilterText={filters.search}
-        isExternalFilterPresent={isExternalFilterPresent}
-        doesExternalFilterPass={doesExternalFilterPass}
         enableCellTextSelection
         animateRows={false}
         tooltipShowDelay={400}
-        onGridReady={(e) => { apiRef.current = e.api; setReady(true) }}
         onModelUpdated={(e) => onCount(e.api.getDisplayedRowCount())}
       />
     </div>

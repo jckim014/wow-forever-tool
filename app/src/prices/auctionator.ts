@@ -80,7 +80,12 @@ export function luaString(b: Uint8Array, i: number): [Uint8Array, number] {
 /** The realm/faction strings of AUCTIONATOR_PRICE_DATABASE (other entries such as the version number are skipped). */
 export function priceDatabaseRealms(raw: Uint8Array): Map<string, Uint8Array> {
   const start = indexOf(raw, 'AUCTIONATOR_PRICE_DATABASE = {')
-  if (start < 0) throw new Error('No AUCTIONATOR_PRICE_DATABASE in this file. Is it Auctionator.lua from SavedVariables?')
+  if (start < 0) {
+    if (indexOf(raw, 'AUCTIONATOR_CHARACTER_CONFIG') >= 0) {
+      throw new Error(String.raw`This is a per-character Auctionator.lua (only that character's settings, no prices). Use the account-wide one: WTF\Account\<ACCOUNT NAME>\SavedVariables\Auctionator.lua.`)
+    }
+    throw new Error('No AUCTIONATOR_PRICE_DATABASE in this file. Is it Auctionator.lua from SavedVariables?')
+  }
   if (indexOf(raw, [0xef, 0xbf, 0xbd], start) >= 0) {
     throw new Error('The price database contains replacement characters, so the file was converted as text somewhere. Zip the original Auctionator.lua and use the .zip.')
   }

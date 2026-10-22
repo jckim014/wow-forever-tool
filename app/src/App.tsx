@@ -1,11 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { config, loadGameData } from './data'
-import { RecipesGrid, type RecipeFilters } from './grid/RecipesGrid'
 import { DataMenu, importEditsFile } from './DataMenu'
 import { compute, type GameData } from './model'
 import { plural, usePageDrop, usePriceImport } from './PriceImport'
 import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
+import { filterRecipes, searchText, type RecipeFilters } from './recipes/filter'
+import { RecipeList } from './recipes/RecipeList'
+
+// The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
+const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
+
+type View = 'list' | 'table'
+const VIEW_KEY = 'wow-forever-shuffle:view'
+const savedView = (): View => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'list'
+  } catch {
+    return 'list'
+  }
+}
 import './App.css'
 
 export function App() {
@@ -15,7 +29,8 @@ export function App() {
   const edits = store.edits
   const [message, setMessage] = useState<string | null>(null)
   const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false })
-  const [count, setCount] = useState(0)
+  const [view, setView] = useState<View>(savedView)
+  const [tableCount, setTableCount] = useState<number | null>(null)
   const prices = usePriceImport(store, setMessage)
   const dragging = usePageDrop((f) => (/\.json$/i.test(f.name) ? importEditsFile(store, f, setMessage) : prices.importFile(f)))
 
@@ -24,9 +39,22 @@ export function App() {
   }, [])
 
   const result = useMemo(() => (game ? compute(game, config, edits) : null), [game, edits])
+  const text = useMemo(() => new Map((result?.recipes ?? []).map((r) => [r, searchText(r)])), [result])
+  const rows = useMemo(() => (result ? filterRecipes(result.recipes, filters, text) : []), [result, filters, text])
 
   if (error) return <div className="message error">{error}</div>
   if (!game || !result) return <div className="message">Loading game data…</div>
+
+  const chooseView = (v: View) => {
+    setView(v)
+    setTableCount(null)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      // a per-browser convenience only
+    }
+  }
+  const count = view === 'table' && tableCount !== null ? tableCount : rows.length
 
   const toggleProfession = (p: string) => {
     const next = new Set(filters.professions)
@@ -56,7 +84,11 @@ export function App() {
           <input type="checkbox" checked={filters.hideUnpriced} onChange={(e) => setFilters({ ...filters, hideUnpriced: e.target.checked })} />
           Hide unpriced
         </label>
-        <span className="count">{count} of {result.recipes.length} recipes</span>
+        <span className="count">{count.toLocaleString()} of {result.recipes.length.toLocaleString()} recipes</span>
+        <div className="seg" role="group" aria-label="View">
+          <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
+          <button className={view === 'table' ? 'on' : ''} onClick={() => chooseView('table')} title="Every column, spreadsheet style">Table</button>
+        </div>
         <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
       </header>
       <nav className="chips">
@@ -77,7 +109,13 @@ export function App() {
           </span>
         )}
       </nav>
-      <RecipesGrid rows={result.recipes} filters={filters} onCount={setCount} />
+      {view === 'list' ? (
+        <RecipeList rows={rows} result={result} game={game} />
+      ) : (
+        <Suspense fallback={<div className="message">Loading the table…</div>}>
+          <RecipesGrid rows={rows} onCount={setTableCount} />
+        </Suspense>
+      )}
       {prices.dialogs}
       {dragging && <div className="drop-overlay">Drop Auctionator.zip (or a price .csv, or an edits .json) to import</div>}
     </div>

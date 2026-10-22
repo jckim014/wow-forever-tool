@@ -132,6 +132,7 @@ describe('Auctionator reader', () => {
     const mangled = Uint8Array.from([...makeLua([['A', realm2]]).slice(0, -4), 0xef, 0xbf, 0xbd, ...new TextEncoder().encode('"\n}')])
     expect(() => priceDatabaseRealms(mangled)).toThrow('replacement characters')
     expect(() => priceDatabaseRealms(new TextEncoder().encode('FOO = {}'))).toThrow('No AUCTIONATOR_PRICE_DATABASE')
+    expect(() => priceDatabaseRealms(new TextEncoder().encode('\nAUCTIONATOR_CHARACTER_CONFIG = nil\n'))).toThrow('per-character')
     expect(() => auctionatorBytes('x.zip', zipSync({ 'a.txt': Uint8Array.of(1) }))).toThrow('No Auctionator.lua')
   })
 

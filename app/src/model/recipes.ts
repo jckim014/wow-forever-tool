@@ -101,7 +101,8 @@ export function computeRecipe(
   const max = priced.length ? Math.max(...priced.map((e) => e[1])) : null
   const unpriced = exits.filter((e) => e[0] !== 'Vendor' && e[1] === null).map((e) => (e[0] === 'Disenchant' ? 'DE' : e[0]))
   const suffix = unpriced.length ? ` (${unpriced.join(', ')} unpriced)` : ''
-  const bestExit = (max === null ? 'No priced exit' : priced.find((e) => e[1] === max)![0]) + suffix
+  const bestExitName = max === null ? null : priced.find((e) => e[1] === max)![0]
+  const bestExit = (bestExitName ?? 'No priced exit') + suffix
 
   const vendorBeats = vendorValue === null ? 'No sell price' : vendorValue > reagentsVendorValue ? 'Yes' : 'No'
   const deBeats = band ? beats(deValue, reagentsVendorValue) : null
@@ -117,7 +118,7 @@ export function computeRecipe(
     deMaterialsWithChance: deWith, deMaterialsPriced: dePriced, deBeats,
     ahPrice, ahSource, ahValue, ahBeats,
     profitVendor: sub(vendorValue, cheapest), profitDE: sub(deValue, cheapest), profitAH: sub(ahValue, cheapest),
-    bestExit, profitBest: sub(max, cheapest),
+    bestExit, bestExitName, unpricedExits: unpriced, bestValue: max, profitBest: sub(max, cheapest),
     beatsAny: anyYes ? 'Yes' : 'No' + suffix,
   }
 }
