@@ -1,5 +1,7 @@
 # WoW Forever shuffle app
 
+Live site: https://jckim014.github.io/wow-forever-tool/
+
 Finds profitable crafting shuffles in WoW Forever: every recipe's reagent cost against three exits for the crafted
 item (vendor, disenchant, auction house). Successor to the Google Sheets shuffle workbook. Design rules and the
 calculation model live in [CLAUDE.md](CLAUDE.md).

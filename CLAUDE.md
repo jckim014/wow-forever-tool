@@ -148,10 +148,12 @@ headless Chrome (playwright-core with the installed Chrome, scripts kept out of 
    status in the toolbar, newest `savedAt` wins between file and browser, an unreadable save file is never overwritten.
 4. Auctionator import: **done**. Drop a file anywhere on the page (.zip/.lua prices, .csv prices, .json edits), or use
    File > Import Auctionator.zip / Paste prices; a realm picker appears when the file has several realms.
-5. GitHub Pages workflow: next. Josh is fine waiting until here for the live site.
+5. GitHub Pages workflow: **done** (`.github/workflows/deploy.yml`). First pass complete once pushed and live.
 After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.
 
 ## Deploy
 
-GitHub Pages via GitHub Actions on push to `main` (build `app/`, upload `app/dist`). Vite `base` must be
-`/<repo-name>/`. The site is public; it contains only game data and code.
+GitHub Pages via GitHub Actions on push to `main` (`.github/workflows/deploy.yml`: `npm ci`, tests, build `app/`,
+upload `app/dist`). Vite `base` must be `/<repo-name>/`: the repo is `jckim014/wow-forever-tool`, so the base is
+`/wow-forever-tool/` and the site is https://jckim014.github.io/wow-forever-tool/ (local folder name differs).
+The site is public; it contains only game data and code.
