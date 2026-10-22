@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { config, loadGameData } from './data'
 import { RecipesGrid, type RecipeFilters } from './grid/RecipesGrid'
-import { compute, emptyEdits, normalizeEdits, type Edits, type GameData } from './model'
+import { DataMenu } from './DataMenu'
+import { compute, type GameData } from './model'
+import { isEmptyEdits } from './storage/doc'
+import { useEditsStore } from './storage/useEditsStore'
 import './App.css'
 
 export function App() {
   const [game, setGame] = useState<GameData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [edits, setEdits] = useState<Edits>(emptyEdits)
-  const [editsNote, setEditsNote] = useState<string | null>(null)
+  const store = useEditsStore()
+  const edits = store.edits
+  const [message, setMessage] = useState<string | null>(null)
   const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false })
   const [count, setCount] = useState(0)
 
@@ -17,17 +21,6 @@ export function App() {
   }, [])
 
   const result = useMemo(() => (game ? compute(game, config, edits) : null), [game, edits])
-
-  // Temporary (step 2): load an edits file into memory only. Step 3 replaces this with saved storage.
-  async function loadEditsFile(file: File) {
-    try {
-      const { edits: e, warnings } = normalizeEdits(JSON.parse(await file.text()))
-      setEdits(e)
-      setEditsNote(`Loaded ${file.name} (not saved)` + (warnings.length ? `, ${warnings.length} warning(s): ${warnings.slice(0, 3).join('; ')}` : ''))
-    } catch (err) {
-      setEditsNote(`Could not load ${file.name}: ${(err as Error).message}`)
-    }
-  }
 
   if (error) return <div className="message error">{error}</div>
   if (!game || !result) return <div className="message">Loading game data…</div>
@@ -61,10 +54,7 @@ export function App() {
           Hide unpriced
         </label>
         <span className="count">{count} of {result.recipes.length} recipes</span>
-        <label className="button">
-          Load edits file
-          <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && loadEditsFile(e.target.files[0])} />
-        </label>
+        <DataMenu store={store} onMessage={setMessage} />
       </header>
       <nav className="chips">
         <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
@@ -73,8 +63,10 @@ export function App() {
         {game.professions.map((p) => (
           <button key={p} className={filters.professions.has(p) ? 'chip on' : 'chip'} onClick={() => toggleProfession(p)}>{p}</button>
         ))}
-        {editsNote && <span className="note">{editsNote}</span>}
-        {!editsNote && <span className="note">No prices loaded: most rows show as unpriced until you load an edits file.</span>}
+        {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
+        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && (
+          <span className="note">No prices yet: use File &gt; Import edits file, or open your save file.</span>
+        )}
       </nav>
       <RecipesGrid rows={result.recipes} filters={filters} onCount={setCount} />
     </div>

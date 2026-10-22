@@ -136,10 +136,13 @@ app is called done; report them to Josh rather than adjusting the reference.
 ## Build plan and status
 
 Josh's way of working: one step at a time, stop after each for him to check, one commit per approved step.
+He will view and test the app himself after the first pass (step 5); until then Claude verifies each step in a
+headless Chrome (playwright-core with the installed Chrome, scripts kept out of the repo).
 1. Model + Vitest parity tests: **done** (293337f). Known differences are listed in `parity.test.ts`.
 2. Recipes grid: **done**. Result group (best exit, profit) sits right after Skill; money filters are in gold; groups start collapsed.
-3. Edits storage, next: (file on disk + localStorage fallback, see Architecture) with Export/Import of `edits-v2.5.json`.
-4. Auctionator zip drop (and paste/CSV import).
+3. Edits storage: **done**. `app/src/storage/`: File menu (Import, Export, Create/Open save file, Stop saving), save
+   status in the toolbar, newest `savedAt` wins between file and browser, an unreadable save file is never overwritten.
+4. Auctionator zip drop (and paste/CSV import): next.
 5. GitHub Pages workflow. Josh is fine waiting until here for the live site.
 After step 5: Prices view, Intermediates view, DE table editor, Settings, recipe drill-down.
 
