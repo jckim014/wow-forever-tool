@@ -8,16 +8,17 @@ import { useEditsStore } from './storage/useEditsStore'
 import { filterRecipes, searchText, type RecipeFilters } from './recipes/filter'
 import { RecipeList } from './recipes/RecipeList'
 import { SettingsView } from './settings/SettingsView'
+import { PricesView } from './itemprices/PricesView'
 
 // The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
 const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
 
-type View = 'list' | 'table' | 'settings'
+type View = 'list' | 'table' | 'prices' | 'settings'
 const VIEW_KEY = 'wow-forever-shuffle:view'
 const savedView = (): View => {
   try {
     const v = localStorage.getItem(VIEW_KEY)
-    return v === 'table' || v === 'settings' ? v : 'list'
+    return v === 'table' || v === 'prices' || v === 'settings' ? v : 'list'
   } catch {
     return 'list'
   }
@@ -69,7 +70,7 @@ export function App() {
     <div className="app">
       <header className="toolbar">
         <h1>Forever shuffle</h1>
-        {view !== 'settings' && (<>
+        {(view === 'list' || view === 'table') && (<>
         <input
           className="search" type="search" placeholder="Search recipes, items, reagents…"
           value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -92,12 +93,13 @@ export function App() {
         <div className="seg" role="group" aria-label="View">
           <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
           <button className={view === 'table' ? 'on' : ''} onClick={() => chooseView('table')} title="Every column, spreadsheet style">Table</button>
+          <button className={view === 'prices' ? 'on' : ''} onClick={() => chooseView('prices')} title="Custom prices, vendor buy prices, and the price each item ends up using">Prices</button>
           <button className={view === 'settings' ? 'on' : ''} onClick={() => chooseView('settings')} title="Price sources, AH cut, Arcane Salvager, crafting chains">Settings</button>
         </div>
         <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
       </header>
       <nav className="chips">
-        {view !== 'settings' && (<>
+        {(view === 'list' || view === 'table') && (<>
         <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
           All professions
         </button>
@@ -116,7 +118,9 @@ export function App() {
           </span>
         )}
       </nav>
-      {view === 'settings' ? (
+      {view === 'prices' ? (
+        <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} />
+      ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
       ) : view === 'list' ? (
         <RecipeList rows={rows} result={result} game={game} />

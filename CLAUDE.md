@@ -168,9 +168,15 @@ Next phase, in this order (same way of working: one step, stop, one commit):
    import column), Selling (AH cut), Arcane Salvager (with the live multiplier), Crafting chains per profession.
    `edits.settings` keeps only values that differ from the defaults; each changed value shows its default and a reset.
    The cooldown-craft rule stays in `defaults.json`, not the UI.
-8. Prices view. 9. Intermediates view (+ Use chains toggle). 10. DE table editor.
+8. Prices view: **done**. `app/src/itemprices/` (named so it isn't confused with the importer in `app/src/prices/`).
+   One row per reagent, product and DE material (~2,400), all shown at first; usage tags; custom price in three
+   g/s/c boxes; vendor-buy curation per reagent (Wowhead price / No vendor sells it / Other price); imported price;
+   one "Price used" column (cost for a reagent, sale price otherwise, with a "sells for" line and a "Vendor ≠ AH" filter
+   for the rare items where the two differ, i.e. vendor flips). Filters: search, usage chips, custom only, vendor buy
+   edited, unpriced (for the item's use). Opening the view takes about a second (all rows have inputs).
+9. Intermediates view (+ Use chains toggle). 10. DE table editor.
 
-Next: step 8 (Prices view): first show Josh what it will include, then build.
+Next: step 9 (Intermediates view): first show Josh what it will include, then build.
 Open items to raise when relevant:
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
