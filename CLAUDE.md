@@ -126,7 +126,8 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   two-column card: left = each exit's value and profit with a plain-language line on how it is worked out (best
   starred), plus item info; right = cost breakdown (each reagent's price and source, crafted reagents with one level
   of sub-reagents scaled to the quantity needed and the buy-instead comparison, cheapest path and buy-all totals,
-  unpriced reagents). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
+  unpriced reagents; when buying a craftable reagent beats crafting, the card does not show the craft cost, by Josh's
+  decision of 2026-10-23). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
   cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
@@ -157,16 +158,22 @@ headless Chrome (playwright-core with the installed Chrome, scripts kept out of 
 5. GitHub Pages workflow: **done** (`.github/workflows/deploy.yml`). First pass complete once pushed and live.
 Next phase, in this order (same way of working: one step, stop, one commit):
 6. Recipes List redesign with expanding detail cards (includes the drill-down): **done**, see UI section.
-7. Settings view. 8. Prices view. 9. Intermediates view (+ Use chains toggle). 10. DE table editor.
+7. Settings view: **done**. Toolbar List · Table · Settings; `app/src/settings/`. Groups: Prices (vendor buy, imports,
+   import column), Selling (AH cut), Arcane Salvager (with the live multiplier), Crafting chains per profession.
+   `edits.settings` keeps only values that differ from the defaults; each changed value shows its default and a reset.
+   The cooldown-craft rule stays in `defaults.json`, not the UI.
+8. Prices view. 9. Intermediates view (+ Use chains toggle). 10. DE table editor.
 
-Paused 2026-10-22 (Josh out of usage). Resume with step 7 (Settings): first show Josh what it will include, then build.
+Next: step 8 (Prices view): first show Josh what it will include, then build.
 Open items to raise when relevant:
-- Optional, offered: in the detail card, when buying a craftable reagent beats crafting, show what crafting would
-  cost (display only; `IntermediateRow.craft` already has it). Josh hasn't decided; could fold into step 7.
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
   empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader. Desktop WTF copies at
   `C:\Users\bavvb\Desktop\WTF` are old backups, not the Forever install.
+  Josh will provide a real file later and check the imported columns himself (decided 2026-10-23). Ideas discussed and
+  parked until then: an item check panel (the dated daily lows behind p1/p2/p3, to compare with Auctionator's in-game
+  price history; needs the import to keep 7 dated lows per item), column names that travel with the import (so a CSV
+  or TSM source isn't labelled "median of 7"), and a TSM reader if he uses TSM (needs a real TSM file first).
 - Not exercised for real yet: Chrome's file-picker and permission prompts for the save file (Josh has since created
   his save file, so they work at least for creation).
 - Revisit whether to keep the Table view (and AG Grid) once the List has been used for a while.

@@ -7,15 +7,17 @@ import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
 import { filterRecipes, searchText, type RecipeFilters } from './recipes/filter'
 import { RecipeList } from './recipes/RecipeList'
+import { SettingsView } from './settings/SettingsView'
 
 // The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
 const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
 
-type View = 'list' | 'table'
+type View = 'list' | 'table' | 'settings'
 const VIEW_KEY = 'wow-forever-shuffle:view'
 const savedView = (): View => {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'list'
+    const v = localStorage.getItem(VIEW_KEY)
+    return v === 'table' || v === 'settings' ? v : 'list'
   } catch {
     return 'list'
   }
@@ -67,6 +69,7 @@ export function App() {
     <div className="app">
       <header className="toolbar">
         <h1>Forever shuffle</h1>
+        {view !== 'settings' && (<>
         <input
           className="search" type="search" placeholder="Search recipes, items, reagents…"
           value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -85,19 +88,23 @@ export function App() {
           Hide unpriced
         </label>
         <span className="count">{count.toLocaleString()} of {result.recipes.length.toLocaleString()} recipes</span>
+        </>)}
         <div className="seg" role="group" aria-label="View">
           <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
           <button className={view === 'table' ? 'on' : ''} onClick={() => chooseView('table')} title="Every column, spreadsheet style">Table</button>
+          <button className={view === 'settings' ? 'on' : ''} onClick={() => chooseView('settings')} title="Price sources, AH cut, Arcane Salvager, crafting chains">Settings</button>
         </div>
         <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
       </header>
       <nav className="chips">
+        {view !== 'settings' && (<>
         <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
           All professions
         </button>
         {game.professions.map((p) => (
           <button key={p} className={filters.professions.has(p) ? 'chip on' : 'chip'} onClick={() => toggleProfession(p)}>{p}</button>
         ))}
+        </>)}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
         {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && (
           <span className="note">No prices yet: drop Auctionator.zip on the page, or use the File menu.</span>
@@ -109,7 +116,9 @@ export function App() {
           </span>
         )}
       </nav>
-      {view === 'list' ? (
+      {view === 'settings' ? (
+        <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
+      ) : view === 'list' ? (
         <RecipeList rows={rows} result={result} game={game} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
