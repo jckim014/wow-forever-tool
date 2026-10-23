@@ -131,9 +131,8 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
-- Intermediates view with the Allow crafting toggle; Prices view (typed price entry in g/s/c, vendor-buy curation,
-  which source each price came from, item usage: reagent / DE material / craftable / product); DE table editor;
-  Settings; Auctionator drop zone; Export/Import of edits.
+- Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
+  Export/Import of edits.
 - Money displayed as `1g 23s 45c`.
 - User-entered prices are called **custom** in the UI (the model and the edits file keep the name `typed`/`typedPrices`).
   Cost lines in the detail card use dot leaders from the reagent name to its price; amounts in the card's columns are
@@ -186,7 +185,10 @@ Next phase, in this order (same way of working: one step, stop, one commit):
    any band differs from the default, else null; a band shows "changed" by comparison, so the workbook's identical copy
    counts as unedited. Filters: only bands with recipes, changed only. Reset per band and for the table.
 
-All ten steps are done. Open items below remain.
+All ten steps are done and live (last: 7b3bbc4, 2026-10-23). Next phase: Josh uses the app and comes back with bugs
+and iterations. Same way of working: show what will change (screenshots for UI), one change set, his check, one
+commit; push only when he says.
+
 Open items to raise when relevant:
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
@@ -199,8 +201,24 @@ Open items to raise when relevant:
 - Not exercised for real yet: Chrome's file-picker and permission prompts for the save file (Josh has since created
   his save file, so they work at least for creation).
 - Revisit whether to keep the Table view (and AG Grid) once the List has been used for a while.
+- Offered, not taken: size the List's name column to the longest visible name (Skill would sit closer to the names);
+  in the Prices view, show the g/s/c boxes only on the clicked row if the ~1 s open time bothers him; a vendor-flip
+  analysis (only the "Vendor ≠ AH" filter exists; flips are outside the app's job).
+- Possibly stale Wowhead vendor prices seen in the Vendor ≠ AH filter (Major Mana Potion 60s, Tinkerbox 1g, Lesser
+  Mana Potion, Mote of Magic): Josh may want to check them in game and curate.
+- Test data caveat: `data/private/edits-v2.5.json` (the workbook export) has "Chains: craft with Mining" = No, so
+  headless checks seeded from it show Mining off; Josh's own save file has Mining on. His save file is the truth.
+
+Working notes:
+- `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
+  `.sub`). Give new view-specific classes a prefix (the views use `s*`, `p*`, `i*`, `d*`, `r*`) and grep before adding.
+- Views: List · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
+  (`settings/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
 - Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;
-  reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`).
+  reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`). Seed it by
+  writing a shuffle-edits doc to localStorage key `wow-forever-shuffle:edits:v1` before load; the dev server runs
+  with `npx vite --port 5199` in `app/` (URL http://localhost:5199/wow-forever-tool/).
+- Deploy status without `gh` (not installed): `curl https://api.github.com/repos/jckim014/wow-forever-tool/actions/runs?per_page=1`.
 
 ## Deploy
 
