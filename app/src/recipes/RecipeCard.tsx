@@ -3,6 +3,11 @@ import { formatMoney, formatQty, QUALITY_NAMES, sourceLabel } from '../format'
 import { recipeDetail, type ExitDetail, type GameData, type ModelResult, type Money, type RecipeRow } from '../model'
 import type { LineSource } from '../model/detail'
 
+const OFF_REASON = {
+  recipe: 'crafting off for this recipe',
+  item: 'crafting off for this item',
+  profession: 'profession off in Settings',
+} as const
 const exact = (v: Money) => (v === null ? '—' : formatMoney(v))
 /** For right-aligned money columns: padded so silver and copper line up. */
 const col = (v: Money) => (v === null ? '—' : formatMoney(v, true))
@@ -41,7 +46,12 @@ function How({ e, cut }: { e: ExitDetail; cut: number }) {
   )
 }
 
-export function RecipeCard({ row, result, game }: { row: RecipeRow; result: ModelResult; game: GameData }) {
+export function RecipeCard({ row, result, game, onUseChains }: {
+  row: RecipeRow
+  result: ModelResult
+  game: GameData
+  onUseChains: (recipeId: number, on: boolean) => void
+}) {
   const d = useMemo(() => recipeDetail(result, row, game), [result, row, game])
   const has = new Set(d.exits.map((e) => e.name))
   const missing: { name: string; why: string }[] = [
@@ -87,9 +97,15 @@ export function RecipeCard({ row, result, game }: { row: RecipeRow; result: Mode
           <tfoot>
             <tr className="total"><td>Cheapest path</td><td /><td className="num">{col(row.cheapest)}</td></tr>
             {showBuyAll && <tr><td>Buying everything</td><td /><td className="num">{col(row.buyAll)}</td></tr>}
-            {!row.useChains && <tr><td colSpan={3}>Use chains is off for this recipe: every reagent is bought.</td></tr>}
           </tfoot>
         </table>
+        {row.recipe.reagents.some((g) => result.intermediates.has(g.item)) && (
+          <label className="chains" title="Off: this recipe buys every reagent, even ones that are cheaper to craft. Other recipes are not affected.">
+            <input type="checkbox" checked={row.useChains} onChange={(e) => onUseChains(row.recipe.id, e.target.checked)} />
+            Craft reagents for this recipe when cheaper
+            {!row.useChains && <span className="dflt">off: every reagent is bought</span>}
+          </label>
+        )}
         {d.unpricedReagents.length > 0 && (
           <p className="note">Unpriced: {d.unpricedReagents.join(', ')}. Cost and profit stay blank until these have a price.</p>
         )}
@@ -134,10 +150,15 @@ function CostRows({ l }: { l: ReturnType<typeof recipeDetail>['lines'][number] }
             ))}
             {/* crafting vs buying, both as totals for the quantity this recipe needs */}
             <div className="vs">
-              <span className="vs-chip win">✓ Craft {exact(l.total)}</span>
-              <span className="vs-chip">{l.buyUnit === null ? 'Buy: no price' : <>Buy {exact(l.buyUnit * l.qty)}</>}</span>
+              <span className={`vs-chip${l.craft.used ? ' win' : ''}${l.craft.off ? ' off' : ''}`} title={l.craft.off ? OFF_REASON[l.craft.off] : undefined}>
+                {l.craft.used && '✓ '}Craft {l.craft.cost === null ? ': unpriced' : exact(l.craft.cost)}{l.craft.off && ' · off'}
+              </span>
+              <span className={`vs-chip${!l.craft.used && l.buyUnit !== null ? ' win' : ''}`}>
+                {!l.craft.used && l.buyUnit !== null && '✓ '}{l.buyUnit === null ? 'Buy: no price' : <>Buy {exact(l.buyUnit * l.qty)}</>}
+              </span>
               <span className="vs-tag" title={`${l.craft.profession}: ${l.craft.recipe}`}>
                 {l.craft.profession}{l.craft.qtyMade !== 1 ? ` · makes ${formatQty(l.craft.qtyMade)}` : ''}
+                {l.craft.off && ` · ${OFF_REASON[l.craft.off]}`}
               </span>
             </div>
           </td>

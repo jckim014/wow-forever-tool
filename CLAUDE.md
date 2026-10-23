@@ -126,8 +126,8 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   two-column card: left = each exit's value and profit with a plain-language line on how it is worked out (best
   starred), plus item info; right = cost breakdown (each reagent's price and source, crafted reagents with one level
   of sub-reagents scaled to the quantity needed and the buy-instead comparison, cheapest path and buy-all totals,
-  unpriced reagents; when buying a craftable reagent beats crafting, the card does not show the craft cost, by Josh's
-  decision of 2026-10-23). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
+  unpriced reagents; every craftable reagent always shows both Craft and Buy, with the ✓ on the one used, and a craft
+  that is switched off still shows what it would cost, marked "off": Josh, 2026-10-23, reversing an earlier choice). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
   cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
@@ -138,8 +138,8 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
 - User-entered prices are called **custom** in the UI (the model and the edits file keep the name `typed`/`typedPrices`).
   Cost lines in the detail card use dot leaders from the reagent name to its price; amounts in the card's columns are
   padded (`2s 04c`) so they line up; only top-level reagents have amounts in the price columns (they sum to the
-  cheapest path), and a crafted reagent's ingredients are indented text with Craft/Buy badges (totals for the quantity
-  needed). The List has a sortable Skill column (hidden on phones); its columns form two groups, name + skill on the
+  cheapest path), and each craftable reagent's ingredients are indented text with Craft/Buy badges (totals for the
+  quantity needed; the Intermediates view also shows a switched-off craft cost, in grey; `potentialCraft` in `detail.ts`). The List has a sortable Skill column (hidden on phones); its columns form two groups, name + skill on the
   left and best exit + money on the right, with the spare width between them.
 
 ## Parity
@@ -174,9 +174,14 @@ Next phase, in this order (same way of working: one step, stop, one commit):
    one "Price used" column (cost for a reagent, sale price otherwise, with a "sells for" line and a "Vendor ≠ AH" filter
    for the rare items where the two differ, i.e. vendor flips). Filters: search, usage chips, custom only, vendor buy
    edited, unpriced (for the item's use). Opening the view takes about a second (all rows have inputs).
-9. Intermediates view (+ Use chains toggle). 10. DE table editor.
+9. Intermediates view: **done**. `app/src/intermediates/`. One row per intermediate (163): maker recipe (cooldown tag),
+   level (crafting depth), Allow crafting switch (greyed when the profession's chain is off in Settings; an edit equal
+   to the default is not marked, and switching back to the default removes the edit), buy / craft / best; click a row for its ingredients, loop and also-made-by
+   notes. Filters: search, profession, Craft / Buy / Unpriced, crafting off. The per-recipe Use chains switch is in the
+   recipe card's Cost section ("Craft reagents for this recipe when cheaper").
+10. DE table editor.
 
-Next: step 9 (Intermediates view): first show Josh what it will include, then build.
+Next: step 10 (DE table editor): first show Josh what it will include, then build.
 Open items to raise when relevant:
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is

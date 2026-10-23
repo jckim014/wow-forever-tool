@@ -2,7 +2,7 @@
 // crafted reagents broken down one level, and each exit with the inputs behind its value. Derived from the
 // compute() result only; nothing here changes a number.
 import { deMultiplier, deValuePerDisenchant } from './recipes'
-import type { ExitName, GameData, Money, ModelResult, PriceSource, RecipeRow } from './types'
+import type { ExitName, GameData, IntermediateRow, Money, ModelResult, PriceInfo, PriceSource, RecipeRow } from './types'
 
 export type LineSource = PriceSource | 'Craft' | null
 
@@ -26,8 +26,19 @@ export interface CostLine {
   total: Money
   /** the reagent's own (bought) price, to compare with crafting */
   buyUnit: Money
-  /** set when the cheapest path crafts this reagent */
-  craft: { profession: string; recipe: string; qtyMade: number; lines: SubLine[] } | null
+  /** set for every reagent some recipe can make, whether or not the cheapest path crafts it */
+  craft: {
+    profession: string
+    recipe: string
+    qtyMade: number
+    lines: SubLine[]
+    /** what crafting the quantity needed costs (display only when not used); null if an ingredient is unpriced */
+    cost: Money
+    /** the cheapest path crafts it */
+    used: boolean
+    /** why crafting is switched off: this recipe's Use chains, the item's Allow crafting, or the profession in Settings */
+    off: 'recipe' | 'item' | 'profession' | null
+  } | null
 }
 
 export interface DeMaterial {
@@ -56,6 +67,21 @@ export interface RecipeDetail {
   ahCut: number
 }
 
+/**
+ * What one crafted unit would cost, ignoring the item's own Allow crafting and profession switches (display only).
+ * Equals the model's craft cost when crafting is allowed. Null if an ingredient is unpriced.
+ */
+export function potentialCraft(row: IntermediateRow, intermediates: Map<number, IntermediateRow>, prices: (id: number) => PriceInfo): Money {
+  let sum = 0
+  for (const [j, g] of row.recipe.reagents.entries()) {
+    const sub = row.loopBreaks.includes(j) ? undefined : intermediates.get(g.item)
+    const unit = sub ? sub.best : prices(g.item).reagent
+    if (unit === null) return null
+    sum += g.qty * unit
+  }
+  return sum / row.qtyMade
+}
+
 export function recipeDetail(result: ModelResult, row: RecipeRow, game: GameData): RecipeDetail {
   const name = (id: number) => game.items[String(id)]?.name ?? `Item ${id}`
   const { prices, intermediates } = result
@@ -63,17 +89,21 @@ export function recipeDetail(result: ModelResult, row: RecipeRow, game: GameData
 
   const lines: CostLine[] = row.recipe.reagents.map((g) => {
     const own = prices(g.item)
-    const inter = row.useChains ? intermediates.get(g.item) : undefined
+    const maker = intermediates.get(g.item)
+    const inter = row.useChains ? maker : undefined
     const crafted = inter?.source === 'Craft'
     const unit = inter ? inter.best : own.reagent
     let craft: CostLine['craft'] = null
-    if (inter && crafted) {
+    if (maker) {
+      const each = potentialCraft(maker, intermediates, prices)
       craft = {
-        profession: inter.profession, recipe: inter.recipe.name, qtyMade: inter.qtyMade,
-        lines: inter.recipe.reagents.map((s, j) => {
-          const sub = inter.loopBreaks.includes(j) ? undefined : intermediates.get(s.item)
+        profession: maker.profession, recipe: maker.recipe.name, qtyMade: maker.qtyMade,
+        cost: mul(g.qty, each), used: crafted,
+        off: !row.useChains ? 'recipe' : !maker.allowCrafting ? 'item' : !maker.professionOn ? 'profession' : null,
+        lines: maker.recipe.reagents.map((s, j) => {
+          const sub = maker.loopBreaks.includes(j) ? undefined : intermediates.get(s.item)
           const subUnit = sub ? sub.best : prices(s.item).reagent
-          const qty = (g.qty * s.qty) / inter.qtyMade
+          const qty = (g.qty * s.qty) / maker.qtyMade
           return {
             item: s.item, name: name(s.item), qty, unit: subUnit,
             source: sub?.source === 'Craft' ? 'Craft' : prices(s.item).reagentSource,

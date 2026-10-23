@@ -9,16 +9,18 @@ import { filterRecipes, searchText, type RecipeFilters } from './recipes/filter'
 import { RecipeList } from './recipes/RecipeList'
 import { SettingsView } from './settings/SettingsView'
 import { PricesView } from './itemprices/PricesView'
+import { IntermediatesView } from './intermediates/IntermediatesView'
+import { setUseChains } from './intermediates/inter'
 
 // The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
 const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
 
-type View = 'list' | 'table' | 'prices' | 'settings'
+type View = 'list' | 'table' | 'prices' | 'intermediates' | 'settings'
 const VIEW_KEY = 'wow-forever-shuffle:view'
 const savedView = (): View => {
   try {
     const v = localStorage.getItem(VIEW_KEY)
-    return v === 'table' || v === 'prices' || v === 'settings' ? v : 'list'
+    return v === 'table' || v === 'prices' || v === 'intermediates' || v === 'settings' ? v : 'list'
   } catch {
     return 'list'
   }
@@ -94,6 +96,7 @@ export function App() {
           <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
           <button className={view === 'table' ? 'on' : ''} onClick={() => chooseView('table')} title="Every column, spreadsheet style">Table</button>
           <button className={view === 'prices' ? 'on' : ''} onClick={() => chooseView('prices')} title="Custom prices, vendor buy prices, and the price each item ends up using">Prices</button>
+          <button className={view === 'intermediates' ? 'on' : ''} onClick={() => chooseView('intermediates')} title="Reagents that can be crafted: buy or craft, and Allow crafting">Intermediates</button>
           <button className={view === 'settings' ? 'on' : ''} onClick={() => chooseView('settings')} title="Price sources, AH cut, Arcane Salvager, crafting chains">Settings</button>
         </div>
         <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
@@ -118,12 +121,14 @@ export function App() {
           </span>
         )}
       </nav>
-      {view === 'prices' ? (
+      {view === 'intermediates' ? (
+        <IntermediatesView game={game} result={result} update={store.update} />
+      ) : view === 'prices' ? (
         <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} />
       ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
       ) : view === 'list' ? (
-        <RecipeList rows={rows} result={result} game={game} />
+        <RecipeList rows={rows} result={result} game={game} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
           <RecipesGrid rows={rows} onCount={setTableCount} />

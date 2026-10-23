@@ -210,3 +210,34 @@ body { margin: 0; }
   .c-used, .c-imp { display: none; }
   .plist .phead, .plist .prow { width: max-content; min-width: 100%; box-sizing: border-box; }
 }
+
+/* ---------- intermediates view ---------- */
+.ihead, .irow { grid-template-columns: minmax(150px, 220px) minmax(200px, 1fr) 50px 170px 100px 100px 90px 70px 24px; min-width: 1100px; }
+.irow { cursor: pointer; }
+.irow.open { background: #f1f5fb; }
+.irow.open .chev { transform: rotate(90deg); }
+.imaker { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imaker .tag { margin-left: 6px; }
+.iallow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.iallow .dflt { margin-left: 0; }
+.switch { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+.switch.off { color: var(--muted); cursor: default; }
+.irow .num.win { color: var(--pos-fg); font-weight: 600; }
+.irow .vs-chip { padding: 0 8px; border-radius: 10px; font-size: 12.5px; background: var(--pos-bg); color: var(--pos-fg); }
+.icard { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; padding: 12px 18px 16px 30px; border-top: 1px solid var(--line); background: #fbfcfe; min-width: 1100px; box-sizing: border-box; }
+.icard h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); display: flex; justify-content: space-between; }
+.icard h3 span { text-transform: none; letter-spacing: 0; }
+.icard table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.icard td { padding: 3px 0; vertical-align: top; }
+.icard td.num { text-align: right; white-space: nowrap; padding-left: 12px; width: 1%; }
+.icard .tag { margin-left: 6px; }
+.icard .hint:first-child { margin-top: 0; }
+.chains { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.chains .dflt { margin-left: 4px; }
+@media (max-width: 820px) {
+  .ihead, .irow { min-width: 0; width: max-content; grid-template-columns: 150px 50px 150px 90px 90px 80px 24px; }
+  .c-maker { display: none; }
+  .icard { min-width: 0; grid-template-columns: 1fr; padding-left: 18px; }
+}
+.cost .vs-chip.off:not(.win) { text-decoration: none; font-style: italic; }
+.irow .would { color: #a4abb8; font-style: italic; }

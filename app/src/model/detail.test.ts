@@ -35,9 +35,11 @@ describe.skipIf(!existsSync(editsFile))('recipe detail reconciles to the model',
     let checked = 0
     for (const { d } of details) {
       for (const l of d.lines) {
-        if (!l.craft) continue
-        const inter = result.intermediates.get(l.item)!
-        expect(close(l.craft.lines.reduce((s, x) => s + x.total!, 0), l.qty * inter.craft!), l.name).toBe(true)
+        if (!l.craft || l.craft.cost === null) continue
+        expect(close(l.craft.lines.reduce((s, x) => s + x.total!, 0), l.craft.cost), l.name).toBe(true)
+        // when the cheapest path crafts it, the shown cost is the model's craft cost
+        if (l.craft.used) expect(close(l.craft.cost, l.qty * result.intermediates.get(l.item)!.craft!), l.name).toBe(true)
+        if (!l.craft.used && l.craft.off === null && l.unit !== null) expect(l.craft.cost >= l.total!, l.name).toBe(true)
         checked++
       }
     }
