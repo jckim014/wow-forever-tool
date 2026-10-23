@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Edits, Settings } from '../model'
 import { deMultiplier } from '../model/recipes'
+import { NumberField } from '../NumberField'
 import { resetAllSettings, setChains, setSetting, toPercent, type ScalarKey } from './settingsEdits'
 
 const IMPORT_COLUMNS: { col: 1 | 2 | 3; label: string }[] = [
@@ -125,27 +126,3 @@ const Group = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="sgroup"><h2>{title}</h2>{children}</section>
 )
 const Row = ({ children }: { children: ReactNode }) => <div className="srow">{children}</div>
-
-/** A number box that commits each valid value as it is typed and tidies itself up on blur. */
-function NumberField({ value, min, max, onCommit }: { value: number; min?: number; max?: number; onCommit: (n: number) => void }) {
-  const [draft, setDraft] = useState(String(value))
-  const focused = useRef(false)
-  useEffect(() => {
-    if (!focused.current) setDraft(String(value))
-  }, [value])
-  const valid = (n: number) => Number.isFinite(n) && (min === undefined || n >= min) && (max === undefined || n <= max)
-  const bad = draft.trim() === '' || !valid(Number(draft))
-  return (
-    <input
-      type="number" step="any" min={min} max={max} className={bad ? 'snum bad' : 'snum'} value={draft}
-      title={bad ? `Enter a number${min !== undefined ? ` from ${min}` : ''}${max !== undefined ? ` to ${max}` : ''}` : undefined}
-      onFocus={() => { focused.current = true }}
-      onBlur={() => { focused.current = false; setDraft(String(value)) }}
-      onChange={(e) => {
-        setDraft(e.target.value)
-        const n = Number(e.target.value)
-        if (e.target.value.trim() !== '' && valid(n)) onCommit(n)
-      }}
-    />
-  )
-}

@@ -7,6 +7,9 @@ export const config: Config = makeConfig(
   deTable as { bands: DeBand[] },
 )
 
+/** The disenchanting materials the DE table can use (data/config/de-table.json). */
+export const deMaterials: { item: number; name: string }[] = (deTable as { materials: { item: number; name: string }[] }).materials
+
 export async function loadGameData(): Promise<GameData> {
   const res = await fetch(`${import.meta.env.BASE_URL}game-data.json`)
   if (!res.ok) throw new Error(`Could not load game data (HTTP ${res.status}).`)

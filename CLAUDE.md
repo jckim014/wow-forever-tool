@@ -179,9 +179,14 @@ Next phase, in this order (same way of working: one step, stop, one commit):
    to the default is not marked, and switching back to the default removes the edit), buy / craft / best; click a row for its ingredients, loop and also-made-by
    notes. Filters: search, profession, Craft / Buy / Unpriced, crafting off. The per-recipe Use chains switch is in the
    recipe card's Cost section ("Craft reagents for this recipe when cheaper").
-10. DE table editor.
+10. DE table editor: **done**. `app/src/detable/`. Bands grouped by item-level range; per band: results (material from
+   the 24 known materials, chance %, min-max quantity, add/remove up to 3), note, value per disenchant at current sale
+   prices (before Salvager and AH cut), recipes in the band; warnings when chances don't add to 100% or min > max.
+   No structure editing (ranges, adding/removing bands), by Josh's choice. `edits.deTable` is the whole table while
+   any band differs from the default, else null; a band shows "changed" by comparison, so the workbook's identical copy
+   counts as unedited. Filters: only bands with recipes, changed only. Reset per band and for the table.
 
-Next: step 10 (DE table editor): first show Josh what it will include, then build.
+All ten steps are done. Open items below remain.
 Open items to raise when relevant:
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
