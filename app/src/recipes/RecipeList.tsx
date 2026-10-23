@@ -3,9 +3,10 @@ import { formatMoneyShort, formatQty } from '../format'
 import type { GameData, ModelResult, Money, RecipeRow } from '../model'
 import { RecipeCard } from './RecipeCard'
 
-type SortKey = 'name' | 'best' | 'profit' | 'cost' | 'ret'
+type SortKey = 'name' | 'skill' | 'best' | 'profit' | 'cost' | 'ret'
 const COLUMNS: { key: SortKey; label: string; num?: boolean; cls?: string; title?: string }[] = [
   { key: 'name', label: 'Recipe' },
+  { key: 'skill', label: 'Skill', num: true, cls: 'c-skill', title: 'Profession skill needed to learn the recipe' },
   { key: 'best', label: 'Best exit', title: 'The priced exit worth the most per craft (ties: Vendor, then Disenchant, then AH). An amber marker names exits that apply but have no price yet.' },
   { key: 'profit', label: 'Profit', num: true, title: 'Best exit value minus the cheapest path, per craft' },
   { key: 'cost', label: 'Cost', num: true, cls: 'c-cost', title: 'Reagent cost by the cheapest path (crafting intermediates when cheaper and allowed)' },
@@ -13,6 +14,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; cls?: string; title
 ]
 const sortValue: Record<SortKey, (r: RecipeRow) => string | number | null> = {
   name: (r) => r.recipe.name,
+  skill: (r) => r.recipe.skill || null,
   best: (r) => r.bestExitName,
   profit: (r) => r.profitBest,
   cost: (r) => r.cheapest,
@@ -41,8 +43,9 @@ const Row = memo(function Row({ r, open, onToggle }: { r: RecipeRow; open: boole
     >
       <div className="rname">
         <div className="name">{r.recipe.name}</div>
-        <div className="sub">{r.recipe.profession}{r.recipe.skill ? ` · ${r.recipe.skill}` : ''}{makes}</div>
+        <div className="sub">{r.recipe.profession}{r.recipe.skill ? <span className="sub-skill"> · {r.recipe.skill}</span> : ''}{makes}</div>
       </div>
+      <div className="num c-skill">{r.recipe.skill || <span className="blank">—</span>}</div>
       <div>
         <ExitBadge name={r.bestExitName} />
         {r.unpricedExits.length > 0 && (
@@ -80,7 +83,7 @@ export function RecipeList({ rows, result, game }: { rows: RecipeRow[]; result: 
   }), [])
 
   const onSort = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' || key === 'best' ? 1 : -1 }))
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' || key === 'best' || key === 'skill' ? 1 : -1 }))
 
   return (
     <div className="rlist">

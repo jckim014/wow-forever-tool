@@ -45,7 +45,7 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
       <Group title="Prices">
         <Row>
           <label><input type="checkbox" checked={settings.useVendorBuy} onChange={(e) => set('useVendorBuy', e.target.checked)} />
-            Use vendor buy price for reagents with no typed price</label>
+            Use vendor buy price for reagents with no custom price</label>
           {dflt('useVendorBuy', defaults.useVendorBuy ? 'on' : 'off')}
         </Row>
         <Row>
@@ -53,7 +53,7 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
             Use imported prices</label>
           {dflt('useImports', defaults.useImports ? 'on' : 'off')}
         </Row>
-        <div className={settings.useImports ? 'sub' : 'sub off'}>
+        <div className={settings.useImports ? 'ssub' : 'ssub off'}>
           <div className="lbl">Imported price column</div>
           {IMPORT_COLUMNS.map(({ col, label }) => (
             <label key={col} className="radio">
@@ -64,8 +64,8 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
           ))}
           {dflt('importColumn', `column ${defaults.importColumn}`)}
         </div>
-        <p className="hint">Reagent cost uses a typed price first, then the vendor buy price (if on), then the imported price (if on).
-          Selling prices use a typed price, then the imported price; never a vendor price.</p>
+        <p className="hint">Reagent cost uses a custom price first, then the vendor buy price (if on), then the imported price (if on).
+          Selling prices use a custom price, then the imported price; never a vendor price.</p>
       </Group>
 
       <Group title="Selling">
@@ -79,7 +79,7 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
             Salvager in use</label>
           {dflt('salvagerOn', defaults.salvagerOn ? 'on' : 'off')}
         </Row>
-        <div className={`sub${salv}`}>
+        <div className={`ssub${salv}`}>
           <Row><span className="lbl">Proc chance per disenchant</span>{pct('salvagerProcChance', 100)}</Row>
           <Row>
             <span className="lbl">Extra full disenchants per proc</span>
@@ -137,7 +137,7 @@ function NumberField({ value, min, max, onCommit }: { value: number; min?: numbe
   const bad = draft.trim() === '' || !valid(Number(draft))
   return (
     <input
-      type="number" step="any" min={min} max={max} className={bad ? 'num bad' : 'num'} value={draft}
+      type="number" step="any" min={min} max={max} className={bad ? 'snum bad' : 'snum'} value={draft}
       title={bad ? `Enter a number${min !== undefined ? ` from ${min}` : ''}${max !== undefined ? ` to ${max}` : ''}` : undefined}
       onFocus={() => { focused.current = true }}
       onBlur={() => { focused.current = false; setDraft(String(value)) }}

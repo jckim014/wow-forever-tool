@@ -121,7 +121,7 @@ export function useEditsStore() {
   }, [writeFile])
 
   const confirmReplace = (what: string) =>
-    isEmptyEdits(current.current) || window.confirm(`${what} replaces all the edits currently in the app (typed prices, settings, imported prices and the rest). Continue?`)
+    isEmptyEdits(current.current) || window.confirm(`${what} replaces all the edits currently in the app (custom prices, settings, imported prices and the rest). Continue?`)
 
   /** Ask again for access to the remembered save file (must run from a click). */
   const reconnect = useCallback(async () => {

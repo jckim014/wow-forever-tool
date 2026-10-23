@@ -104,7 +104,7 @@ const columns: (Col | ColGroupDef<RecipeRow>)[] = [
       money('AH value per craft (after AH cut)', (r) => r.ahValue, { width: 128 }),
       profit('Profit selling on AH', (r) => r.profitAH),
       detail(money('AH price (each)', (r) => r.ahPrice)),
-      detail(text('AH price source', (r) => r.ahSource, { width: 90 })),
+      detail(text('AH price source', (r) => (r.ahSource === 'Typed' ? 'Custom' : r.ahSource), { width: 90 })),
       detail(text('AH beats reagents?', (r) => r.ahBeats, { width: 90 })),
     ],
   },

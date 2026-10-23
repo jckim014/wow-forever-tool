@@ -135,6 +135,12 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   which source each price came from, item usage: reagent / DE material / craftable / product); DE table editor;
   Settings; Auctionator drop zone; Export/Import of edits.
 - Money displayed as `1g 23s 45c`.
+- User-entered prices are called **custom** in the UI (the model and the edits file keep the name `typed`/`typedPrices`).
+  Cost lines in the detail card use dot leaders from the reagent name to its price; amounts in the card's columns are
+  padded (`2s 04c`) so they line up; only top-level reagents have amounts in the price columns (they sum to the
+  cheapest path), and a crafted reagent's ingredients are indented text with Craft/Buy badges (totals for the quantity
+  needed). The List has a sortable Skill column (hidden on phones); its columns form two groups, name + skill on the
+  left and best exit + money on the right, with the spare width between them.
 
 ## Parity
 

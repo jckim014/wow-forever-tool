@@ -8,6 +8,12 @@ describe('formatMoney', () => {
   ])('%s -> %s', (v, s) => expect(formatMoney(v)).toBe(s))
 })
 
+describe('formatMoney, padded for columns', () => {
+  it.each([
+    [5, '5c'], [500, '5s 00c'], [204, '2s 04c'], [10005, '1g 00s 05c'], [-2708, '-27s 08c'], [1234567, '123g 45s 67c'],
+  ])('%s -> %s', (v, s) => expect(formatMoney(v, true)).toBe(s))
+})
+
 describe('formatMoneyShort', () => {
   it.each([
     [null, ''], [0, '0c'], [5, '5c'], [3005, '30s 05c'], [163000, '16g 30s'], [163099, '16g 30s'], [10005, '1g 00s'],
