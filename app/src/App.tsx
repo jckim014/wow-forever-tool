@@ -34,7 +34,7 @@ export function App() {
   const store = useEditsStore()
   const edits = store.edits
   const [message, setMessage] = useState<string | null>(null)
-  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false })
+  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, vendorOnly: false })
   const [view, setView] = useState<View>(savedView)
   const [tableCount, setTableCount] = useState<number | null>(null)
   const prices = usePriceImport(store, setMessage)
@@ -78,8 +78,12 @@ export function App() {
           className="search" type="search" placeholder="Search recipes, items, reagents…"
           value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
+        <label className="field" title="Only recipes whose product sells to a vendor, with profit worked out on the vendor exit alone">
+          <input type="checkbox" checked={filters.vendorOnly} onChange={(e) => setFilters({ ...filters, vendorOnly: e.target.checked })} />
+          Vendor only
+        </label>
         <label className="field">
-          Min profit at best exit
+          {filters.vendorOnly ? 'Min vendor profit' : 'Min profit at best exit'}
           <input
             type="number" step="any" placeholder="gold" className="gold"
             value={filters.minProfitGold ?? ''}
@@ -132,7 +136,7 @@ export function App() {
       ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
       ) : view === 'list' ? (
-        <RecipeList rows={rows} result={result} game={game} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))} />
+        <RecipeList rows={rows} result={result} game={game} vendorOnly={filters.vendorOnly} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
           <RecipesGrid rows={rows} onCount={setTableCount} />

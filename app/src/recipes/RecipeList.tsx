@@ -12,13 +12,17 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; cls?: string; title
   { key: 'cost', label: 'Cost', num: true, cls: 'c-cost', title: 'Reagent cost by the cheapest path (crafting intermediates when cheaper and allowed)' },
   { key: 'ret', label: 'Return', num: true, cls: 'c-ret', title: 'Value of the best priced exit per craft' },
 ]
-const sortValue: Record<SortKey, (r: RecipeRow) => string | number | null> = {
+const VENDOR_TITLE: Partial<Record<SortKey, string>> = {
+  profit: 'Vendor value minus the cheapest path, per craft',
+  ret: 'What a vendor pays for the items made by one craft',
+}
+const sortValue: Record<SortKey, (r: RecipeRow, vendorOnly: boolean) => string | number | null> = {
   name: (r) => r.recipe.name,
   skill: (r) => r.recipe.skill || null,
   best: (r) => r.bestExitName,
-  profit: (r) => r.profitBest,
+  profit: (r, v) => (v ? r.profitVendor : r.profitBest),
   cost: (r) => r.cheapest,
-  ret: (r) => r.bestValue,
+  ret: (r, v) => (v ? r.vendorValue : r.bestValue),
 }
 const EXIT_LABEL = { Vendor: 'Vendor', Disenchant: 'DE', AH: 'AH' } as const
 
@@ -32,7 +36,7 @@ export function ExitBadge({ name }: { name: RecipeRow['bestExitName'] }) {
   return name ? <span className={`badge b-${name}`}>{EXIT_LABEL[name]}</span> : <span className="badge b-none">no priced exit</span>
 }
 
-const Row = memo(function Row({ r, open, onToggle }: { r: RecipeRow; open: boolean; onToggle: (id: number) => void }) {
+const Row = memo(function Row({ r, open, vendorOnly, onToggle }: { r: RecipeRow; open: boolean; vendorOnly: boolean; onToggle: (id: number) => void }) {
   const makes = r.productName !== r.recipe.name || r.qtyMade !== 1
     ? ` · makes ${r.qtyMade !== 1 ? `${formatQty(r.qtyMade)}× ` : ''}${r.productName}` : ''
   return (
@@ -46,39 +50,44 @@ const Row = memo(function Row({ r, open, onToggle }: { r: RecipeRow; open: boole
         <div className="sub">{r.recipe.profession}{r.recipe.skill ? <span className="sub-skill"> · {r.recipe.skill}</span> : ''}{makes}</div>
       </div>
       <div className="num c-skill">{r.recipe.skill || <span className="blank">—</span>}</div>
-      <div>
-        <ExitBadge name={r.bestExitName} />
-        {r.unpricedExits.length > 0 && (
-          <span className="unpriced" title={`${r.unpricedExits.join(', ')} unpriced: this exit applies but has no price yet`}>
-            {r.unpricedExits.join(', ')} ?
-          </span>
-        )}
-      </div>
-      <div className="num"><Gold v={r.profitBest} signed /></div>
+      {!vendorOnly && (
+        <div>
+          <ExitBadge name={r.bestExitName} />
+          {r.unpricedExits.length > 0 && (
+            <span className="unpriced" title={`${r.unpricedExits.join(', ')} unpriced: this exit applies but has no price yet`}>
+              {r.unpricedExits.join(', ')} ?
+            </span>
+          )}
+        </div>
+      )}
+      <div className="num"><Gold v={vendorOnly ? r.profitVendor : r.profitBest} signed /></div>
       <div className="num c-cost"><Gold v={r.cheapest} /></div>
-      <div className="num c-ret"><Gold v={r.bestValue} /></div>
+      <div className="num c-ret"><Gold v={vendorOnly ? r.vendorValue : r.bestValue} /></div>
       <div className="chev" aria-hidden>›</div>
     </div>
   )
 })
 
-export function RecipeList({ rows, result, game, onUseChains }: {
+export function RecipeList({ rows, result, game, vendorOnly, onUseChains }: {
   rows: RecipeRow[]
   result: ModelResult
   game: GameData
+  vendorOnly: boolean
   onUseChains: (recipeId: number, on: boolean) => void
 }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'profit', dir: -1 })
+  const [chosenSort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'profit', dir: -1 })
   const [open, setOpen] = useState<Set<number>>(() => new Set())
+  // Best exit has no column in vendor-only mode, so a sort on it falls back to profit.
+  const sort = vendorOnly && chosenSort.key === 'best' ? { key: 'profit' as const, dir: -1 as const } : chosenSort
 
   const sorted = useMemo(() => {
     const get = sortValue[sort.key]
     return [...rows].sort((a, b) => {
-      const x = get(a), y = get(b)
+      const x = get(a, vendorOnly), y = get(b, vendorOnly)
       if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1 // blanks last either way
       return (typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number)) * sort.dir
     })
-  }, [rows, sort])
+  }, [rows, sort.key, sort.dir, vendorOnly])
 
   const toggle = useMemo(() => (id: number) => setOpen((s) => {
     const next = new Set(s)
@@ -91,11 +100,11 @@ export function RecipeList({ rows, result, game, onUseChains }: {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' || key === 'best' || key === 'skill' ? 1 : -1 }))
 
   return (
-    <div className="rlist">
+    <div className={vendorOnly ? 'rlist r-vendor' : 'rlist'}>
       <div className="rhead" role="row">
-        {COLUMNS.map((c) => (
+        {COLUMNS.filter((c) => !vendorOnly || c.key !== 'best').map((c) => (
           <div key={c.key} className={[c.num && 'num', c.cls].filter(Boolean).join(' ')}>
-            <button onClick={() => onSort(c.key)} title={c.title}>
+            <button onClick={() => onSort(c.key)} title={(vendorOnly && VENDOR_TITLE[c.key]) || c.title}>
               {c.label}{sort.key === c.key ? (sort.dir < 0 ? ' ▾' : ' ▴') : ''}
             </button>
           </div>
@@ -105,7 +114,7 @@ export function RecipeList({ rows, result, game, onUseChains }: {
       {sorted.length === 0 && <div className="rempty">No recipes match these filters.</div>}
       {sorted.map((r) => (
         <div key={r.recipe.id}>
-          <Row r={r} open={open.has(r.recipe.id)} onToggle={toggle} />
+          <Row r={r} open={open.has(r.recipe.id)} vendorOnly={vendorOnly} onToggle={toggle} />
           {open.has(r.recipe.id) && <RecipeCard row={r} result={result} game={game} onUseChains={onUseChains} />}
         </div>
       ))}

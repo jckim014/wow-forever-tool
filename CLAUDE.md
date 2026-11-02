@@ -129,6 +129,12 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   unpriced reagents; every craftable reagent always shows both Craft and Buy, with the ✓ on the one used, and a craft
   that is switched off still shows what it would cost, marked "off": Josh, 2026-10-23, reversing an earlier choice). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
   cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
+- **Vendor only** (toolbar checkbox, Josh, 2026-11-01): lists only recipes whose product has a vendor price and judges
+  them on the vendor exit alone. The Best exit column goes; Profit = vendor profit, Return = vendor value per craft;
+  Min profit and Hide unpriced use vendor profit. Display and filtering only, no new calculation. Cost is deliberately
+  still the cheapest path, so it can include AH-priced reagents (Josh chose this over a vendor-bought-only cost). The
+  recipe card still shows all exits, and the Table keeps all its columns (the same row filter applies). Sorting by
+  Return in this mode is how Josh browses by raw vendor sell value before he has real prices.
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
@@ -189,7 +195,12 @@ All ten steps are done and live (last: 7b3bbc4, 2026-10-23). Next phase: Josh us
 and iterations. Same way of working: show what will change (screenshots for UI), one change set, his check, one
 commit; push only when he says.
 
+Where we left off (2026-11-01): Vendor only shipped. Josh expects real price data within a few days (real data was not
+loaded as of this note), and the import checks in the Auctionator item below apply then.
+
 Open items to raise when relevant:
+- Current imported prices (2026-10-22, "Auctionator (PvE)") include an outlier: many recipes show a best-exit return of
+  exactly 24,938g 53s, probably one DE material. Josh knows and said to ignore it; don't raise it again for this data.
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
   empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader. Desktop WTF copies at
