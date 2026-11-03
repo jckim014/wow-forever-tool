@@ -199,15 +199,23 @@ All ten steps are done and live (last: 7b3bbc4, 2026-10-23). Next phase: Josh us
 and iterations. Same way of working: show what will change (screenshots for UI), one change set, his check, one
 commit; push only when he says.
 
-Where we left off (2026-11-01): Vendor only shipped. Josh expects real price data within a few days (real data was not
-loaded as of this note), and the import checks in the Auctionator item below apply then.
+Where we left off (2026-11-02): the linked Auctionator.lua shipped and is live (aa16929). Josh tested it on localhost
+with the real Chrome picker on his F: drive (works; not under Program Files, so Chrome's system-folder block doesn't
+apply). He links it once on the live site. Forever does not have Auctionator data yet: next time, after his first
+Forever scan and /reload, he switches the link (File > Link a different Auctionator.lua) to
+`F:\World of Warcraft\_forever_\WTF\Account\THOROCKTHEBOLD\SavedVariables\Auctionator.lua`, and the import checks in
+the Auctionator item below apply. Interim prices come from the beta file
+`F:\World of Warcraft\_classic_beta_\WTF\Account\1120039#1\SavedVariables\Auctionator.lua` (v8, realm "PvE", 3,247
+items, 7 scan days; the source of the 2026-10-22 import). Advised Josh not to copy it into `_forever_` (Auctionator
+would load the beta realm's data there).
 
 Open items to raise when relevant:
 - Current imported prices (2026-10-22, "Auctionator (PvE)") include an outlier: many recipes show a best-exit return of
   exactly 24,938g 53s, probably one DE material. Josh knows and said to ignore it; don't raise it again for this data.
 - Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
   (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
-  empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader. Desktop WTF copies at
+  empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader (unlikely: his beta and
+  retail installs write v8; Josh has had v6 vs v8 explained). Desktop WTF copies at
   `C:\Users\bavvb\Desktop\WTF` are old backups, not the Forever install.
   Josh will provide a real file later and check the imported columns himself (decided 2026-10-23). Ideas discussed and
   parked until then: an item check panel (the dated daily lows behind p1/p2/p3, to compare with Auctionator's in-game
