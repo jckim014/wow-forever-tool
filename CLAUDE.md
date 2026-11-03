@@ -49,7 +49,11 @@ app/                            the web app (to be built: Vite + React + TypeScr
   p3 = lowest of those. Also keep a paste/CSV import with the same columns (item ID, name, p1, p2, p3) for other sources.
   Done in `app/src/prices/` (a bare Auctionator.lua is accepted too: the browser reads it as bytes, so it cannot be
   text-mangled). A price import replaces only `imports` (and `importsInfo`: source, time, count, shown in the toolbar);
-  typed prices and other edits are untouched. The Vitest suite runs the Python reference on the same synthetic zip when
+  typed prices and other edits are untouched. **Linked file** (Josh, 2026-11-02): File > Link Auctionator.lua keeps
+  the file handle in IndexedDB (`app/src/prices/linked.ts`, per browser, read-only access). When the app opens (after
+  the edits have loaded) it re-imports the file if its lastModified changed since the last linked import; the toolbar's
+  Refresh now also re-imports when the current prices came from elsewhere. No polling (WoW only writes SavedVariables on
+  /reload, logout or exit). A realm chosen for a multi-realm file is remembered with the link. The Vitest suite runs the Python reference on the same synthetic zip when
   Python is available and requires identical rows.
 - **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices) are
   one JSON document in the `shuffle-edits` format (`format: "shuffle-edits", version: 1`, what

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { ImportRow } from './model'
 import { auctionatorBytes, HISTORY_DAYS, priceDatabaseRealms, pricesFromRealm } from './prices/auctionator'
 import { parsePriceTable } from './prices/csv'
+import {
+  canRead, forgetLink, linkSupported, loadLink, pickAuctionator, saveLink, shouldImport, type LinkRecord, type ReadHandle,
+} from './prices/linked'
 import type { useEditsStore } from './storage/useEditsStore'
 
 type Store = ReturnType<typeof useEditsStore>
@@ -11,31 +14,136 @@ const isAuctionator = (name: string) => /\.(zip|lua)$/i.test(name)
 const n = (x: number) => x.toLocaleString()
 export const plural = (x: number, one: string, many = `${one}s`) => `${n(x)} ${x === 1 ? one : many}`
 
-/** Auctionator zip / price CSV imports: they replace the imported prices and leave every other edit alone. */
-export function usePriceImport(store: Store, onMessage: (m: string) => void) {
-  const [realmChoice, setRealmChoice] = useState<{ file: string; realms: Map<string, Uint8Array> } | null>(null)
-  const [pasteOpen, setPasteOpen] = useState(false)
+type Origin = { link: LinkRecord; modified: number } | null
+type RealmChoice = { file: string; realms: Map<string, Uint8Array>; origin: Origin }
 
-  function apply(rows: ImportRow[], source: string, detail: string) {
-    if (!rows.length) {
-      onMessage(`${source}: no prices found; nothing was changed.`)
-      return
-    }
-    const before = store.edits.imports.length
-    store.update((cur) => ({ ...cur, imports: rows, importsInfo: { source, at: new Date().toISOString(), count: rows.length } }))
-    onMessage(`Imported ${plural(rows.length, 'price')} from ${source}${detail}.` + (before ? ` They replace the previous ${plural(before, 'imported price')}.` : ''))
+const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/**
+ * Auctionator zip / price CSV imports: they replace the imported prices and leave every other edit alone.
+ * Also the linked Auctionator.lua: checked when the app opens (imported if WoW has written it since) and on Refresh now.
+ */
+export function usePriceImport(store: Store, onMessage: (m: string) => void) {
+  const [realmChoice, setRealmChoice] = useState<RealmChoice | null>(null)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [link, setLinkState] = useState<LinkRecord | null>(null)
+  const [needsPermission, setNeedsPermission] = useState(false)
+  const linkRef = useRef<LinkRecord | null>(null)
+  const editsRef = useRef(store.edits)
+  editsRef.current = store.edits
+  const checkedOnOpen = useRef(false)
+
+  const setLink = (r: LinkRecord | null) => {
+    linkRef.current = r
+    setLinkState(r)
   }
 
-  function applyRealm(file: string, realm: string, data: Uint8Array) {
+  /** Returns the new importsInfo.at, or null if nothing was imported. */
+  function apply(rows: ImportRow[], source: string, detail: string): string | null {
+    if (!rows.length) {
+      onMessage(`${source}: no prices found; nothing was changed.`)
+      return null
+    }
+    const before = editsRef.current.imports.length
+    const at = new Date().toISOString()
+    store.update((cur) => ({ ...cur, imports: rows, importsInfo: { source, at, count: rows.length } }))
+    onMessage(`Imported ${plural(rows.length, 'price')} from ${source}${detail}.` + (before ? ` They replace the previous ${plural(before, 'imported price')}.` : ''))
+    return at
+  }
+
+  function applyRealm(file: string, realm: string, data: Uint8Array, origin: Origin) {
     setRealmChoice(null)
     try {
       const r = pricesFromRealm(data)
-      apply(r.rows, `Auctionator (${realm})`,
-        `: ${plural(r.scanDays, 'scan day')} of history (prices 2 and 3 use the last ${HISTORY_DAYS}), ${plural(r.skipped, 'non-item entry', 'non-item entries')} skipped`)
+      const from = origin ? ` (linked ${file}, written by WoW ${when(origin.modified)})` : ''
+      const at = apply(r.rows, `Auctionator (${realm})`,
+        `${from}: ${plural(r.scanDays, 'scan day')} of history (prices 2 and 3 use the last ${HISTORY_DAYS}), ${plural(r.skipped, 'non-item entry', 'non-item entries')} skipped`)
+      if (origin && at) {
+        const rec = { ...origin.link, realm, importedModified: origin.modified, importedAt: at }
+        if (linkRef.current?.handle === origin.link.handle) setLink(rec)
+        saveLink(rec)
+      }
     } catch (e) {
       onMessage(`Could not read ${file}: ${(e as Error).message}`)
     }
   }
+
+  function importAuctionator(name: string, bytes: Uint8Array, origin: Origin) {
+    const realms = priceDatabaseRealms(auctionatorBytes(name, bytes))
+    const remembered = origin?.link.realm
+    if (remembered && realms.has(remembered)) applyRealm(name, remembered, realms.get(remembered)!, origin)
+    else if (realms.size === 1) {
+      const [[realm, data]] = [...realms]
+      applyRealm(name, realm, data, origin)
+    } else setRealmChoice({ file: name, realms, origin })
+  }
+
+  /** Read the linked file and import it if needed. `ask` (from a click) lets the browser prompt for access. */
+  const check = async (mode: 'open' | 'refresh', ask: boolean) => {
+    const l = linkRef.current
+    if (!l) return
+    const name = l.handle.name
+    try {
+      if (!(await canRead(l.handle, ask))) {
+        setNeedsPermission(true)
+        if (ask) onMessage(`Reading ${name} was not allowed, so prices were not refreshed.`)
+        return
+      }
+      setNeedsPermission(false)
+      const f = await l.handle.getFile()
+      if (!shouldImport(l, f.lastModified, editsRef.current.importsInfo?.at ?? null, mode)) {
+        if (mode === 'refresh') {
+          onMessage(`${name} has not changed since it was imported (last written by WoW ${when(f.lastModified)}). WoW writes it on /reload, logout or exit.`)
+        }
+        return
+      }
+      importAuctionator(f.name, new Uint8Array(await f.arrayBuffer()), { link: l, modified: f.lastModified })
+    } catch (e) {
+      const notFound = e instanceof DOMException && e.name === 'NotFoundError'
+      onMessage(notFound
+        ? `The linked ${name} was not found (moved or deleted?). Link it again from the File menu.`
+        : `Could not read the linked ${name}: ${(e as Error).message}`)
+    }
+  }
+  const checkRef = useRef(check)
+  checkRef.current = check
+
+  // On open: once the edits have loaded (so an import isn't overwritten by them), check the linked file.
+  const loaded = store.status.kind !== 'loading'
+  useEffect(() => {
+    if (!loaded || checkedOnOpen.current) return
+    checkedOnOpen.current = true
+    loadLink().then((l) => {
+      if (!l) return
+      setLink(l)
+      return checkRef.current('open', false)
+    })
+  }, [loaded])
+
+  /** File menu: pick the Auctionator.lua to link, and import it straight away. */
+  async function linkFile() {
+    let h: ReadHandle
+    try {
+      h = await pickAuctionator()
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'AbortError')) onMessage(`Could not link the file: ${(e as Error).message}`)
+      return
+    }
+    const rec: LinkRecord = { handle: h, realm: null, importedModified: null, importedAt: null }
+    setLink(rec)
+    await saveLink(rec)
+    await check('refresh', true)
+  }
+
+  async function unlinkFile() {
+    const name = linkRef.current?.handle.name
+    setLink(null)
+    setNeedsPermission(false)
+    await forgetLink()
+    if (name) onMessage(`Unlinked ${name}. The imported prices stay; the file itself is not changed.`)
+  }
+
+  const linked = link && { file: link.handle.name, needsPermission, refresh: () => check('refresh', true) }
 
   async function importFile(file: File) {
     try {
@@ -48,11 +156,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
         onMessage(`${file.name}: expected Auctionator.zip (or Auctionator.lua), or a .csv of prices.`)
         return
       }
-      const realms = priceDatabaseRealms(auctionatorBytes(file.name, new Uint8Array(await file.arrayBuffer())))
-      if (realms.size === 1) {
-        const [[realm, data]] = [...realms]
-        applyRealm(file.name, realm, data)
-      } else setRealmChoice({ file: file.name, realms })
+      importAuctionator(file.name, new Uint8Array(await file.arrayBuffer()), null)
     } catch (e) {
       onMessage(`Could not read ${file.name}: ${(e as Error).message}`)
     }
@@ -62,10 +166,12 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
     <>
       {realmChoice && (
         <Modal title="Which realm's prices?" onClose={() => setRealmChoice(null)}>
-          <p>{realmChoice.file} has prices for several realms. Pick one:</p>
+          <p>
+            {realmChoice.file} has prices for several realms. Pick one{realmChoice.origin ? ' (remembered for this linked file)' : ''}:
+          </p>
           <div className="choices">
             {[...realmChoice.realms].map(([realm, data]) => (
-              <button key={realm} className="button" onClick={() => applyRealm(realmChoice.file, realm, data)}>{realm}</button>
+              <button key={realm} className="button" onClick={() => applyRealm(realmChoice.file, realm, data, realmChoice.origin)}>{realm}</button>
             ))}
           </div>
         </Modal>
@@ -82,7 +188,10 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
     </>
   )
 
-  return { importFile, openPaste: () => setPasteOpen(true), dialogs }
+  return {
+    importFile, openPaste: () => setPasteOpen(true), dialogs,
+    linked, linkFile, unlinkFile, linkSupported: linkSupported(),
+  }
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {

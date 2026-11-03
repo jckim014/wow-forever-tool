@@ -105,7 +105,10 @@ export function App() {
           <button className={view === 'detable' ? 'on' : ''} onClick={() => chooseView('detable')} title="What each disenchant yields, by item level and quality">DE table</button>
           <button className={view === 'settings' ? 'on' : ''} onClick={() => chooseView('settings')} title="Price sources, AH cut, Arcane Salvager, crafting chains">Settings</button>
         </div>
-        <DataMenu store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste} />
+        <DataMenu
+          store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste}
+          link={{ supported: prices.linkSupported, file: prices.linked?.file ?? null, onLink: prices.linkFile, onUnlink: prices.unlinkFile }}
+        />
       </header>
       <nav className="chips">
         {(view === 'list' || view === 'table') && (<>
@@ -117,13 +120,24 @@ export function App() {
         ))}
         </>)}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
-        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && (
-          <span className="note">No prices yet: drop Auctionator.zip on the page, or use the File menu.</span>
+        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && (
+          <span className="note">No prices yet: drop Auctionator.zip on the page, or use the File menu (Link Auctionator.lua to skip this next time).</span>
         )}
-        {edits.importsInfo && (
-          <span className="note prices-info" title="Drop a new Auctionator.zip on the page to refresh">
-            Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
-            {plural(edits.importsInfo.count, 'item')}
+        {(edits.importsInfo || prices.linked) && (
+          <span className="note prices-info">
+            {edits.importsInfo && (
+              <span title={prices.linked ? undefined : 'Drop a new Auctionator.zip on the page to refresh'}>
+                Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
+                {plural(edits.importsInfo.count, 'item')}
+              </span>
+            )}
+            {prices.linked && (
+              <span className="plink" title="Checked when the app opens; WoW writes the file on /reload, logout or exit">
+                Linked: {prices.linked.file}
+                {prices.linked.needsPermission && <span className="status warn"> (Chrome needs your OK to read it)</span>}{' '}
+                <button className="button" onClick={prices.linked.refresh}>Refresh now</button>
+              </span>
+            )}
           </span>
         )}
       </nav>
