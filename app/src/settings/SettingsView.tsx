@@ -4,11 +4,14 @@ import { deMultiplier } from '../model/recipes'
 import { NumberField } from '../NumberField'
 import { resetAllSettings, setChains, setSetting, toPercent, type ScalarKey } from './settingsEdits'
 
-const IMPORT_COLUMNS: { col: 1 | 2 | 3; label: string }[] = [
-  { col: 1, label: 'Latest lowest buyout' },
-  { col: 2, label: 'Median of the last 7 daily lows' },
-  { col: 3, label: 'Lowest of the last 7 daily lows' },
+/** What the three imported columns mean, by the addon the current prices came from (importsInfo.source). */
+const COLUMN_LABELS: { prefix: string; labels: [string, string, string] }[] = [
+  { prefix: 'Auctioneer', labels: ['Lowest buyout per unit', 'Median per unit (by units listed)', 'Average of the cheapest 15% of units'] },
+  { prefix: 'Auctionator', labels: ['Latest lowest buyout', 'Median of the last 7 daily lows', 'Lowest of the last 7 daily lows'] },
 ]
+function importColumnLabels(source: string | null | undefined): [string, string, string] {
+  return COLUMN_LABELS.find((c) => source?.startsWith(c.prefix))?.labels ?? ['Price 1 of your import', 'Price 2 of your import', 'Price 3 of your import']
+}
 
 interface Props {
   defaults: Settings
@@ -56,13 +59,16 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
         </Row>
         <div className={settings.useImports ? 'ssub' : 'ssub off'}>
           <div className="lbl">Imported price column</div>
-          {IMPORT_COLUMNS.map(({ col, label }) => (
-            <label key={col} className="radio">
-              <input type="radio" name="importColumn" checked={settings.importColumn === col} disabled={!settings.useImports}
-                onChange={() => set('importColumn', col)} />
-              {col} · {label}
-            </label>
-          ))}
+          {importColumnLabels(edits.importsInfo?.source).map((label, k) => {
+            const col = (k + 1) as 1 | 2 | 3
+            return (
+              <label key={col} className="radio">
+                <input type="radio" name="importColumn" checked={settings.importColumn === col} disabled={!settings.useImports}
+                  onChange={() => set('importColumn', col)} />
+                {col} · {label}
+              </label>
+            )
+          })}
           {dflt('importColumn', `column ${defaults.importColumn}`)}
         </div>
         <p className="hint">Reagent cost uses a custom price first, then the vendor buy price (if on), then the imported price (if on).

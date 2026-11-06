@@ -137,7 +137,7 @@ export function App() {
         </>)}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
         {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && (
-          <span className="note">No prices yet: drop Auctionator.zip on the page, or use the File menu (Link Auctionator.lua to skip this next time).</span>
+          <span className="note">No prices yet: drop Auc-ScanData.lua (Auctioneer) or Auctionator.lua on the page, or use the File menu (Link price file to skip this next time).</span>
         )}
         {(edits.importsInfo || prices.linked) && (
           <span className="note prices-info">

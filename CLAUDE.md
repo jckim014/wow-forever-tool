@@ -49,7 +49,16 @@ app/                            the web app (to be built: Vite + React + TypeScr
 - **Economics run in the browser** in one pure TypeScript module (`app/src/model/`): inputs are game data, config
   and the user's edits; output is one row per recipe plus the intermediates. No UI code in the model. It should
   recalculate everything in well under a second on edit.
-- **Prices**: Josh drops `Auctionator.zip` (his SavedVariables, zipped) onto the page. Port
+- **Prices (Auctioneer, the main source since 2026-11-06)**: Auctioneer's `Auc-ScanData.lua` holds every listing of
+  the last full scan per realm/faction (`app/src/prices/auctioneer.ts`; listing fields from Auc-Advanced
+  `CoreConst.lua`: COUNT 11, BUYOUT 17 = whole stack, ITEMID 23). Per item ID, over listings with a buyout, per unit:
+  p1 = lowest buyout, p2 = median weighted by units, p3 = average of the cheapest 15% of units (at least one unit).
+  Bid-only listings are left out. Only the latest scan is kept (no history yet; Auctioneer's Stat modules were empty
+  after the first scan). Josh's file: `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`
+  (account folder 1120039#2, not THOROCKTHEBOLD); first scan copied to `data/private/auctioneer-2026-11-06/`, which
+  `auctioneer.test.ts` checks against the figures shown to Josh. Import and Link accept either addon's file (or a zip
+  of one), recognised by content; Settings labels the three columns for the source of the current prices.
+- **Prices (Auctionator)**: Josh drops `Auctionator.zip` (his SavedVariables, zipped) onto the page. Port
   `tools/auctionator_to_imports.py` to TypeScript (unzip with a small library such as fflate; Lua string unescape;
   minimal CBOR decoder). It yields per item ID: p1 = latest lowest buyout, p2 = median of the last 7 daily lows,
   p3 = lowest of those. Also keep a paste/CSV import with the same columns (item ID, name, p1, p2, p3) for other sources.
@@ -85,7 +94,8 @@ item has a curated vendor buy price, else imported price if *Use imported prices
 - Vendor buy price = Wowhead `buy`, unless the user's `vendorBuyOverrides` has the item (`null` = no vendor sells it).
   Wowhead lists nominal buy prices for many items nobody sells, so this is curated by hand.
 **Price used for selling** (DE materials and crafted products): typed price, else imported price. Never a vendor price.
-**Imported price**: the chosen column (1, 2 or 3) for the item ID; 0 or blank counts as no price.
+**Imported price**: the chosen column (1, 2 or 3; default 3, Josh 2026-11-06, meant for Auctioneer's average of the
+cheapest 15%) for the item ID; 0 or blank counts as no price.
 
 **Vendor side** (from game data): vendor value per craft = `round(sell x qtyMade)`; blank if the product has no sell
 price. Reagents vendor value = sum of `sell x qty` over reagents with a sell price (count the ones without).

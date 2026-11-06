@@ -3,7 +3,7 @@
  "settings": {
   "useVendorBuy": true,
   "useImports": true,
-  "importColumn": 1,
+  "importColumn": 3,
   "salvagerOn": false,
   "salvagerProcChance": 0.10,
   "salvagerExtraPerProc": 1,

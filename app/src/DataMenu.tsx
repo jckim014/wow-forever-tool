@@ -89,11 +89,11 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
         <button className="button" onClick={() => setOpen(!open)} aria-expanded={open}>File ▾</button>
         {open && (
           <div className="menu-panel" role="menu">
-            <button role="menuitem" onClick={act(() => priceInput.current?.click())}>Import Auctionator.zip…</button>
+            <button role="menuitem" onClick={act(() => priceInput.current?.click())}>Import price file…</button>
             <button role="menuitem" onClick={act(onPastePrices)}>Paste prices…</button>
             <button role="menuitem" disabled={!link.supported} onClick={act(link.onLink)}
-              title="Pick your Auctionator.lua once; the app re-reads it when it opens and on Refresh now">
-              {link.file ? 'Link a different Auctionator.lua…' : 'Link Auctionator.lua…'}
+              title="Pick Auc-ScanData.lua (Auctioneer) or Auctionator.lua once; the app re-reads it when it opens and on Refresh now">
+              {link.file ? 'Link a different price file…' : 'Link price file…'}
             </button>
             {link.file && <button role="menuitem" onClick={act(link.onUnlink)}>Unlink {link.file}</button>}
             {!link.supported && <p className="menu-note">Linking a file needs Chrome or Edge.</p>}

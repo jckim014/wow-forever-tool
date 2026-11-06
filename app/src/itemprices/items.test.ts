@@ -57,7 +57,7 @@ describe('Prices view rows', () => {
 
   it('flags items whose reagent price differs from their sale price', () => {
     // Bolt of Linen Cloth is a reagent and a product; a vendor price makes the two sides differ
-    const imp = { ...emptyEdits(), imports: [{ item: 2996, p1: 50, p2: null, p3: null }] }
+    const imp = { ...emptyEdits(), imports: [{ item: 2996, p1: 50, p2: 50, p3: 50 }] }
     expect(rows(imp).get(2996)!.differs).toBe(false)
     const e = setVendorBuy(imp, 2996, 30)
     expect(rows(e).get(2996)!.price.reagent).toBe(30)

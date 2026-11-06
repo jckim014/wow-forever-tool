@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportRow } from './model'
 import { auctionatorBytes, HISTORY_DAYS, priceDatabaseRealms, pricesFromRealm } from './prices/auctionator'
+import { auctioneerBytes, isAuctioneerScan, pricesFromScan, scanServers } from './prices/auctioneer'
 import { parsePriceTable } from './prices/csv'
 import {
   canRead, forgetLink, linkSupported, loadLink, pickAuctionator, saveLink, shouldImport, type LinkRecord, type ReadHandle,
@@ -10,18 +11,18 @@ import type { useEditsStore } from './storage/useEditsStore'
 type Store = ReturnType<typeof useEditsStore>
 
 const isPriceTable = (name: string) => /\.(csv|tsv|txt)$/i.test(name)
-const isAuctionator = (name: string) => /\.(zip|lua)$/i.test(name)
+const isSavedVariables = (name: string) => /\.(zip|lua)$/i.test(name)
 const n = (x: number) => x.toLocaleString()
 export const plural = (x: number, one: string, many = `${one}s`) => `${n(x)} ${x === 1 ? one : many}`
 
 type Origin = { link: LinkRecord; modified: number } | null
-type RealmChoice = { file: string; realms: Map<string, Uint8Array>; origin: Origin }
+type RealmChoice = { file: string; realms: string[]; pick: (realm: string) => void; remembered: boolean }
 
 const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 /**
- * Auctionator zip / price CSV imports: they replace the imported prices and leave every other edit alone.
- * Also the linked Auctionator.lua: checked when the app opens (imported if WoW has written it since) and on Refresh now.
+ * Auctioneer / Auctionator SavedVariables and price CSV imports: they replace the imported prices and leave every
+ * other edit alone. Also the linked file (Auc-ScanData.lua or Auctionator.lua): checked when the app opens (imported if WoW has written it since) and on Refresh now.
  */
 export function usePriceImport(store: Store, onMessage: (m: string) => void) {
   const [realmChoice, setRealmChoice] = useState<RealmChoice | null>(null)
@@ -51,13 +52,13 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
     return at
   }
 
-  function applyRealm(file: string, realm: string, data: Uint8Array, origin: Origin) {
+  /** Imports one realm's prices (`read` does the work) and, for the linked file, remembers what was imported. */
+  function applyRealm(file: string, realm: string, origin: Origin, read: () => { rows: ImportRow[]; source: string; detail: string }) {
     setRealmChoice(null)
     try {
-      const r = pricesFromRealm(data)
+      const r = read()
       const from = origin ? ` (linked ${file}, written by WoW ${when(origin.modified)})` : ''
-      const at = apply(r.rows, `Auctionator (${realm})`,
-        `${from}: ${plural(r.scanDays, 'scan day')} of history (prices 2 and 3 use the last ${HISTORY_DAYS}), ${plural(r.skipped, 'non-item entry', 'non-item entries')} skipped`)
+      const at = apply(r.rows, r.source, `${from}: ${r.detail}`)
       if (origin && at) {
         const rec = { ...origin.link, realm, importedModified: origin.modified, importedAt: at }
         if (linkRef.current?.handle === origin.link.handle) setLink(rec)
@@ -68,14 +69,41 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
     }
   }
 
-  function importAuctionator(name: string, bytes: Uint8Array, origin: Origin) {
-    const realms = priceDatabaseRealms(auctionatorBytes(name, bytes))
+  /** Imports straight away when there is one realm (or the linked file's remembered one), else asks which. */
+  function chooseRealm<T>(file: string, realms: Map<string, T>, origin: Origin, read: (data: T, realm: string) => { rows: ImportRow[]; source: string; detail: string }) {
+    const go = (realm: string) => applyRealm(file, realm, origin, () => read(realms.get(realm)!, realm))
     const remembered = origin?.link.realm
-    if (remembered && realms.has(remembered)) applyRealm(name, remembered, realms.get(remembered)!, origin)
-    else if (realms.size === 1) {
-      const [[realm, data]] = [...realms]
-      applyRealm(name, realm, data, origin)
-    } else setRealmChoice({ file: name, realms, origin })
+    if (remembered && realms.has(remembered)) go(remembered)
+    else if (realms.size === 1) go([...realms.keys()][0])
+    else setRealmChoice({ file, realms: [...realms.keys()], pick: go, remembered: !!origin })
+  }
+
+  /** Auctionator.lua, Auc-ScanData.lua, or a .zip of either: recognised by what is inside. */
+  function importSavedVariables(name: string, bytes: Uint8Array, origin: Origin) {
+    const zipped = bytes[0] === 0x50 && bytes[1] === 0x4b
+    const raw = zipped
+      ? (() => {
+        try { return auctioneerBytes(name, bytes) } catch { /* not an Auctioneer zip */ }
+        try { return auctionatorBytes(name, bytes) } catch { throw new Error(`No Auc-ScanData.lua or Auctionator.lua inside ${name}.`) }
+      })()
+      : bytes
+    if (isAuctioneerScan(raw)) {
+      chooseRealm(name, scanServers(raw), origin, (ropes, realm) => {
+        const r = pricesFromScan(ropes)
+        return {
+          rows: r.rows, source: `Auctioneer (${realm})`,
+          detail: `${plural(r.listings, 'listing')} from the last scan` + (r.noBuyout ? `, ${plural(r.noBuyout, 'bid-only listing')} left out` : ''),
+        }
+      })
+      return
+    }
+    chooseRealm(name, priceDatabaseRealms(auctionatorBytes(name, raw)), origin, (data, realm) => {
+      const r = pricesFromRealm(data)
+      return {
+        rows: r.rows, source: `Auctionator (${realm})`,
+        detail: `${plural(r.scanDays, 'scan day')} of history (prices 2 and 3 use the last ${HISTORY_DAYS}), ${plural(r.skipped, 'non-item entry', 'non-item entries')} skipped`,
+      }
+    })
   }
 
   /** Read the linked file and import it if needed. `ask` (from a click) lets the browser prompt for access. */
@@ -97,7 +125,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
         }
         return
       }
-      importAuctionator(f.name, new Uint8Array(await f.arrayBuffer()), { link: l, modified: f.lastModified })
+      importSavedVariables(f.name, new Uint8Array(await f.arrayBuffer()), { link: l, modified: f.lastModified })
     } catch (e) {
       const notFound = e instanceof DOMException && e.name === 'NotFoundError'
       onMessage(notFound
@@ -152,11 +180,11 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
         apply(r.rows, file.name, r.warnings.length ? `; ${plural(r.warnings.length, 'line')} skipped or blanked: ${r.warnings.slice(0, 2).join('; ')}` : '')
         return
       }
-      if (!isAuctionator(file.name)) {
-        onMessage(`${file.name}: expected Auctionator.zip (or Auctionator.lua), or a .csv of prices.`)
+      if (!isSavedVariables(file.name)) {
+        onMessage(`${file.name}: expected Auc-ScanData.lua or Auctionator.lua (or a .zip of one), or a .csv of prices.`)
         return
       }
-      importAuctionator(file.name, new Uint8Array(await file.arrayBuffer()), null)
+      importSavedVariables(file.name, new Uint8Array(await file.arrayBuffer()), null)
     } catch (e) {
       onMessage(`Could not read ${file.name}: ${(e as Error).message}`)
     }
@@ -167,11 +195,11 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
       {realmChoice && (
         <Modal title="Which realm's prices?" onClose={() => setRealmChoice(null)}>
           <p>
-            {realmChoice.file} has prices for several realms. Pick one{realmChoice.origin ? ' (remembered for this linked file)' : ''}:
+            {realmChoice.file} has prices for several realms. Pick one{realmChoice.remembered ? ' (remembered for this linked file)' : ''}:
           </p>
           <div className="choices">
-            {[...realmChoice.realms].map(([realm, data]) => (
-              <button key={realm} className="button" onClick={() => applyRealm(realmChoice.file, realm, data, realmChoice.origin)}>{realm}</button>
+            {realmChoice.realms.map((realm) => (
+              <button key={realm} className="button" onClick={() => realmChoice.pick(realm)}>{realm}</button>
             ))}
           </div>
         </Modal>
