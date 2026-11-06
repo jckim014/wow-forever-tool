@@ -43,8 +43,8 @@ app/                            the web app (to be built: Vite + React + TypeScr
   `bind` ("pickup" / "equip" / "use" / "none") comes from `fetch_binding.py`: it reads only the bind line (after the
   `<!--bo-->` marker) of `nether.wowhead.com/forever/tooltip/item/<id>`, caches results in `data/private/binding.json`
   (which `parse_pages.py` also applies), and reports anything it can't read as unknown rather than guessing. Has
-  `--selftest` with real tooltip excerpts. First run 2026-11-05: 2,024 products, 0 unknown; Josh was given a
-  10-item spot-check list (not yet reported back).
+  `--selftest` with real tooltip excerpts. First run 2026-11-05: 2,024 products, 0 unknown; Josh spot-checked
+  10 items (BoP, BoE, no bind) against the game/Wowhead and confirmed them.
   Everything is keyed by **item ID** (the workbook keyed by name).
 - **Economics run in the browser** in one pure TypeScript module (`app/src/model/`): inputs are game data, config
   and the user's edits; output is one row per recipe plus the intermediates. No UI code in the model. It should
@@ -215,6 +215,9 @@ Next phase, in this order (same way of working: one step, stop, one commit):
 All ten steps are done and live (last: 7b3bbc4, 2026-10-23). Next phase: Josh uses the app and comes back with bugs
 and iterations. Same way of working: show what will change (screenshots for UI), one change set, his check, one
 commit; push only when he says.
+
+2026-11-05: new Wowhead pages parsed (First Aid page left at 2026-10-22 on purpose), exit switch and BoP shipped and
+live (2e081d8).
 
 Where we left off (2026-11-02): the linked Auctionator.lua shipped and is live (aa16929). Josh tested it on localhost
 with the real Chrome picker on his F: drive (works; not under Program Files, so Chrome's system-folder block doesn't
