@@ -58,6 +58,10 @@ app/                            the web app (to be built: Vite + React + TypeScr
   (account folder 1120039#2, not THOROCKTHEBOLD); first scan copied to `data/private/auctioneer-2026-11-06/`, which
   `auctioneer.test.ts` checks against the figures shown to Josh. Import and Link accept either addon's file (or a zip
   of one), recognised by content; Settings labels the three columns for the source of the current prices.
+  Local addon patch (2026-11-06, outside the repo): the Forever build of Auctioneer gave up on its GetAll scan after
+  30 s (`Auc-Advanced/CoreScan.lua` line 470, `retailScanTimeout`) while the server took longer (confirmed: 110,860
+  replicate items arrived after the timeout). Raised to 120; original kept as `CoreScan.lua.orig`. An addon update
+  undoes it: if scans "time out at 0 auctions" again, check that line first.
   **Price history** (Josh, 2026-11-06; storage only, prices still come from the latest import): File > Keep price
   history in a folder (Chrome/Edge directory handle in IndexedDB, `app/src/history/`). Every imported Auctioneer scan
   is saved there as two files named by the scan's own time (local) and server key, e.g.
@@ -237,29 +241,44 @@ commit; push only when he says.
 
 2026-11-05: new Wowhead pages parsed (First Aid page left at 2026-10-22 on purpose), exit switch and BoP shipped and
 live (2e081d8).
+2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
 
-Where we left off (2026-11-02): the linked Auctionator.lua shipped and is live (aa16929). Josh tested it on localhost
-with the real Chrome picker on his F: drive (works; not under Program Files, so Chrome's system-folder block doesn't
-apply). He links it once on the live site. Forever does not have Auctionator data yet: next time, after his first
-Forever scan and /reload, he switches the link (File > Link a different Auctionator.lua) to
-`F:\World of Warcraft\_forever_\WTF\Account\THOROCKTHEBOLD\SavedVariables\Auctionator.lua`, and the import checks in
-the Auctionator item below apply. Interim prices come from the beta file
-`F:\World of Warcraft\_classic_beta_\WTF\Account\1120039#1\SavedVariables\Auctionator.lua` (v8, realm "PvE", 3,247
-items, 7 scan days; the source of the 2026-10-22 import). Advised Josh not to copy it into `_forever_` (Auctionator
-would load the beta realm's data there).
+Where we left off (2026-11-06): Auctioneer is the price source (122f61b) and every imported scan is kept in the price
+history (4768e3a); both live. Josh walked through the File menu on the live site and confirmed everything works:
+save file `data/private/shuffle-edits.json`, history folder `data/private/price-history/` (scans 00:25, 01:03, 02:27
+and ~03:55 on 2026-11-06), linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`.
+At the end of the session his save file still had import column 1 (stored from before the default changed to 3) and
+Mining chains off; he was told to pick column 3 and check Mining. If prices look like lowest buyouts, check this first.
+- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait up to 2 min, `/reload`, then
+  open the app (or Refresh now). At most one full-scan request per 15 minutes: any request counts (failed ones, and
+  Auctionator/TSM scans), and a request inside the window gets no data and waits until it times out. `/reload`
+  clears Auctioneer's own 15-minute guard, so after a reload it will happily send a request the server ignores.
+  Diagnose a failed scan with `/dump C_AuctionHouse.GetNumReplicateItems()` (about 110,000 = data arrived late;
+  0 = server sent nothing). Auctioneer's recorded attempts are in Auc-ScanData.lua `scanstats` (startTime, elapsed,
+  wasIncomplete), written only on /reload or logout. Auctioneer's tooltip errors in `!Swatter.lua`
+  (LibExtraTip_ calling GetTradeSkillNumMade / GetMerchantItemInfo) are harmless noise from the Forever client.
+- TSM (explored 2026-11-06, parked for the long term; Josh: "this will work well in the long term"): the TSM
+  desktop app writes `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`
+  about hourly. Blocks `LoadData("<kind>","<realm>",[[return {downloadTime=..., fields={...}, data={{id,v,...}}}]])`,
+  numbers in base 32 (0-9A-V). Josh's realm is "Normal-Alliance" (its min buyouts match his scans); region
+  "Forever-US". Kinds: NON_COMMODITY_DATA (minBuyout, numAuctions, marketValueRecent), NON_COMMODITY_SCAN_STAT
+  (marketValue = DBMarket), NON_COMMODITY_HISTORICAL (historical), REGION_STAT (regionMarketValue), REGION_HISTORICAL,
+  REGION_SALE (regionSale, regionSoldPerDay, regionSalePercent: the last two look scaled, probably x1000; check
+  against a TSM tooltip before use). A trial CSV is `data/private/tsm-prices-2026-11-06.csv` (p1 minBuyout,
+  p2 marketValueRecent, p3 marketValue). Next step when Josh wants it: a TSM reader (link AppData.lua like the
+  Auctioneer file) and his choice of which figures fill the three columns; needs his yes. TSM's own full-scan code
+  only uploads listings (via the desktop app); it is not a price source by itself. TSM on that account also records
+  his real AH sales (TradeSkillMaster.lua `csvSales`).
+- Josh wants exact recent-scan prices for now, robust beyond the minimum: that is Auctioneer Price 3. On his first
+  scan, TSM's per-scan method (cheapest 15-30%, 1.5 SD trim) was within a few % of it, so not worth switching.
+  Offered, not taken: show units listed next to a price as a thin-market marker (27 of 490 app items on the AH had
+  1-3 units).
 
 Open items to raise when relevant:
-- Current imported prices (2026-10-22, "Auctionator (PvE)") include an outlier: many recipes show a best-exit return of
-  exactly 24,938g 53s, probably one DE material. Josh knows and said to ignore it; don't raise it again for this data.
-- Auctionator: no real Auctionator file from Josh's Forever install has been imported yet. Old Desktop backups
-  (Benediction, 2023) use price database v6 (a plain Lua table), which both readers reject as "price database is
-  empty"; the readers only handle v8 (CBOR string). If Josh's file hits that, add a v6 reader (unlikely: his beta and
-  retail installs write v8; Josh has had v6 vs v8 explained). Desktop WTF copies at
-  `C:\Users\bavvb\Desktop\WTF` are old backups, not the Forever install.
-  Josh will provide a real file later and check the imported columns himself (decided 2026-10-23). Ideas discussed and
-  parked until then: an item check panel (the dated daily lows behind p1/p2/p3, to compare with Auctionator's in-game
-  price history; needs the import to keep 7 dated lows per item), column names that travel with the import (so a CSV
-  or TSM source isn't labelled "median of 7"), and a TSM reader if he uses TSM (needs a real TSM file first).
+- Auctionator is no longer the main source. Old notes: Desktop WTF backups (Benediction, 2023) use price database
+  v6, which the reader rejects; the readers handle v8 only. The beta file
+  `F:\World of Warcraft\_classic_beta_\WTF\Account\1120039#1\SavedVariables\Auctionator.lua` was the 2026-10-22 import.
+  Parked ideas: an item check panel (per-item price history: now possible from the price history summaries).
 - Not exercised for real yet: Chrome's file-picker and permission prompts for the save file (Josh has since created
   his save file, so they work at least for creation).
 - Revisit whether to keep the Table view (and AG Grid) once the List has been used for a while.
@@ -269,7 +288,8 @@ Open items to raise when relevant:
 - Possibly stale Wowhead vendor prices seen in the Vendor ≠ AH filter (Major Mana Potion 60s, Tinkerbox 1g, Lesser
   Mana Potion, Mote of Magic): Josh may want to check them in game and curate.
 - Test data caveat: `data/private/edits-v2.5.json` (the workbook export) has "Chains: craft with Mining" = No, so
-  headless checks seeded from it show Mining off; Josh's own save file has Mining on. His save file is the truth.
+  headless checks seeded from it show Mining off. His save file is the truth (Mining was off there too on
+  2026-11-06; asked him to check whether that is intended).
 
 Working notes:
 - `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
