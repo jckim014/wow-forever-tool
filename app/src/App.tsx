@@ -5,7 +5,7 @@ import { compute, type GameData } from './model'
 import { plural, usePageDrop, usePriceImport } from './PriceImport'
 import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
-import { filterRecipes, searchText, type RecipeFilters } from './recipes/filter'
+import { filterRecipes, searchText, type ExitView, type RecipeFilters } from './recipes/filter'
 import { RecipeList } from './recipes/RecipeList'
 import { SettingsView } from './settings/SettingsView'
 import { PricesView } from './itemprices/PricesView'
@@ -15,6 +15,14 @@ import { setUseChains } from './intermediates/inter'
 
 // The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
 const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
+
+const EXIT_OPTIONS: { key: ExitView; label: string; title: string }[] = [
+  { key: 'all', label: 'All', title: 'Every recipe, judged on its best priced exit' },
+  { key: 'vendor', label: 'Vendor', title: 'Only recipes whose product sells to a vendor, with profit worked out on the vendor exit alone' },
+  { key: 'de', label: 'Disenchant', title: 'Only recipes whose product can be disenchanted, with profit worked out on the disenchant exit alone' },
+  { key: 'ah', label: 'AH', title: 'Every recipe, with profit worked out on selling the product on the auction house' },
+]
+const MIN_PROFIT_LABEL: Record<ExitView, string> = { all: 'Min profit at best exit', vendor: 'Min vendor profit', de: 'Min DE profit', ah: 'Min AH profit' }
 
 type View = 'list' | 'table' | 'prices' | 'intermediates' | 'detable' | 'settings'
 const VIEW_KEY = 'wow-forever-shuffle:view'
@@ -34,7 +42,7 @@ export function App() {
   const store = useEditsStore()
   const edits = store.edits
   const [message, setMessage] = useState<string | null>(null)
-  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, vendorOnly: false })
+  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, exit: 'all' })
   const [view, setView] = useState<View>(savedView)
   const [tableCount, setTableCount] = useState<number | null>(null)
   const prices = usePriceImport(store, setMessage)
@@ -78,12 +86,16 @@ export function App() {
           className="search" type="search" placeholder="Search recipes, items, reagents…"
           value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
-        <label className="field" title="Only recipes whose product sells to a vendor, with profit worked out on the vendor exit alone">
-          <input type="checkbox" checked={filters.vendorOnly} onChange={(e) => setFilters({ ...filters, vendorOnly: e.target.checked })} />
-          Vendor only
-        </label>
+        <span className="field">
+          Exit
+          <span className="seg" role="group" aria-label="Exit">
+            {EXIT_OPTIONS.map((o) => (
+              <button key={o.key} className={filters.exit === o.key ? 'on' : ''} title={o.title} onClick={() => setFilters({ ...filters, exit: o.key })}>{o.label}</button>
+            ))}
+          </span>
+        </span>
         <label className="field">
-          {filters.vendorOnly ? 'Min vendor profit' : 'Min profit at best exit'}
+          {MIN_PROFIT_LABEL[filters.exit]}
           <input
             type="number" step="any" placeholder="gold" className="gold"
             value={filters.minProfitGold ?? ''}
@@ -150,7 +162,7 @@ export function App() {
       ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
       ) : view === 'list' ? (
-        <RecipeList rows={rows} result={result} game={game} vendorOnly={filters.vendorOnly} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))} />
+        <RecipeList rows={rows} result={result} game={game} exit={filters.exit} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
           <RecipesGrid rows={rows} onCount={setTableCount} />
