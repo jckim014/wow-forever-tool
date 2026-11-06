@@ -1,5 +1,8 @@
 // Parity with the v2.5 workbook: compares the model against data/private/parity-v2.5.json, computed with the
 // edits in data/private/edits-v2.5.json. Writes every difference to data/private/parity-report.json.
+// It uses a frozen copy of the game data the workbook was checked against (data/private/game-data-v2.5.json, the
+// committed app/public/game-data.json as of 9e862ab), so updating the Wowhead pages doesn't break it: it guards the
+// calculations, not the data.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -9,7 +12,7 @@ import { compute, makeConfig, normalizeEdits, type GameData, type Settings, type
 
 const ROOT = resolve(__dirname, '../../..')
 const PRIV = resolve(ROOT, 'data/private')
-const files = { edits: resolve(PRIV, 'edits-v2.5.json'), parity: resolve(PRIV, 'parity-v2.5.json') }
+const files = { game: resolve(PRIV, 'game-data-v2.5.json'), edits: resolve(PRIV, 'edits-v2.5.json'), parity: resolve(PRIV, 'parity-v2.5.json') }
 const missing = Object.values(files).filter((f) => !existsSync(f))
 const TOL = 0.5
 const read = (f: string) => JSON.parse(readFileSync(f, 'utf8'))
@@ -29,7 +32,7 @@ const isKnown = (d: Diff) => d.kind === 'recipe' && (KNOWN[d.id]?.fields.include
 
 describe.skipIf(missing.length > 0)('parity with workbook v2.5', () => {
   if (missing.length) return
-  const game: GameData = read(resolve(ROOT, 'app/public/game-data.json'))
+  const game: GameData = read(files.game)
   const config = makeConfig(defaults as { settings: Settings; cooldownCrafts: { namePrefixes: string[]; names: string[] } }, deTable as { bands: DeBand[] })
   const { edits, warnings } = normalizeEdits(read(files.edits))
   const ref = read(files.parity)

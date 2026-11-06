@@ -153,7 +153,9 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
 
 ## Parity
 
-`app` tests (Vitest) load `app/public/game-data.json`, `data/config/*`, `data/private/edits-v2.5.json` and compare
+`app` tests (Vitest) load `data/private/game-data-v2.5.json` (a frozen copy of the game data as of 9e862ab, so new
+Wowhead pages don't break the test: it guards the calculations, not the data), `data/config/*`,
+`data/private/edits-v2.5.json` and compare
 against `data/private/parity-v2.5.json` (per recipe: buyAll, cheapest, vendorValue, deValue, ahPrice, ahValue,
 profits, bestExit, craftedInputs; per intermediate: buy, craft, best, source). Tolerance 0.5 copper. Skip with a clear
 message when the private files are missing. Every difference must be explained (e.g. name vs ID matching) before the
