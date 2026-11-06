@@ -25,6 +25,7 @@ trading. He prefers direct, precise communication and honest assessment over val
 
 ```
 tools/parse_pages.py            saved Wowhead pages -> app/public/game-data.json (committed)
+tools/fetch_binding.py          products' bind type from Forever item tooltips -> game-data.json (cache in data/private/)
 tools/export_workbook_edits.py  one-time: workbook edits -> data/private/edits-v2.5.json (import in the app)
 tools/export_parity.py          calculated workbook -> data/private/parity-v2.5.json (test reference)
 tools/auctionator_to_imports.py reference implementation of the Auctionator reader, to port to TypeScript
@@ -38,7 +39,12 @@ app/                            the web app (to be built: Vite + React + TypeScr
 ## Architecture
 
 - **Game facts** come from `parse_pages.py` as one JSON: recipes (id, name, profession, skill, product, qtyMin,
-  qtyMax, reagents[{item, qty}]) and items (id, name, sell, buy, and for crafted items quality, class, ilvl).
+  qtyMax, reagents[{item, qty}]) and items (id, name, sell, buy, and for crafted items quality, class, ilvl, and for products bind).
+  `bind` ("pickup" / "equip" / "use" / "none") comes from `fetch_binding.py`: it reads only the bind line (after the
+  `<!--bo-->` marker) of `nether.wowhead.com/forever/tooltip/item/<id>`, caches results in `data/private/binding.json`
+  (which `parse_pages.py` also applies), and reports anything it can't read as unknown rather than guessing. Has
+  `--selftest` with real tooltip excerpts. First run 2026-11-05: 2,024 products, 0 unknown; Josh was given a
+  10-item spot-check list (not yet reported back).
   Everything is keyed by **item ID** (the workbook keyed by name).
 - **Economics run in the browser** in one pure TypeScript module (`app/src/model/`): inputs are game data, config
   and the user's edits; output is one row per recipe plus the intermediates. No UI code in the model. It should
@@ -64,7 +70,8 @@ app/                            the web app (to be built: Vite + React + TypeScr
   only store in browsers without that API. All storage goes through one module (load / save / status / choose
   location), so the backend can be swapped later (e.g. a cloud database) without touching the model or UI. Wrap
   storage access in try/catch.
-- **Updates**: new Wowhead pages -> run `parse_pages.py`, review the printed changes, commit `game-data.json`.
+- **Updates**: new Wowhead pages -> run `parse_pages.py`, then `fetch_binding.py` (fetches only new products), review the
+  printed changes, commit `game-data.json`. Saved page filenames only need to start with the profession name.
   New prices -> drop the Auctionator zip in the app (no commit). Rule or UI changes -> code.
 
 ## Model (must match the workbook)
@@ -106,11 +113,13 @@ plain reagent price). Each is blank if any reagent is unpriced. Crafted inputs =
 - Expected DE value = value per disenchant x qtyMade x multiplier x (1 - AH cut).
 
 **AH exit**: AH value per craft = selling price of the product x qtyMade x (1 - AH cut). One AH cut (default 5%)
-applies to DE materials and crafted items. Deposits and liquidity are not modeled.
+applies to DE materials and crafted items. Deposits and liquidity are not modeled. The AH exit does not apply to a
+product that binds when picked up (Josh, 2026-11-05): AH value, AH profit and AH beats reagents are blank, it is never
+the best exit and never labelled unpriced (like Disenchant for an item with no band). The AH price itself still shows.
 
 **Profits**: profit for an exit = exit value - cheapest path; blank if either is blank.
 **Best exit**: among the exits that apply (Vendor if the product has a sell price; Disenchant if it has a band; AH
-always), the priced one with the highest value; ties go Vendor, then Disenchant, then AH. If none is priced:
+unless the product is BoP), the priced one with the highest value; ties go Vendor, then Disenchant, then AH. If none is priced:
 "No priced exit". Label any applicable exit that is unpriced: e.g. "Vendor (DE, AH unpriced)".
 **Profit at best exit** = highest priced exit value - cheapest path.
 **Beats reagents?** per exit: exit value > reagents vendor value. "Any exit" = Yes if any is Yes, else "No", or
@@ -133,12 +142,18 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   unpriced reagents; every craftable reagent always shows both Craft and Buy, with the ✓ on the one used, and a craft
   that is switched off still shows what it would cost, marked "off": Josh, 2026-10-23, reversing an earlier choice). This is the recipe drill-down that replaces the Chain view tab; its totals reconcile to the
   cheapest path (`app/src/model/detail.ts`, tested in `detail.test.ts`).
-- **Vendor only** (toolbar checkbox, Josh, 2026-11-01): lists only recipes whose product has a vendor price and judges
+- **Exit switch** (toolbar: All · Vendor · Disenchant · AH, Josh, 2026-11-05; replaced the Vendor only checkbox of
+  2026-11-01, `exitFigures` in `recipes/filter.ts`). All = best exit. Each single exit lists only recipes where that
+  exit applies (Vendor: product has a vendor price; Disenchant: product has a DE band; AH: product isn't BoP) and judges
+  them on that exit alone, as Vendor only did: Vendor lists only recipes whose product has a vendor price and judges
   them on the vendor exit alone. The Best exit column goes; Profit = vendor profit, Return = vendor value per craft;
   Min profit and Hide unpriced use vendor profit. Display and filtering only, no new calculation. Cost is deliberately
   still the cheapest path, so it can include AH-priced reagents (Josh chose this over a vendor-bought-only cost). The
   recipe card still shows all exits, and the Table keeps all its columns (the same row filter applies). Sorting by
-  Return in this mode is how Josh browses by raw vendor sell value before he has real prices.
+  Return in this mode is how Josh browses by raw vendor sell value before he has real prices. Disenchant and AH work
+  the same way with DE / AH profit and value.
+- **Hide BoP** (toolbar checkbox, Josh, 2026-11-05): hides recipes whose product binds when picked up, in any view
+  (the AH view leaves them out anyway). The recipe card's Item line shows the bind type.
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;

@@ -42,7 +42,7 @@ export function App() {
   const store = useEditsStore()
   const edits = store.edits
   const [message, setMessage] = useState<string | null>(null)
-  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, exit: 'all' })
+  const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, hideBop: false, exit: 'all' })
   const [view, setView] = useState<View>(savedView)
   const [tableCount, setTableCount] = useState<number | null>(null)
   const prices = usePriceImport(store, setMessage)
@@ -106,6 +106,10 @@ export function App() {
         <label className="field">
           <input type="checkbox" checked={filters.hideUnpriced} onChange={(e) => setFilters({ ...filters, hideUnpriced: e.target.checked })} />
           Hide unpriced
+        </label>
+        <label className="field" title="Hide recipes whose product binds when picked up (the AH view always leaves them out)">
+          <input type="checkbox" checked={filters.hideBop} onChange={(e) => setFilters({ ...filters, hideBop: e.target.checked })} />
+          Hide BoP
         </label>
         <span className="count">{count.toLocaleString()} of {result.recipes.length.toLocaleString()} recipes</span>
         </>)}

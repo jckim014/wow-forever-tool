@@ -8,6 +8,7 @@ const OFF_REASON = {
   item: 'crafting off for this item',
   profession: 'profession off in Settings',
 } as const
+const BIND_TEXT = { pickup: 'Binds when picked up', equip: 'Binds when equipped', use: 'Binds when used' } as const
 const exact = (v: Money) => (v === null ? '—' : formatMoney(v))
 /** For right-aligned money columns: padded so silver and copper line up. */
 const col = (v: Money) => (v === null ? '—' : formatMoney(v, true))
@@ -57,6 +58,7 @@ export function RecipeCard({ row, result, game, onUseChains }: {
   const missing: { name: string; why: string }[] = [
     ...(has.has('Vendor') ? [] : [{ name: 'Vendor', why: 'no vendor price' }]),
     ...(has.has('Disenchant') ? [] : [{ name: 'Disenchant', why: 'not disenchantable' }]),
+    ...(has.has('AH') ? [] : [{ name: 'Auction house', why: 'binds when picked up' }]),
   ]
   const showBuyAll = row.buyAll !== null && row.cheapest !== null && Math.round(row.buyAll) !== Math.round(row.cheapest)
 
@@ -80,6 +82,7 @@ export function RecipeCard({ row, result, game, onUseChains }: {
           <dd>
             {row.quality !== null ? <span className={`qual-${row.quality}`}>{QUALITY_NAMES[row.quality] ?? row.quality}</span> : '—'}
             {row.ilvl ? ` · item level ${row.ilvl}` : ''}
+            {row.bind && row.bind !== 'none' ? ` · ${BIND_TEXT[row.bind]}` : ''}
           </dd>
           <dt>AH price</dt><dd>{row.ahPrice === null ? <span className="na">none</span> : <>{exact(row.ahPrice)} each ({sourceLabel(row.ahSource)})</>}</dd>
           <dt>Reagents sell to vendor for</dt><dd>{exact(row.reagentsVendorValue)}{row.reagentsWithoutSell ? ` (${row.reagentsWithoutSell} without a sell price)` : ''}</dd>

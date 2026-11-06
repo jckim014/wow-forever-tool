@@ -86,17 +86,18 @@ export function computeRecipe(
     deValue = v.value === null ? null : v.value * q * deMultiplier(settings) * cut
   }
 
-  // auction house (a price of 0 counts as unpriced)
+  // auction house (a price of 0 counts as unpriced); a product that binds when picked up can't be listed
   const pp = price(r.product)
   const ahPrice = pp.selling || null
   const ahSource = ahPrice === null ? null : pp.typed !== null ? 'Typed' : 'Imported'
-  const ahValue = ahPrice === null ? null : ahPrice * q * cut
+  const ahApplies = item?.bind !== 'pickup'
+  const ahValue = ahPrice === null || !ahApplies ? null : ahPrice * q * cut
 
   // best exit: highest priced value; ties go to the earlier exit (Vendor, Disenchant, AH)
   const exits: [ExitName, Money][] = []
   if (vendorValue !== null) exits.push(['Vendor', vendorValue])
   if (band) exits.push(['Disenchant', deValue])
-  exits.push(['AH', ahValue])
+  if (ahApplies) exits.push(['AH', ahValue])
   const priced = exits.filter((e): e is [ExitName, number] => e[1] !== null)
   const max = priced.length ? Math.max(...priced.map((e) => e[1])) : null
   const unpriced = exits.filter((e) => e[0] !== 'Vendor' && e[1] === null).map((e) => (e[0] === 'Disenchant' ? 'DE' : e[0]))
@@ -106,7 +107,7 @@ export function computeRecipe(
 
   const vendorBeats = vendorValue === null ? 'No sell price' : vendorValue > reagentsVendorValue ? 'Yes' : 'No'
   const deBeats = band ? beats(deValue, reagentsVendorValue) : null
-  const ahBeats = beats(ahValue, reagentsVendorValue)
+  const ahBeats = ahApplies ? beats(ahValue, reagentsVendorValue) : null
   const anyYes = vendorBeats === 'Yes' || deBeats === 'Yes' || ahBeats === 'Yes'
 
   return {
@@ -114,7 +115,7 @@ export function computeRecipe(
     reagentsText: r.reagents.map((g) => `${g.qty}x ${name(g.item)}`).join(', '),
     unitSell, vendorValue, reagentsVendorValue, reagentsWithoutSell, vendorBeats,
     buyAll, reagentsPriced, useChains, cheapest, craftedInputs: crafted.length ? crafted.join(', ') : null,
-    quality: item?.quality ?? null, ilvl: item?.ilvl ?? null, deBand: band, deValue,
+    quality: item?.quality ?? null, ilvl: item?.ilvl ?? null, bind: item?.bind ?? null, deBand: band, deValue,
     deMaterialsWithChance: deWith, deMaterialsPriced: dePriced, deBeats,
     ahPrice, ahSource, ahValue, ahBeats,
     profitVendor: sub(vendorValue, cheapest), profitDE: sub(deValue, cheapest), profitAH: sub(ahValue, cheapest),

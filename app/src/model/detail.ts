@@ -135,7 +135,7 @@ export function recipeDetail(result: ModelResult, row: RecipeRow, game: GameData
       },
     })
   }
-  exits.push({ name: 'AH', value: row.ahValue, profit: row.profitAH, isBest: best('AH'), qtyMade: row.qtyMade, ah: { unit: row.ahPrice, source: row.ahSource } })
+  if (row.bind !== 'pickup') exits.push({ name: 'AH', value: row.ahValue, profit: row.profitAH, isBest: best('AH'), qtyMade: row.qtyMade, ah: { unit: row.ahPrice, source: row.ahSource } })
 
   return { lines, exits, unpricedReagents: lines.filter((l) => l.unit === null).map((l) => l.name), ahCut: result.settings.ahCut }
 }

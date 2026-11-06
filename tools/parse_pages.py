@@ -9,6 +9,8 @@ from a whitelist, so avgbuyout and similar fields on the page are never copied.
 Input:  data/private/pages/*.html, one per profession, saved with Ctrl+S -> "Webpage, HTML only".
         Filenames are matched loosely: anything whose name starts with the profession name.
 Output: app/public/game-data.json (committed; this is what the site serves)
+Bind:   crafted products get items[id].bind from data/private/binding.json, written by tools/fetch_binding.py.
+        New products missing from it are counted in a warning; run fetch_binding.py after this script.
 
 Run:
   python3 tools/parse_pages.py
@@ -60,6 +62,9 @@ for prof, path in pages.items():
     for r in R:
         if r.get('creates'): recipes.append((prof, r))
 
+BIND_CACHE = os.path.join(ROOT, 'data', 'private', 'binding.json')
+binding = json.load(open(BIND_CACHE, encoding='utf8')) if os.path.exists(BIND_CACHE) else {}
+
 def item_fields(i):  # whitelist: never copy avgbuyout or any other market field
     v = raw_items.get(i, {}); je = v.get('jsonequip') or {}
     d = {'id': i, 'name': v.get('name_enus') or f'Item {i}'}
@@ -84,6 +89,11 @@ for prof, r in recipes:
     used.add(pid); used.update(x['item'] for x in reag)
 # reagents of reagents are covered because every recipe's reagents are listed; DE materials come from config
 items = {str(i): item_fields(i) for i in sorted(used)}
+products = {r['product'] for r in out_recipes}
+for i in products:
+    if str(i) in binding: items[str(i)]['bind'] = binding[str(i)]
+no_bind = sorted(i for i in products if str(i) not in binding)
+if no_bind: warnings.append(f'{len(no_bind)} products have no bind type yet; run tools/fetch_binding.py')
 data = {'source': 'Wowhead Forever profession pages (game data only)', 'professions': PROFS,
         'recipes': sorted(out_recipes, key=lambda x: (x['profession'], x['name'], x['id'])), 'items': items}
 

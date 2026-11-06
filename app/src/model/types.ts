@@ -10,7 +10,11 @@ export interface Item {
   quality?: number // crafted items only: 2 Uncommon, 3 Rare, 4 Epic
   class?: number // 2 Weapon, 4 Armor
   ilvl?: number
+  /** crafted products only, from the Forever item tooltip (tools/fetch_binding.py); absent = not looked up */
+  bind?: Bind
 }
+
+export type Bind = 'pickup' | 'equip' | 'use' | 'none'
 
 export interface Reagent {
   item: number
@@ -161,6 +165,8 @@ export interface RecipeRow {
   // disenchant
   quality: number | null
   ilvl: number | null
+  /** how the product binds; null = unknown */
+  bind: Bind | null
   deBand: DeBand | null
   deValue: Money
   deMaterialsWithChance: number
