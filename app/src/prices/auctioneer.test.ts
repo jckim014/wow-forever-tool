@@ -65,11 +65,12 @@ describe('Auctioneer scan reader', () => {
     expect(isAuctioneerScan(new TextEncoder().encode('AUCTIONATOR_PRICE_DATABASE = {'))).toBe(false)
     const servers = scanServers(bytes)
     expect([...servers.keys()]).toEqual(['Realm_Alliance', 'Realm_Horde'])
-    expect(servers.get('Realm_Alliance')).toHaveLength(2)
+    expect(servers.get('Realm_Alliance')!.ropes).toHaveLength(2)
+    expect(servers.get('Realm_Alliance')!.scanTime).toBe(1793953529)
   })
 
   it('prices per unit: lowest, unit-weighted median, average of the cheapest 15% of units', () => {
-    const r = pricesFromScan(scanServers(bytes).get('Realm_Alliance')!)
+    const r = pricesFromScan(scanServers(bytes).get('Realm_Alliance')!.ropes)
     expect(r.listings).toBe(7)
     expect(r.noBuyout).toBe(1)
     const by = new Map(r.rows.map((x) => [x.item, x]))
@@ -79,12 +80,14 @@ describe('Auctioneer scan reader', () => {
     expect(by.get(SILK)).toEqual({ item: SILK, name: null, p1: 200, p2: 333, p3: 200 })
     expect(by.get(AXE)).toEqual({ item: AXE, name: null, p1: 9000, p2: 9000, p3: 9000 })
     expect(r.rows.map((x) => x.item)).toEqual([LINEN, SILK, AXE])
+    expect(r.items.find((x) => x.item === LINEN)).toMatchObject({ units: 100, listings: 3 })
+    expect(r.items.find((x) => x.item === SILK)).toMatchObject({ units: 4, listings: 2 })
   })
 
   it('averages across stacks when the cheapest 15% spans several', () => {
     // 20 units: 2 at 10, 18 at 40. Cheapest 15% = 3 units: (2*10 + 1*40) / 3 = 20.
     const f = new TextEncoder().encode(scanFile([['R', [[listing(1, 'A', 2, 20), listing(1, 'A', 18, 720)]]]]))
-    expect(pricesFromScan(scanServers(f).get('R')!).rows[0]).toEqual({ item: 1, name: null, p1: 10, p2: 40, p3: 20 })
+    expect(pricesFromScan(scanServers(f).get('R')!.ropes).rows[0]).toEqual({ item: 1, name: null, p1: 10, p2: 40, p3: 20 })
   })
 
   it('takes the scan out of a zip', () => {
@@ -105,7 +108,7 @@ describe.skipIf(!existsSync(REAL))('Auctioneer: the real scan of 2026-11-06 (dat
   it('matches the figures shown to Josh', () => {
     const servers = scanServers(new Uint8Array(readFileSync(REAL)))
     expect([...servers.keys()]).toEqual(['CAMWOWUS1Realm3PvE_Alliance'])
-    const r = pricesFromScan(servers.get('CAMWOWUS1Realm3PvE_Alliance')!)
+    const r = pricesFromScan(servers.get('CAMWOWUS1Realm3PvE_Alliance')!.ropes)
     expect(r.listings).toBe(123969)
     expect(r.noBuyout).toBe(12)
     expect(r.rows).toHaveLength(2000)
@@ -116,5 +119,7 @@ describe.skipIf(!existsSync(REAL))('Auctioneer: the real scan of 2026-11-06 (dat
     expect(by.get(2772)).toEqual([950, 1300, 950]) // Iron Ore
     expect(by.get(11083)).toEqual([1300, 1499, 1316]) // Soul Dust
     expect(by.get(4234)).toEqual([801, 950, 841]) // Heavy Leather
+    expect(r.items.find((x) => x.item === 2589)).toMatchObject({ units: 17489, listings: 620 })
+    expect(servers.get('CAMWOWUS1Realm3PvE_Alliance')!.scanTime).toBe(1793953529)
   })
 })

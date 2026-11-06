@@ -58,8 +58,9 @@ body { margin: 0; }
 .menu-note { margin: 4px 14px 6px; font-size: 12px; color: var(--muted); }
 
 .prices-info { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-.plink { white-space: nowrap; }
-.plink .button { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
+.plink, .phist { white-space: nowrap; }
+.phist { margin-left: 10px; }
+.plink .button, .phist .button { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
 .drop-overlay {
   position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
   background: rgb(47 90 168 / 0.12); border: 3px dashed var(--accent); font-size: 20px; color: var(--accent); pointer-events: none;

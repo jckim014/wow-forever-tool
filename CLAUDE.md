@@ -58,6 +58,15 @@ app/                            the web app (to be built: Vite + React + TypeScr
   (account folder 1120039#2, not THOROCKTHEBOLD); first scan copied to `data/private/auctioneer-2026-11-06/`, which
   `auctioneer.test.ts` checks against the figures shown to Josh. Import and Link accept either addon's file (or a zip
   of one), recognised by content; Settings labels the three columns for the source of the current prices.
+  **Price history** (Josh, 2026-11-06; storage only, prices still come from the latest import): File > Keep price
+  history in a folder (Chrome/Edge directory handle in IndexedDB, `app/src/history/`). Every imported Auctioneer scan
+  is saved there as two files named by the scan's own time (local) and server key, e.g.
+  `2026-11-06_0025_CAMWOWUS1Realm3PvE_Alliance.zip` (the whole Auc-ScanData.lua, ~2.3 MB) and `.json` (per item ID:
+  lowest, median, cheapest15, units, listings; ~65 KB; written last, so it marks a complete scan; one item per line).
+  A scan already stored is skipped. Scans imported while the folder can't be written wait in memory for that visit
+  ("Allow saving" in the toolbar). Josh's folder: `data/private/price-history/` (git-ignored). Auctioneer overwrites
+  its file on each scan, so a scan is only kept if the app reads it before the next one. Auctionator imports are not
+  archived.
 - **Prices (Auctionator)**: Josh drops `Auctionator.zip` (his SavedVariables, zipped) onto the page. Port
   `tools/auctionator_to_imports.py` to TypeScript (unzip with a small library such as fflate; Lua string unescape;
   minimal CBOR decoder). It yields per item ID: p1 = latest lowest buyout, p2 = median of the last 7 daily lows,

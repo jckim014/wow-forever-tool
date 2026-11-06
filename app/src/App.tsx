@@ -3,6 +3,7 @@ import { config, loadGameData } from './data'
 import { DataMenu, importEditsFile } from './DataMenu'
 import { compute, type GameData } from './model'
 import { plural, usePageDrop, usePriceImport } from './PriceImport'
+import { usePriceHistory } from './history/usePriceHistory'
 import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
 import { filterRecipes, searchText, type ExitView, type RecipeFilters } from './recipes/filter'
@@ -45,7 +46,9 @@ export function App() {
   const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, hideBop: false, exit: 'all' })
   const [view, setView] = useState<View>(savedView)
   const [tableCount, setTableCount] = useState<number | null>(null)
-  const prices = usePriceImport(store, setMessage)
+  const addMessage = (m: string) => setMessage((prev) => (prev ? `${prev} ${m}` : m))
+  const history = usePriceHistory(addMessage)
+  const prices = usePriceImport(store, setMessage, history.keep)
   const dragging = usePageDrop((f) => (/\.json$/i.test(f.name) ? importEditsFile(store, f, setMessage) : prices.importFile(f)))
 
   useEffect(() => {
@@ -124,6 +127,7 @@ export function App() {
         <DataMenu
           store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste}
           link={{ supported: prices.linkSupported, file: prices.linked?.file ?? null, onLink: prices.linkFile, onUnlink: prices.unlinkFile }}
+          history={{ supported: history.supported, folder: history.folder, onChoose: history.choose, onStop: history.stop }}
         />
       </header>
       <nav className="chips">
@@ -139,10 +143,10 @@ export function App() {
         {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && (
           <span className="note">No prices yet: drop Auc-ScanData.lua (Auctioneer) or Auctionator.lua on the page, or use the File menu (Link price file to skip this next time).</span>
         )}
-        {(edits.importsInfo || prices.linked) && (
+        {(edits.importsInfo || prices.linked || history.folder) && (
           <span className="note prices-info">
             {edits.importsInfo && (
-              <span title={prices.linked ? undefined : 'Drop a new Auctionator.zip on the page to refresh'}>
+              <span title={prices.linked ? undefined : 'Drop a new Auc-ScanData.lua or Auctionator.lua on the page to refresh'}>
                 Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
                 {plural(edits.importsInfo.count, 'item')}
               </span>
@@ -152,6 +156,16 @@ export function App() {
                 Linked: {prices.linked.file}
                 {prices.linked.needsPermission && <span className="status warn"> (Chrome needs your OK to read it)</span>}{' '}
                 <button className="button" onClick={prices.linked.refresh}>Refresh now</button>
+              </span>
+            )}
+            {history.folder && (
+              <span className="phist" title="Every Auctioneer scan you import is saved here: the whole scan, zipped, and a per-item summary">
+                History: {history.folder}{history.countText && `, ${history.countText}`}
+                {history.needsPermission && (<>
+                  {' '}<button className="button" onClick={history.approve}>
+                    {history.waiting ? `Allow saving (${history.waiting} waiting)` : 'Allow saving'}
+                  </button>
+                </>)}
               </span>
             )}
           </span>

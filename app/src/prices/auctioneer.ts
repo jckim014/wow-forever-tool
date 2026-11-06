@@ -140,8 +140,15 @@ class Reader {
 const field = (t: Lua | undefined, key: string | number): Lua | undefined =>
   t && typeof t === 'object' ? t.map.get(key) : undefined
 
-/** Server keys (realm_faction) in the scan file, each with its ropes (still Lua source, as bytes). */
-export function scanServers(raw: Uint8Array): Map<string, Uint8Array[]> {
+export interface ServerScan {
+  /** The listings, still Lua source (as bytes). */
+  ropes: Uint8Array[]
+  /** When Auctioneer finished the scan (Unix seconds, from scanstats), or null if the file doesn't say. */
+  scanTime: number | null
+}
+
+/** Server keys (realm_faction) in the scan file, with each one's last scan. */
+export function scanServers(raw: Uint8Array): Map<string, ServerScan> {
   const start = indexOf(raw, 'AucScanData')
   if (start < 0) throw new Error('No AucScanData in this file. Is it Auc-ScanData.lua from SavedVariables?')
   const eq = raw.indexOf(123, start) // {
@@ -150,21 +157,35 @@ export function scanServers(raw: Uint8Array): Map<string, Uint8Array[]> {
   const top = r.table()
   const scans = field(top, 'scans')
   if (!scans || typeof scans !== 'object') throw new Error('The scan file has no scans: run a full scan, then /reload.')
-  const out = new Map<string, Uint8Array[]>()
+  const out = new Map<string, ServerScan>()
   for (const [key, scan] of scans.map) {
     const image = field(scan, 'image')
     const ropes = field(scan, 'ropes')
     if (!ropes || typeof ropes !== 'object' || !ropes.list.length) continue
     const kind = image instanceof Uint8Array ? utf8.decode(image) : image
     if (kind !== 'rope') throw new Error(`Scan ${key} is stored as "${kind}", which this reader does not handle (expected "rope").`)
-    out.set(String(key), ropes.list as unknown as Uint8Array[])
+    const stats = field(scan, 'scanstats')
+    const t = [field(stats, 'LastFullScan'), field(stats, 'LastScan'), field(stats, 'ImageUpdated')].find((x) => typeof x === 'number')
+    out.set(String(key), { ropes: ropes.list as unknown as Uint8Array[], scanTime: (t as number | undefined) ?? null })
   }
   if (!out.size) throw new Error('The scan file has no listings: run a full scan, wait until it has finished processing, then /reload.')
   return out
 }
 
+/** One item's figures from a scan (what the price history keeps). */
+export interface ItemStat {
+  item: number
+  p1: number
+  p2: number
+  p3: number
+  /** Units listed with a buyout, and the number of such listings. */
+  units: number
+  listings: number
+}
+
 export interface AuctioneerResult {
   rows: ImportRow[]
+  items: ItemStat[]
   listings: number
   /** Listings with no buyout (bid only), not used. */
   noBuyout: number
@@ -191,7 +212,7 @@ export function pricesFromScan(ropes: Uint8Array[]): AuctioneerResult {
       xs.push([buyout / count, count])
     }
   }
-  const rows: ImportRow[] = []
+  const items: ItemStat[] = []
   for (const [item, xs] of byItem) {
     xs.sort((p, q) => p[0] - q[0])
     const units = xs.reduce((s, x) => s + x[1], 0)
@@ -208,8 +229,9 @@ export function pricesFromScan(ropes: Uint8Array[]): AuctioneerResult {
       took += take
       if (took >= need) break
     }
-    rows.push({ item, name: null, p1: roundHalfEven(xs[0][0]), p2: roundHalfEven(med), p3: roundHalfEven(sum / took) })
+    items.push({ item, p1: roundHalfEven(xs[0][0]), p2: roundHalfEven(med), p3: roundHalfEven(sum / took), units, listings: xs.length })
   }
-  rows.sort((a, b) => a.item - b.item)
-  return { rows, listings, noBuyout }
+  items.sort((a, b) => a.item - b.item)
+  const rows = items.map(({ item, p1, p2, p3 }): ImportRow => ({ item, name: null, p1, p2, p3 }))
+  return { rows, items, listings, noBuyout }
 }

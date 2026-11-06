@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportRow } from './model'
 import { auctionatorBytes, HISTORY_DAYS, priceDatabaseRealms, pricesFromRealm } from './prices/auctionator'
-import { auctioneerBytes, isAuctioneerScan, pricesFromScan, scanServers } from './prices/auctioneer'
+import { auctioneerBytes, isAuctioneerScan, pricesFromScan, scanServers, type AuctioneerResult } from './prices/auctioneer'
+import { scanSummary } from './history/archive'
+import type { PendingScan } from './history/folder'
 import { parsePriceTable } from './prices/csv'
 import {
   canRead, forgetLink, linkSupported, loadLink, pickAuctionator, saveLink, shouldImport, type LinkRecord, type ReadHandle,
@@ -24,7 +26,7 @@ const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle:
  * Auctioneer / Auctionator SavedVariables and price CSV imports: they replace the imported prices and leave every
  * other edit alone. Also the linked file (Auc-ScanData.lua or Auctionator.lua): checked when the app opens (imported if WoW has written it since) and on Refresh now.
  */
-export function usePriceImport(store: Store, onMessage: (m: string) => void) {
+export function usePriceImport(store: Store, onMessage: (m: string) => void, onScan: (scans: PendingScan[]) => void) {
   const [realmChoice, setRealmChoice] = useState<RealmChoice | null>(null)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [link, setLinkState] = useState<LinkRecord | null>(null)
@@ -88,13 +90,22 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void) {
       })()
       : bytes
     if (isAuctioneerScan(raw)) {
-      chooseRealm(name, scanServers(raw), origin, (ropes, realm) => {
-        const r = pricesFromScan(ropes)
+      const servers = scanServers(raw)
+      const results = new Map<string, AuctioneerResult>()
+      const resultOf = (key: string) => {
+        if (!results.has(key)) results.set(key, pricesFromScan(servers.get(key)!.ropes))
+        return results.get(key)!
+      }
+      chooseRealm(name, servers, origin, (_scan, realm) => {
+        const r = resultOf(realm)
         return {
           rows: r.rows, source: `Auctioneer (${realm})`,
           detail: `${plural(r.listings, 'listing')} from the last scan` + (r.noBuyout ? `, ${plural(r.noBuyout, 'bid-only listing')} left out` : ''),
         }
       })
+      // Every realm's scan in the file goes to the price history, whichever realm's prices are used.
+      const now = new Date()
+      onScan([...servers].map(([key, scan]) => ({ ...scanSummary(key, scan.scanTime, resultOf(key), now), raw })))
       return
     }
     chooseRealm(name, priceDatabaseRealms(auctionatorBytes(name, raw)), origin, (data, realm) => {

@@ -53,12 +53,13 @@ export async function importEditsFile(store: Store, file: File, onMessage: (m: s
   }
 }
 
-export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link }: {
+export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link, history }: {
   store: Store
   onMessage: (m: string) => void
   onImportPrices: (f: File) => void
   onPastePrices: () => void
   link: { supported: boolean; file: string | null; onLink: () => void; onUnlink: () => void }
+  history: { supported: boolean; folder: string | null; onChoose: () => void; onStop: () => void }
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -97,6 +98,11 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
             </button>
             {link.file && <button role="menuitem" onClick={act(link.onUnlink)}>Unlink {link.file}</button>}
             {!link.supported && <p className="menu-note">Linking a file needs Chrome or Edge.</p>}
+            <button role="menuitem" disabled={!history.supported} onClick={act(history.onChoose)}
+              title="Every Auctioneer scan you import is saved in this folder: the whole scan, zipped, and a per-item summary">
+              {history.folder ? 'Change price history folder…' : 'Keep price history in a folder…'}
+            </button>
+            {history.folder && <button role="menuitem" onClick={act(history.onStop)}>Stop keeping price history</button>}
             <hr />
             <button role="menuitem" onClick={act(() => fileInput.current?.click())}>Import edits file…</button>
             <button role="menuitem" onClick={act(store.exportFile)}>Export edits (backup)</button>
