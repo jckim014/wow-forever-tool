@@ -60,7 +60,7 @@ app/                            the web app (to be built: Vite + React + TypeScr
   of one), recognised by content; Settings labels the three columns for the source of the current prices.
   Local addon patch (2026-11-06, outside the repo): the Forever build of Auctioneer gave up on its GetAll scan after
   30 s (`Auc-Advanced/CoreScan.lua` line 470, `retailScanTimeout`) while the server took longer (confirmed: 110,860
-  replicate items arrived after the timeout). Raised to 120; original kept as `CoreScan.lua.orig`. An addon update
+  replicate items arrived after the timeout). Raised to 120. Second patch (same evening): the scan frame registered for REPLICATE_ITEM_LIST_UPDATE only when created and unregistered after the first reply, so every scan after the first in a session (login or /reload) timed out at 0; it now registers on every scan, and at the 120 s timeout, if auctions are still arriving it keeps waiting in 15 s steps (up to 10 min) and processes them only once the count stops growing (a 16:54 scan was saved with 51,159 of ~130,000 when it processed at 120 s); "server sent 0 auctions" if none came. Original kept as `CoreScan.lua.orig`. An addon update
   undoes it: if scans "time out at 0 auctions" again, check that line first.
   **Price history** (Josh, 2026-11-06; storage only, prices still come from the latest import): File > Keep price
   history in a folder (Chrome/Edge directory handle in IndexedDB, `app/src/history/`). Every imported Auctioneer scan
@@ -249,7 +249,7 @@ save file `data/private/shuffle-edits.json`, history folder `data/private/price-
 and ~03:55 on 2026-11-06), linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`.
 At the end of the session his save file still had import column 1 (stored from before the default changed to 3) and
 Mining chains off; he was told to pick column 3 and check Mining. If prices look like lowest buyouts, check this first.
-- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait up to 2 min, `/reload`, then
+- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min; "still arriving" lines are the patched wait), `/reload`, then
   open the app (or Refresh now). At most one full-scan request per 15 minutes: any request counts (failed ones, and
   Auctionator/TSM scans), and a request inside the window gets no data and waits until it times out. `/reload`
   clears Auctioneer's own 15-minute guard, so after a reload it will happily send a request the server ignores.
