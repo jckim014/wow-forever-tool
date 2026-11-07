@@ -249,7 +249,7 @@ save file `data/private/shuffle-edits.json`, history folder `data/private/price-
 and ~03:55 on 2026-11-06), linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`.
 At the end of the session his save file still had import column 1 (stored from before the default changed to 3) and
 Mining chains off; he was told to pick column 3 and check Mining. If prices look like lowest buyouts, check this first.
-- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min; "still arriving" lines are the patched wait), `/reload`, then
+- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min, but the server sent the data in 25-40 s; the rest was Auctioneer storing it, `scanStoreTime` 196-231 s vs 5.5 s at 10:17, likely WoW in the background; "still arriving" lines are the patched wait), `/reload`, then
   open the app (or Refresh now). At most one full-scan request per 15 minutes: any request counts (failed ones, and
   Auctionator/TSM scans), and a request inside the window gets no data and waits until it times out. `/reload`
   clears Auctioneer's own 15-minute guard, so after a reload it will happily send a request the server ignores.
