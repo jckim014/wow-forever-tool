@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportRow } from './model'
 import { auctionatorBytes, HISTORY_DAYS, priceDatabaseRealms, pricesFromRealm } from './prices/auctionator'
+import { bavvbScanBytes, isBavvbScan, readBavvbScan } from './prices/bavvbscan'
 import { auctioneerBytes, isAuctioneerScan, pricesFromScan, scanServers, type AuctioneerResult } from './prices/auctioneer'
 import { scanSummary } from './history/archive'
 import type { PendingScan } from './history/folder'
@@ -23,8 +24,8 @@ type RealmChoice = { file: string; realms: string[]; pick: (realm: string) => vo
 const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 /**
- * Auctioneer / Auctionator SavedVariables and price CSV imports: they replace the imported prices and leave every
- * other edit alone. Also the linked file (Auc-ScanData.lua or Auctionator.lua): checked when the app opens (imported if WoW has written it since) and on Refresh now.
+ * BavvbScan / Auctioneer / Auctionator SavedVariables and price CSV imports: they replace the imported prices and leave every
+ * other edit alone. Also the linked file (BavvbScan.lua, Auc-ScanData.lua or Auctionator.lua): checked when the app opens (imported if WoW has written it since) and on Refresh now.
  */
 export function usePriceImport(store: Store, onMessage: (m: string) => void, onScan: (scans: PendingScan[]) => void) {
   const [realmChoice, setRealmChoice] = useState<RealmChoice | null>(null)
@@ -80,15 +81,28 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
     else setRealmChoice({ file, realms: [...realms.keys()], pick: go, remembered: !!origin })
   }
 
-  /** Auctionator.lua, Auc-ScanData.lua, or a .zip of either: recognised by what is inside. */
+  /** BavvbScan.lua, Auc-ScanData.lua, Auctionator.lua, or a .zip of one: recognised by what is inside. */
   function importSavedVariables(name: string, bytes: Uint8Array, origin: Origin) {
     const zipped = bytes[0] === 0x50 && bytes[1] === 0x4b
     const raw = zipped
       ? (() => {
+        try { return bavvbScanBytes(name, bytes) } catch { /* not a BavvbScan zip */ }
         try { return auctioneerBytes(name, bytes) } catch { /* not an Auctioneer zip */ }
-        try { return auctionatorBytes(name, bytes) } catch { throw new Error(`No Auc-ScanData.lua or Auctionator.lua inside ${name}.`) }
+        try { return auctionatorBytes(name, bytes) } catch { throw new Error(`No BavvbScan.lua, Auc-ScanData.lua or Auctionator.lua inside ${name}.`) }
       })()
       : bytes
+    if (isBavvbScan(raw)) {
+      const s = readBavvbScan(raw)
+      const r = s.result
+      chooseRealm(name, new Map([[s.server, s]]), origin, () => ({
+        rows: r.rows, source: `BavvbScan (${s.server})`,
+        detail: `${plural(r.listings, 'auction')} from the scan of ${when(s.scanTime * 1000)}`
+          + (r.noBuyout ? `, ${plural(r.noBuyout, 'bid-only listing')} left out` : '')
+          + (s.skipped ? `, ${plural(s.skipped, 'unreadable listing')} skipped by the addon` : ''),
+      }))
+      onScan([{ ...scanSummary(s.server, s.scanTime, r, new Date(), 'BavvbScan'), raw, rawName: 'BavvbScan.lua' }])
+      return
+    }
     if (isAuctioneerScan(raw)) {
       const servers = scanServers(raw)
       const results = new Map<string, AuctioneerResult>()
@@ -105,7 +119,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
       })
       // Every realm's scan in the file goes to the price history, whichever realm's prices are used.
       const now = new Date()
-      onScan([...servers].map(([key, scan]) => ({ ...scanSummary(key, scan.scanTime, resultOf(key), now), raw })))
+      onScan([...servers].map(([key, scan]) => ({ ...scanSummary(key, scan.scanTime, resultOf(key), now, 'Auctioneer'), raw, rawName: 'Auc-ScanData.lua' })))
       return
     }
     chooseRealm(name, priceDatabaseRealms(auctionatorBytes(name, raw)), origin, (data, realm) => {
@@ -192,7 +206,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
         return
       }
       if (!isSavedVariables(file.name)) {
-        onMessage(`${file.name}: expected Auc-ScanData.lua or Auctionator.lua (or a .zip of one), or a .csv of prices.`)
+        onMessage(`${file.name}: expected BavvbScan.lua, Auc-ScanData.lua or Auctionator.lua (or a .zip of one), or a .csv of prices.`)
         return
       }
       importSavedVariables(file.name, new Uint8Array(await file.arrayBuffer()), null)

@@ -22,7 +22,7 @@ const COUNT = 10, BUYOUT = 16, ITEMID = 22 // 0-based
 const utf8 = new TextDecoder('utf-8')
 const enc = new TextEncoder()
 
-function indexOf(b: Uint8Array, pat: string, from = 0): number {
+export function indexOf(b: Uint8Array, pat: string, from = 0): number {
   const p = enc.encode(pat)
   outer: for (let i = from; i <= b.length - p.length; i++) {
     for (let j = 0; j < p.length; j++) if (b[i + j] !== p[j]) continue outer
@@ -43,10 +43,10 @@ export function auctioneerBytes(fileName: string, data: Uint8Array): Uint8Array 
 }
 
 // ---------- a small reader for Lua table literals (as WoW writes SavedVariables) ----------
-type Lua = string | number | boolean | null | LuaTable
-interface LuaTable { list: Lua[]; map: Map<string | number, Lua> }
+export type Lua = string | number | boolean | null | LuaTable
+export interface LuaTable { list: Lua[]; map: Map<string | number, Lua> }
 
-class Reader {
+export class Reader {
   i = 0
   constructor(readonly b: Uint8Array, readonly asText: boolean) {}
 
@@ -137,7 +137,7 @@ class Reader {
   }
 }
 
-const field = (t: Lua | undefined, key: string | number): Lua | undefined =>
+export const field = (t: Lua | undefined, key: string | number): Lua | undefined =>
   t && typeof t === 'object' ? t.map.get(key) : undefined
 
 export interface ServerScan {
@@ -193,7 +193,7 @@ export interface AuctioneerResult {
 
 /** Per-unit prices of one server key's listings. */
 export function pricesFromScan(ropes: Uint8Array[]): AuctioneerResult {
-  const byItem = new Map<number, [number, number][]>() // [unit price, units]
+  const byItem: UnitsByItem = new Map()
   let listings = 0, noBuyout = 0
   for (const rope of ropes) {
     const r = new Reader(rope, false)
@@ -207,11 +207,23 @@ export function pricesFromScan(ropes: Uint8Array[]): AuctioneerResult {
       const count = a[COUNT], buyout = a[BUYOUT], item = a[ITEMID]
       if (typeof item !== 'number' || typeof count !== 'number' || count <= 0) continue
       if (typeof buyout !== 'number' || buyout <= 0) { noBuyout++; continue }
-      let xs = byItem.get(item)
-      if (!xs) byItem.set(item, (xs = []))
-      xs.push([buyout / count, count])
+      addListing(byItem, item, count, buyout)
     }
   }
+  return pricesFromUnits(byItem, listings, noBuyout)
+}
+
+/** Per item ID: [unit price, units] of each listing with a buyout. */
+export type UnitsByItem = Map<number, [number, number][]>
+
+export function addListing(byItem: UnitsByItem, item: number, count: number, stackBuyout: number) {
+  let xs = byItem.get(item)
+  if (!xs) byItem.set(item, (xs = []))
+  xs.push([stackBuyout / count, count])
+}
+
+/** p1 / p2 / p3 per item (see the top of this file), from listings gathered with addListing. Used by every scan reader. */
+export function pricesFromUnits(byItem: UnitsByItem, listings: number, noBuyout: number): AuctioneerResult {
   const items: ItemStat[] = []
   for (const [item, xs] of byItem) {
     xs.sort((p, q) => p[0] - q[0])

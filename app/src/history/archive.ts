@@ -1,9 +1,10 @@
-// Price history: what is kept for each Auctioneer scan (pure; writing the files is in folder.ts).
+// Price history: what is kept for each full scan (BavvbScan or Auctioneer) (pure; writing the files is in folder.ts).
 //
 // Per scan (one server key = realm_faction), two files in the history folder, named by when Auctioneer finished the
 // scan (local time) and the server key:
-//   2026-11-06_0025_CAMWOWUS1Realm3PvE_Alliance.zip   the whole Auc-ScanData.lua, zipped (every listing)
+//   2026-11-06_0025_CAMWOWUS1Realm3PvE_Alliance.zip   the whole BavvbScan.lua / Auc-ScanData.lua, zipped (every listing)
 //   2026-11-06_0025_CAMWOWUS1Realm3PvE_Alliance.json  the per-item summary below
+// The summary format keeps its first name ("auctioneer-scan-summary") for every source; `source` says which addon.
 // The .json is written last, so its presence means the scan is fully stored; a scan already stored is skipped.
 import type { AuctioneerResult } from '../prices/auctioneer'
 
@@ -12,6 +13,8 @@ export const SUMMARY_COLUMNS = ['lowest', 'median', 'cheapest15', 'units', 'list
 export interface ScanSummary {
   format: 'auctioneer-scan-summary'
   version: 1
+  /** The addon that made the scan ("BavvbScan" or "Auctioneer"); missing in summaries written before 2026-11-10 (Auctioneer). */
+  source: string
   server: string
   /** When Auctioneer finished the scan (ISO, UTC), and the same as Unix seconds. */
   scanTime: string
@@ -19,7 +22,7 @@ export interface ScanSummary {
   /** Whether scanTime came from the file (false: the file had no scan time, so the import time was used). */
   scanTimeFromFile: boolean
   importedAt: string
-  /** The zip next to this file, holding the whole Auc-ScanData.lua. */
+  /** The zip next to this file, holding the whole SavedVariables file. */
   rawFile: string
   listings: number
   bidOnly: number
@@ -38,7 +41,7 @@ export function scanBaseName(server: string, scanTimeUnix: number): string {
   return `${stamp}_${server.replace(/[<>:"/\\|?*\s]+/g, '_')}`
 }
 
-export function scanSummary(server: string, scanTimeUnix: number | null, r: AuctioneerResult, now: Date): { base: string; summary: ScanSummary } {
+export function scanSummary(server: string, scanTimeUnix: number | null, r: AuctioneerResult, now: Date, source: string): { base: string; summary: ScanSummary } {
   const t = scanTimeUnix ?? Math.floor(now.getTime() / 1000)
   const base = scanBaseName(server, t)
   const items: ScanSummary['items'] = {}
@@ -46,7 +49,7 @@ export function scanSummary(server: string, scanTimeUnix: number | null, r: Auct
   return {
     base,
     summary: {
-      format: 'auctioneer-scan-summary', version: 1, server,
+      format: 'auctioneer-scan-summary', version: 1, source, server,
       scanTime: new Date(t * 1000).toISOString(), scanTimeUnix: t, scanTimeFromFile: scanTimeUnix !== null,
       importedAt: now.toISOString(), rawFile: `${base}.zip`,
       listings: r.listings, bidOnly: r.noBuyout, columns: SUMMARY_COLUMNS, items,

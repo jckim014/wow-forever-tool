@@ -30,6 +30,7 @@ tools/export_workbook_edits.py  one-time: workbook edits -> data/private/edits-v
 tools/export_parity.py          calculated workbook -> data/private/parity-v2.5.json (test reference)
 tools/auctionator_to_imports.py reference implementation of the Auctionator reader, to port to TypeScript
 tools/build_forever_shuffle_sheet.py  the spreadsheet builder (v2.5), kept until the app reaches parity
+addon/BavvbScan/                Josh's own WoW addon: /bscan full AH scan -> SavedVariables\BavvbScan.lua (the price source)
 data/config/de-table.json       default disenchant table (Classic item-level bands), with material item IDs
 data/config/defaults.json       default settings and the cooldown-craft rule
 data/private/                   git-ignored: pages/, workbooks, edits-v2.5.json, parity-v2.5.json
@@ -49,7 +50,26 @@ app/                            the web app (to be built: Vite + React + TypeScr
 - **Economics run in the browser** in one pure TypeScript module (`app/src/model/`): inputs are game data, config
   and the user's edits; output is one row per recipe plus the intermediates. No UI code in the model. It should
   recalculate everything in well under a second on edit.
-- **Prices (Auctioneer, the main source since 2026-11-06)**: Auctioneer's `Auc-ScanData.lua` holds every listing of
+- **Prices (BavvbScan, the main source since 2026-11-10)**: Josh's own addon (`addon/BavvbScan/`, copied into
+  `F:\World of Warcraft\_forever_\Interface\AddOns\`), built after an Auctioneer update (4.0.3, 2026-11-10) stopped
+  it loading and Josh dropped Auctioneer. At the AH, `/bscan` sends one full-scan request (`C_AuctionHouse.ReplicateItems`),
+  counts the server as answered on REPLICATE_ITEM_LIST_UPDATE or when the replicate count changes from its size at the
+  request, then waits until the count has stopped growing for 15 s (60 s while under 80% of the previous scan's count:
+  on this server auctions arrive in waves and the event can fire on the first); the waiting line shows the live count, reads every listing (GetReplicateItemInfo:
+  count 3, stack buyout 10, item ID 17; listings whose data isn't loaded are retried 5 times, then counted as skipped)
+  and saves `BavvbScanDB.scan = { format "bavvbscan", version 1, realm, faction, time, auctions, listings, bidOnly,
+  skipped, items = { [id] = "count:buyout,..." } }`. Only complete scans are saved (Josh: no partial scans; AH closed
+  or server silent for 5 min (Josh's choice; scans arrive in ~2 min) = an error and the previous scan stays). `lastRequest` in the saved file enforces the
+  15-minute limit across /reload. `/bscan status` shows the last scan and the next allowed time; `/bavvbscan` is an
+  alias. ~130k auctions = ~1.2 MB file (0.43 MB zipped). The app reads it with `app/src/prices/bavvbscan.ts` and the
+  same p1/p2/p3 as Auctioneer (`pricesFromUnits` in `auctioneer.ts`); recognised by content, works with Import, Link
+  and price history (summary `source: "BavvbScan"`). Tested against a simulated AH (fengari, scripts outside the
+  repo), then for real 2026-11-10 14:55: 182,071 auctions, 4,870 items, 0 skipped, data in ~2 min, file 1.26 MB,
+  server key "CAMWOW US1 Realm 3 PvE_Alliance". The first /bscan that day got no answer at all (replicate count stayed
+  0 for 10 min; nothing else had requested a scan: Auctionator autoscan and full scan are off, TSM's full scan is
+  Mists-only); the next one 15 min later worked. If it happens again, the control is Auctionator's Full Scan button
+  (the same request).
+- **Prices (Auctioneer, the main source 2026-11-06 to 11-10, now uninstalled; the reader stays)**: Auctioneer's `Auc-ScanData.lua` holds every listing of
   the last full scan per realm/faction (`app/src/prices/auctioneer.ts`; listing fields from Auc-Advanced
   `CoreConst.lua`: COUNT 11, BUYOUT 17 = whole stack, ITEMID 23). Per item ID, over listings with a buyout, per unit:
   p1 = lowest buyout, p2 = median weighted by units, p3 = average of the cheapest 15% of units (at least one unit).
@@ -243,13 +263,18 @@ commit; push only when he says.
 live (2e081d8).
 2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
 
+2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
+and BavvbScan replaced it (see Prices). Next for Josh: link BavvbScan.lua in the app (File > Link a different price
+file), check the import line, history and Linen Cloth (29c in column 3).
+
 Where we left off (2026-11-06): Auctioneer is the price source (122f61b) and every imported scan is kept in the price
 history (4768e3a); both live. Josh walked through the File menu on the live site and confirmed everything works:
 save file `data/private/shuffle-edits.json`, history folder `data/private/price-history/` (scans 00:25, 01:03, 02:27
 and ~03:55 on 2026-11-06), linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`.
 At the end of the session his save file still had import column 1 (stored from before the default changed to 3) and
 Mining chains off; he was told to pick column 3 and check Mining. If prices look like lowest buyouts, check this first.
-- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min, but the server sent the data in 25-40 s; the rest was Auctioneer storing it, `scanStoreTime` 196-231 s vs 5.5 s at 10:17, likely WoW in the background; "still arriving" lines are the patched wait), `/reload`, then
+- Scan routine (Auctioneer, historical; now: open the AH, `/bscan`, wait for "Scan saved", `/reload`, Refresh now):
+  open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min, but the server sent the data in 25-40 s; the rest was Auctioneer storing it, `scanStoreTime` 196-231 s vs 5.5 s at 10:17, likely WoW in the background; "still arriving" lines are the patched wait), `/reload`, then
   open the app (or Refresh now). At most one full-scan request per 15 minutes: any request counts (failed ones, and
   Auctionator/TSM scans), and a request inside the window gets no data and waits until it times out. `/reload`
   clears Auctioneer's own 15-minute guard, so after a reload it will happily send a request the server ignores.

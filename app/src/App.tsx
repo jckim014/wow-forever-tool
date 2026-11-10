@@ -141,12 +141,12 @@ export function App() {
         </>)}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
         {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && (
-          <span className="note">No prices yet: drop Auc-ScanData.lua (Auctioneer) or Auctionator.lua on the page, or use the File menu (Link price file to skip this next time).</span>
+          <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
         )}
         {(edits.importsInfo || prices.linked || history.folder) && (
           <span className="note prices-info">
             {edits.importsInfo && (
-              <span title={prices.linked ? undefined : 'Drop a new Auc-ScanData.lua or Auctionator.lua on the page to refresh'}>
+              <span title={prices.linked ? undefined : 'Drop a new BavvbScan.lua on the page to refresh'}>
                 Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
                 {plural(edits.importsInfo.count, 'item')}
               </span>
@@ -159,7 +159,7 @@ export function App() {
               </span>
             )}
             {history.folder && (
-              <span className="phist" title="Every Auctioneer scan you import is saved here: the whole scan, zipped, and a per-item summary">
+              <span className="phist" title="Every scan you import is saved here: the whole scan, zipped, and a per-item summary">
                 History: {history.folder}{history.countText && `, ${history.countText}`}
                 {history.needsPermission && (<>
                   {' '}<button className="button" onClick={history.approve}>

@@ -59,8 +59,9 @@ async function writeFile(h: DirHandle, name: string, data: string | Uint8Array) 
 export interface PendingScan {
   base: string
   summary: ScanSummary
-  /** The whole Auc-ScanData.lua. */
+  /** The whole SavedVariables file (BavvbScan.lua or Auc-ScanData.lua), and its name inside the zip. */
   raw: Uint8Array
+  rawName: string
 }
 
 /** Writes the scans not stored yet (zip first, then the summary). Returns the base names written. */
@@ -71,7 +72,7 @@ export async function writeScans(h: DirHandle, scans: PendingScan[]): Promise<st
   for (const s of scans) {
     if (have.has(s.base)) continue
     let data = zips.get(s.raw)
-    if (!data) zips.set(s.raw, (data = await zipAsync({ 'Auc-ScanData.lua': s.raw })))
+    if (!data) zips.set(s.raw, (data = await zipAsync({ [s.rawName]: s.raw })))
     await writeFile(h, `${s.base}.zip`, data)
     await writeFile(h, `${s.base}.json`, summaryText(s.summary))
     written.push(s.base)

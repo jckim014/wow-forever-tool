@@ -93,13 +93,13 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
             <button role="menuitem" onClick={act(() => priceInput.current?.click())}>Import price file…</button>
             <button role="menuitem" onClick={act(onPastePrices)}>Paste prices…</button>
             <button role="menuitem" disabled={!link.supported} onClick={act(link.onLink)}
-              title="Pick Auc-ScanData.lua (Auctioneer) or Auctionator.lua once; the app re-reads it when it opens and on Refresh now">
+              title="Pick BavvbScan.lua (or Auc-ScanData.lua / Auctionator.lua) once; the app re-reads it when it opens and on Refresh now">
               {link.file ? 'Link a different price file…' : 'Link price file…'}
             </button>
             {link.file && <button role="menuitem" onClick={act(link.onUnlink)}>Unlink {link.file}</button>}
             {!link.supported && <p className="menu-note">Linking a file needs Chrome or Edge.</p>}
             <button role="menuitem" disabled={!history.supported} onClick={act(history.onChoose)}
-              title="Every Auctioneer scan you import is saved in this folder: the whole scan, zipped, and a per-item summary">
+              title="Every scan you import is saved in this folder: the whole scan, zipped, and a per-item summary">
               {history.folder ? 'Change price history folder…' : 'Keep price history in a folder…'}
             </button>
             {history.folder && <button role="menuitem" onClick={act(history.onStop)}>Stop keeping price history</button>}

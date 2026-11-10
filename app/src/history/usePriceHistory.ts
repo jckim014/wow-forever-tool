@@ -4,7 +4,7 @@ import { canWrite, folderSupported, forgetFolder, loadFolder, pickFolder, saveFo
 const scans = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'scan' : 'scans'}`
 
 /**
- * Keeps every Auctioneer scan that is imported (dropped, picked or the linked file) in the price history folder.
+ * Keeps every full scan (BavvbScan or Auctioneer) that is imported (dropped, picked or the linked file) in the price history folder.
  * Scans imported while the folder can't be written (none chosen yet, or Chrome needs an OK) wait in memory for this
  * visit and are written once it can.
  */
@@ -72,7 +72,7 @@ export function usePriceHistory(onMessage: (m: string) => void) {
     }
     setFolder(h)
     await saveFolder(h)
-    if (!pending.current.length) onMessage(`Price history folder: ${h.name}. Each Auctioneer scan you import from now on is saved there.`)
+    if (!pending.current.length) onMessage(`Price history folder: ${h.name}. Each scan you import from now on is saved there.`)
     await flush(h, true)
   }
 

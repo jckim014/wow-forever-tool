@@ -6,6 +6,7 @@ import { resetAllSettings, setChains, setSetting, toPercent, type ScalarKey } fr
 
 /** What the three imported columns mean, by the addon the current prices came from (importsInfo.source). */
 const COLUMN_LABELS: { prefix: string; labels: [string, string, string] }[] = [
+  { prefix: 'BavvbScan', labels: ['Lowest buyout per unit', 'Median per unit (by units listed)', 'Average of the cheapest 15% of units'] },
   { prefix: 'Auctioneer', labels: ['Lowest buyout per unit', 'Median per unit (by units listed)', 'Average of the cheapest 15% of units'] },
   { prefix: 'Auctionator', labels: ['Latest lowest buyout', 'Median of the last 7 daily lows', 'Lowest of the last 7 daily lows'] },
 ]

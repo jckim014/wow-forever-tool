@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: BavvbScan
+## Notes: One full auction house scan on request (/bscan), every listing with a buyout saved for the shuffle app.
+## Author: Bavvb
+## Version: 1.0
+## SavedVariables: BavvbScanDB
+
+BavvbScan.lua

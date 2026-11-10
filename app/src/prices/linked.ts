@@ -1,4 +1,4 @@
-// A linked price file (Auctioneer's Auc-ScanData.lua or Auctionator.lua): the file handle is kept in IndexedDB (per browser) so the app can re-read the same file
+// A linked price file (BavvbScan.lua, Auctioneer's Auc-ScanData.lua or Auctionator.lua): the file handle is kept in IndexedDB (per browser) so the app can re-read the same file
 // on the next visit without the user finding it again. The browser may ask once per visit to allow reading it.
 import { idbDelete, idbGet, idbSet } from '../storage/idb'
 
@@ -39,7 +39,7 @@ export async function pickAuctionator(): Promise<ReadHandle> {
   const w = window as unknown as { showOpenFilePicker(opts: object): Promise<ReadHandle[]> }
   const [h] = await w.showOpenFilePicker({
     id: 'auctionator', multiple: false,
-    types: [{ description: 'Auctioneer or Auctionator SavedVariables', accept: { 'application/octet-stream': ['.lua', '.zip'] } }],
+    types: [{ description: 'BavvbScan, Auctioneer or Auctionator SavedVariables', accept: { 'application/octet-stream': ['.lua', '.zip'] } }],
   })
   return h
 }

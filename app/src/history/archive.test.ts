@@ -43,7 +43,7 @@ describe('price history archive', () => {
   })
 
   it('summarises a scan per item, readable JSON with one item per line', () => {
-    const { base, summary } = scanSummary('R_Alliance', T, result, now)
+    const { base, summary } = scanSummary('R_Alliance', T, result, now, 'Auctioneer')
     expect(base).toBe('2026-11-06_0025_R_Alliance')
     expect(summary).toMatchObject({
       server: 'R_Alliance', scanTimeUnix: T, scanTimeFromFile: true, rawFile: `${base}.zip`, listings: 700, bidOnly: 7,
@@ -55,7 +55,7 @@ describe('price history archive', () => {
   })
 
   it('uses the import time when the file has no scan time', () => {
-    const { summary } = scanSummary('R', null, result, now)
+    const { summary } = scanSummary('R', null, result, now, 'Auctioneer')
     expect(summary.scanTimeFromFile).toBe(false)
     expect(summary.scanTimeUnix).toBe(Math.floor(now.getTime() / 1000))
   })
@@ -63,7 +63,7 @@ describe('price history archive', () => {
   it('writes the zipped scan and the summary once, and skips a scan already stored', async () => {
     const { h, files } = memoryFolder()
     const raw = new TextEncoder().encode('AucScanData = {}')
-    const scan = { ...scanSummary('R_Alliance', T, result, now), raw }
+    const scan = { ...scanSummary('R_Alliance', T, result, now, 'Auctioneer'), raw, rawName: 'Auc-ScanData.lua' }
     expect(await writeScans(h, [scan])).toEqual(['2026-11-06_0025_R_Alliance'])
     expect([...files.keys()]).toEqual(['2026-11-06_0025_R_Alliance.zip', '2026-11-06_0025_R_Alliance.json'])
     const unzipped = unzipSync(files.get('2026-11-06_0025_R_Alliance.zip') as Uint8Array)
