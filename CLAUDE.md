@@ -61,13 +61,14 @@ app/                            the web app (to be built: Vite + React + TypeScr
   skipped, items = { [id] = "count:buyout,..." } }`. Only complete scans are saved (Josh: no partial scans; AH closed
   or server silent for 5 min (Josh's choice; scans arrive in ~2 min) = an error and the previous scan stays). `lastRequest` in the saved file enforces the
   15-minute limit across /reload. `/bscan status` shows the last scan and the next allowed time; `/bavvbscan` is an
-  alias. ~130k auctions = ~1.2 MB file (0.43 MB zipped). The app reads it with `app/src/prices/bavvbscan.ts` and the
+  alias. 182k auctions = 1.26 MB file (0.23 MB zipped in history). The app reads it with `app/src/prices/bavvbscan.ts` and the
   same p1/p2/p3 as Auctioneer (`pricesFromUnits` in `auctioneer.ts`); recognised by content, works with Import, Link
   and price history (summary `source: "BavvbScan"`). Tested against a simulated AH (fengari, scripts outside the
   repo), then for real 2026-11-10 14:55: 182,071 auctions, 4,870 items, 0 skipped, data in ~2 min, file 1.26 MB,
   server key "CAMWOW US1 Realm 3 PvE_Alliance". The first /bscan that day got no answer at all (replicate count stayed
   0 for 10 min; nothing else had requested a scan: Auctionator autoscan and full scan are off, TSM's full scan is
-  Mists-only); the next one 15 min later worked. If it happens again, the control is Auctionator's Full Scan button
+  Mists-only); the next one 15 min later worked. Likely cause, not proven: the price history shows Auctioneer completed
+  a full scan at 14:10 that day (after the TOC fix, before Josh removed it), possibly < 15 min before that /bscan. If it happens again, the control is Auctionator's Full Scan button
   (the same request).
 - **Prices (Auctioneer, the main source 2026-11-06 to 11-10, now uninstalled; the reader stays)**: Auctioneer's `Auc-ScanData.lua` holds every listing of
   the last full scan per realm/faction (`app/src/prices/auctioneer.ts`; listing fields from Auc-Advanced
@@ -264,8 +265,19 @@ live (2e081d8).
 2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
-and BavvbScan replaced it (see Prices). Next for Josh: link BavvbScan.lua in the app (File > Link a different price
-file), check the import line, history and Linen Cloth (29c in column 3).
+and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). Josh confirmed it works end to end: linked file is now
+`F:\World of Warcraft\_forever_\WTF\AccountJ0039#2\SavedVariables\BavvbScan.lua`, history saved the 14:55 scan.
+- Scan routine now: open the AH, `/bscan`, wait for the green "Scan saved", `/reload`, Refresh now in the app.
+  Refresh is always safe (unchanged file = no-op; WoW rewrites the file on every /reload, which re-imports the same
+  scan and history skips it). If the toolbar shows "Allow saving", Chrome needs the history folder's OK again.
+- `.gitignore` ignores `*.lua` (SavedVariables copies) with an exception `!addon/**/*.lua`; the addon's .lua was
+  missed by the first commit because of it. The copy in the AddOns folder must be refreshed by hand after an addon
+  change (Claude copied it during the session).
+- History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
+  realm name `CAMWOW US1 Realm 3 PvE` (-> `CAMWOW_US1_Realm_3_PvE_Alliance`). Same realm; a future per-item price
+  history view must treat them as one series. Not changed.
+- Auctioneer is gone from AddOns; its reader stays (old scans in history, `auctioneer.test.ts`). The Auctioneer scan
+  routine and patch notes below are historical.
 
 Where we left off (2026-11-06): Auctioneer is the price source (122f61b) and every imported scan is kept in the price
 history (4768e3a); both live. Josh walked through the File menu on the live site and confirmed everything works:
