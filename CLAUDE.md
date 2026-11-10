@@ -265,35 +265,30 @@ live (2e081d8).
 2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
-and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). Josh confirmed it works end to end: linked file is now
-`F:\World of Warcraft\_forever_\WTF\AccountJ0039#2\SavedVariables\BavvbScan.lua`, history saved the 14:55 scan.
-- Scan routine now: open the AH, `/bscan`, wait for the green "Scan saved", `/reload`, Refresh now in the app.
-  Refresh is always safe (unchanged file = no-op; WoW rewrites the file on every /reload, which re-imports the same
-  scan and history skips it). If the toolbar shows "Allow saving", Chrome needs the history folder's OK again.
-- `.gitignore` ignores `*.lua` (SavedVariables copies) with an exception `!addon/**/*.lua`; the addon's .lua was
-  missed by the first commit because of it. The copy in the AddOns folder must be refreshed by hand after an addon
-  change (Claude copied it during the session).
+and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
+
+Where we left off (2026-11-10): BavvbScan is the price source and Josh confirmed it end to end on the live site.
+- Josh's setup (Chrome, live site): save file `data/private/shuffle-edits.json`; history folder
+  `data/private/price-history/` (Auctioneer scans 2026-11-06 00:25 to 18:27 and 11-10 14:10, BavvbScan 11-10 14:55);
+  linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\BavvbScan.lua`.
+- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/bscan`, wait for the green "Scan saved" (~2 min),
+  `/reload`, then Refresh now in the app. Refresh is always safe (unchanged file = no-op; WoW rewrites the file on
+  every /reload, which re-imports the same scan and history skips it). "Allow saving" in the toolbar = Chrome wants
+  the history folder's OK again. At most one full-scan request per 15 minutes, from any addon, failed ones included;
+  a request inside the window gets no answer. Diagnose with `/run print(C_AuctionHouse.GetNumReplicateItems())`
+  (0 = the server sent nothing; Josh's `/dump` attempt gave a parse error, `/run print(...)` worked).
+- Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
+  any change to `addon/BavvbScan/` (then restart WoW). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
+  exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios) lived in the
+  session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
   realm name `CAMWOW US1 Realm 3 PvE` (-> `CAMWOW_US1_Realm_3_PvE_Alliance`). Same realm; a future per-item price
   history view must treat them as one series. Not changed.
-- Auctioneer is gone from AddOns; its reader stays (old scans in history, `auctioneer.test.ts`). The Auctioneer scan
-  routine and patch notes below are historical.
-
-Where we left off (2026-11-06): Auctioneer is the price source (122f61b) and every imported scan is kept in the price
-history (4768e3a); both live. Josh walked through the File menu on the live site and confirmed everything works:
-save file `data/private/shuffle-edits.json`, history folder `data/private/price-history/` (scans 00:25, 01:03, 02:27
-and ~03:55 on 2026-11-06), linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`.
-At the end of the session his save file still had import column 1 (stored from before the default changed to 3) and
-Mining chains off; he was told to pick column 3 and check Mining. If prices look like lowest buyouts, check this first.
-- Scan routine (Auctioneer, historical; now: open the AH, `/bscan`, wait for "Scan saved", `/reload`, Refresh now):
-  open the AH, `/auc getall`, wait for the finished message (evening of 2026-11-06 scans took ~4 min, but the server sent the data in 25-40 s; the rest was Auctioneer storing it, `scanStoreTime` 196-231 s vs 5.5 s at 10:17, likely WoW in the background; "still arriving" lines are the patched wait), `/reload`, then
-  open the app (or Refresh now). At most one full-scan request per 15 minutes: any request counts (failed ones, and
-  Auctionator/TSM scans), and a request inside the window gets no data and waits until it times out. `/reload`
-  clears Auctioneer's own 15-minute guard, so after a reload it will happily send a request the server ignores.
-  Diagnose a failed scan with `/dump C_AuctionHouse.GetNumReplicateItems()` (about 110,000 = data arrived late;
-  0 = server sent nothing). Auctioneer's recorded attempts are in Auc-ScanData.lua `scanstats` (startTime, elapsed,
-  wasIncomplete), written only on /reload or logout. Auctioneer's tooltip errors in `!Swatter.lua`
-  (LibExtraTip_ calling GetTradeSkillNumMade / GetMerchantItemInfo) are harmless noise from the Forever client.
+- Settings caveat from 2026-11-06: Josh's save file had import column 1 (stored before the default became 3) and
+  Mining chains off; he was asked to pick column 3 and check Mining. If prices look like lowest buyouts, check this.
+- Josh wants exact recent-scan prices, robust beyond the minimum: column 3 (average of the cheapest 15%). On his first
+  scan, TSM's per-scan method was within a few % of it, so not worth switching. Offered, not taken: show units listed
+  next to a price as a thin-market marker (27 of 490 app items on the AH had 1-3 units).
 - TSM (explored 2026-11-06, parked for the long term; Josh: "this will work well in the long term"): the TSM
   desktop app writes `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`
   about hourly. Blocks `LoadData("<kind>","<realm>",[[return {downloadTime=..., fields={...}, data={{id,v,...}}}]])`,
@@ -303,13 +298,12 @@ Mining chains off; he was told to pick column 3 and check Mining. If prices look
   REGION_SALE (regionSale, regionSoldPerDay, regionSalePercent: the last two look scaled, probably x1000; check
   against a TSM tooltip before use). A trial CSV is `data/private/tsm-prices-2026-11-06.csv` (p1 minBuyout,
   p2 marketValueRecent, p3 marketValue). Next step when Josh wants it: a TSM reader (link AppData.lua like the
-  Auctioneer file) and his choice of which figures fill the three columns; needs his yes. TSM's own full-scan code
-  only uploads listings (via the desktop app); it is not a price source by itself. TSM on that account also records
-  his real AH sales (TradeSkillMaster.lua `csvSales`).
-- Josh wants exact recent-scan prices for now, robust beyond the minimum: that is Auctioneer Price 3. On his first
-  scan, TSM's per-scan method (cheapest 15-30%, 1.5 SD trim) was within a few % of it, so not worth switching.
-  Offered, not taken: show units listed next to a price as a thin-market marker (27 of 490 app items on the AH had
-  1-3 units).
+  scan file) and his choice of which figures fill the three columns; needs his yes. TSM's full scan only runs on the
+  Mists client and only uploads listings; it is not a price source by itself. TSM on that account also records his
+  real AH sales (TradeSkillMaster.lua `csvSales`).
+- Auctioneer history (removed 2026-11-10; its reader stays for old scans): its Forever build needed local patches to
+  CoreScan.lua for the scan timeout (gone with the uninstall); scans took ~4 min because of Auctioneer's own storing;
+  `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
 - Auctionator is no longer the main source. Old notes: Desktop WTF backups (Benediction, 2023) use price database
@@ -327,6 +321,18 @@ Open items to raise when relevant:
 - Test data caveat: `data/private/edits-v2.5.json` (the workbook export) has "Chains: craft with Mining" = No, so
   headless checks seeded from it show Mining off. His save file is the truth (Mining was off there too on
   2026-11-06; asked him to check whether that is intended).
+
+## Sign off
+
+When Josh says **"sign off"** (older wording: "save everything"), the session is ending. Run all of this:
+1. `git status`: commit finished, approved work; name anything unfinished or unapproved to Josh instead of committing it.
+2. This file: rewrite "Where we left off" and "Open items" for the current state (drop stale lines, fold dated notes),
+   and update Architecture / Model / UI for anything that changed.
+3. Record what lives outside the repo: changes in the WoW folder (addon copies, patches), paths, in-game routines, findings.
+4. Memory: save new preferences or corrections Josh gave this session.
+5. Stop background processes (dev servers).
+6. Commit. Push only if Josh says so, but say whether unpushed commits remain.
+7. Reply with a short summary: what was recorded, the commit hash, push status.
 
 Working notes:
 - `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
