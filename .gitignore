@@ -2,6 +2,8 @@
 data/private/
 *.xlsx
 *.lua
+# ...except the addon's own source
+!addon/**/*.lua
 Auctionator*.zip
 
 # Build output and dependencies
