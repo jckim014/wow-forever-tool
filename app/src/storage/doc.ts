@@ -15,6 +15,7 @@ export function toDoc(edits: Edits, savedAt = new Date().toISOString()) {
     deTable: edits.deTable ?? [],
     imports: edits.imports,
     importsInfo: edits.importsInfo,
+    shopping: edits.shopping,
   }
 }
 
@@ -42,4 +43,4 @@ export function parseDoc(text: string): ParsedDoc {
 
 export const isEmptyEdits = (e: Edits) =>
   !Object.keys(e.typedPrices).length && !Object.keys(e.vendorBuyOverrides).length && !Object.keys(e.settings).length &&
-  !Object.keys(e.allowCrafting).length && !e.useChainsNo.length && !e.deTable && !e.imports.length
+  !Object.keys(e.allowCrafting).length && !e.useChainsNo.length && !e.deTable && !e.imports.length && !e.shopping.recipes.length

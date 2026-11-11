@@ -104,7 +104,7 @@ app/                            the web app (to be built: Vite + React + TypeScr
   Refresh now also re-imports when the current prices came from elsewhere. No polling (WoW only writes SavedVariables on
   /reload, logout or exit). A realm chosen for a multi-realm file is remembered with the link. The Vitest suite runs the Python reference on the same synthetic zip when
   Python is available and requires identical rows.
-- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices) are
+- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices, shopping list) are
   one JSON document in the `shuffle-edits` format (`format: "shuffle-edits", version: 1`, what
   `export_workbook_edits.py` writes), with Export/Import of a JSON file.
   Storage (decided with Josh, 2026-10-22): the primary store is a file on Josh's disk that he picks once (e.g.
@@ -200,6 +200,18 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   (the AH view leaves them out anyway). The recipe card's Item line shows the bind type.
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
+- **Shopping** (Josh, 2026-11-10; `app/src/shopping/`, classes `shop-*`): "Add to shopping list" in the recipe card
+  brings a recipe into the Shopping view with a number of crafts. Reagents of all chosen recipes are merged by item;
+  each craftable reagent (an intermediate) is followed by its maker's ingredients as indented "or" lines, scaled to
+  make the whole amount (crafts rounded up), both at full quantity. Ticked lines become an Auctionator shopping-list
+  import string (`List^"Name";;;;;;;;;;;#;;qty^...`: 14 `;` fields, tier `#`, quantity last; format from Auctionator
+  v345 `Source/Search/Advanced.lua`; importing an existing list name replaces that list), with Copy. Default ticks
+  follow the cheapest path (Josh, 2026-11-10): where the model crafts the reagent (intermediate source Craft, and some
+  chosen recipe has Use chains on) its ingredients are ticked and it is not; otherwise the reagent is ticked and its
+  ingredients not. Items a vendor sells (curated vendor buy price) always start off. Ticks are local to the list and
+  deliberately do not write back to Allow crafting (that switch only permits crafting; it can't force it, so a
+  two-way link would disagree with the model). An item on several ticked lines is listed once with the total. Stored in `edits.shopping` (recipes + counts,
+  ticks that differ from the default, list name); no effect on any calculation.
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
   Export/Import of edits.
 - Money displayed as `1g 23s 45c`.
@@ -338,7 +350,7 @@ Working notes:
 - `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
   `.sub`). Give new view-specific classes a prefix (the views use `s*`, `p*`, `i*`, `d*`, `r*`) and grep before adding.
 - Views: List · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
-  (`settings/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
+  (`settings/`) · Shopping (`shopping/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
 - Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;
   reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`). Seed it by
   writing a shuffle-edits doc to localStorage key `wow-forever-shuffle:edits:v1` before load; the dev server runs

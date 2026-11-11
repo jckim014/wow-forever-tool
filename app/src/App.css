@@ -277,3 +277,23 @@ body { margin: 0; }
   .dres { grid-template-columns: minmax(0, 1fr) 80px 120px 20px; }
 }
 .dnote::placeholder { color: #b9bfca; }
+
+/* ---------- shopping list ---------- */
+.shop { flex: 1; overflow: auto; }
+.shop .sgroup { max-width: 820px; }
+.shop-recipe { gap: 6px 16px; }
+.shop-rname { min-width: 260px; font-weight: 600; }
+.shop-lines { border-collapse: collapse; width: 100%; }
+.shop-lines th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 2px 8px 6px 0; }
+.shop-lines td { padding: 4px 8px 4px 0; border-top: 1px solid var(--line); vertical-align: baseline; }
+.shop-lines .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.shop-lines tr.shop-alt td { border-top: none; padding-top: 0; }
+.shop-lines tr.shop-alt td:nth-child(2) { padding-left: 22px; }
+.shop-lines tr.shop-off td:nth-child(n+2) { opacity: .5; }
+.shop-note { font-size: 12px; }
+.shop-name { width: 260px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.shop-text { box-sizing: border-box; width: 100%; margin: 8px 0 4px; padding: 6px 8px; font: 12px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-radius: 4px; resize: vertical; word-break: break-all; }
+.rcard .shop-add { margin-top: 10px; }
+@media (max-width: 640px) {
+  .shop-rname, .shop-name { min-width: 0; width: 100%; }
+}

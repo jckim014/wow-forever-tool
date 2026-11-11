@@ -100,6 +100,17 @@ export interface Edits {
   imports: ImportRow[]
   /** Where the imported prices came from, for display (e.g. "Auctionator (Forever - Alliance)"). */
   importsInfo: ImportsInfo | null
+  /** The Shopping view's recipes and choices; no effect on any calculation. */
+  shopping: ShoppingEdits
+}
+
+export interface ShoppingEdits {
+  /** chosen recipes in the order added; count = number of crafts */
+  recipes: { id: number; count: number }[]
+  /** ticks that differ from the default, by line key (`item` or `parent>item`) */
+  ticks: Record<string, boolean>
+  /** null = generated from the recipes */
+  listName: string | null
 }
 
 export interface ImportsInfo {

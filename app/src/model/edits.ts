@@ -4,7 +4,10 @@ export const EDITS_FORMAT = 'shuffle-edits'
 export const EDITS_VERSION = 1
 
 export function emptyEdits(): Edits {
-  return { typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [], importsInfo: null }
+  return {
+    typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [], importsInfo: null,
+    shopping: { recipes: [], ticks: {}, listName: null },
+  }
 }
 
 // Workbook setting names (Settings tab, column A) -> app settings keys
@@ -104,6 +107,15 @@ export function normalizeEdits(raw: unknown): { edits: Edits; warnings: string[]
   const info = r.importsInfo as Partial<ImportsInfo> | null | undefined
   if (info && typeof info.source === 'string' && typeof info.at === 'string' && typeof info.count === 'number') {
     e.importsInfo = { source: info.source, at: info.at, count: info.count }
+  }
+  const shop = r.shopping as Record<string, unknown> | null | undefined
+  if (shop && typeof shop === 'object') {
+    for (const x of (Array.isArray(shop.recipes) ? shop.recipes : []) as Record<string, unknown>[]) {
+      if (x && Number.isInteger(x.id) && Number.isInteger(x.count) && (x.count as number) >= 0) e.shopping.recipes.push({ id: x.id as number, count: x.count as number })
+      else warnings.push(`Shopping list entry ${JSON.stringify(x)} ignored`)
+    }
+    for (const [k, v] of Object.entries((shop.ticks ?? {}) as Record<string, unknown>)) if (typeof v === 'boolean') e.shopping.ticks[k] = v
+    if (typeof shop.listName === 'string') e.shopping.listName = shop.listName
   }
   return { edits: e, warnings }
 }

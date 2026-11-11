@@ -47,11 +47,14 @@ function How({ e, cut }: { e: ExitDetail; cut: number }) {
   )
 }
 
-export function RecipeCard({ row, result, game, onUseChains }: {
+export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop, onOpenShopping }: {
   row: RecipeRow
   result: ModelResult
   game: GameData
   onUseChains: (recipeId: number, on: boolean) => void
+  inShopping: boolean
+  onShop: (recipeId: number) => void
+  onOpenShopping: () => void
 }) {
   const d = useMemo(() => recipeDetail(result, row, game), [result, row, game])
   const has = new Set(d.exits.map((e) => e.name))
@@ -112,6 +115,11 @@ export function RecipeCard({ row, result, game, onUseChains }: {
         {d.unpricedReagents.length > 0 && (
           <p className="note">Unpriced: {d.unpricedReagents.join(', ')}. Cost and profit stay blank until these have a price.</p>
         )}
+        <div className="shop-add">
+          {inShopping
+            ? <>On the shopping list · <button className="link" onClick={onOpenShopping}>open it</button></>
+            : <button className="button" onClick={() => onShop(row.recipe.id)}>Add to shopping list</button>}
+        </div>
       </section>
     </div>
   )

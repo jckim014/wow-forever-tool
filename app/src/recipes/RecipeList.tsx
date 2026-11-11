@@ -81,12 +81,15 @@ const Row = memo(function Row({ r, open, exit, onToggle }: { r: RecipeRow; open:
   )
 })
 
-export function RecipeList({ rows, result, game, exit, onUseChains }: {
+export function RecipeList({ rows, result, game, exit, onUseChains, shopping, onShop, onOpenShopping }: {
   rows: RecipeRow[]
   result: ModelResult
   game: GameData
   exit: ExitView
   onUseChains: (recipeId: number, on: boolean) => void
+  shopping: Set<number>
+  onShop: (recipeId: number) => void
+  onOpenShopping: () => void
 }) {
   const [chosenSort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'profit', dir: -1 })
   const [open, setOpen] = useState<Set<number>>(() => new Set())
@@ -129,7 +132,12 @@ export function RecipeList({ rows, result, game, exit, onUseChains }: {
       {sorted.map((r) => (
         <div key={r.recipe.id}>
           <Row r={r} open={open.has(r.recipe.id)} exit={exit} onToggle={toggle} />
-          {open.has(r.recipe.id) && <RecipeCard row={r} result={result} game={game} onUseChains={onUseChains} />}
+          {open.has(r.recipe.id) && (
+            <RecipeCard
+              row={r} result={result} game={game} onUseChains={onUseChains}
+              inShopping={shopping.has(r.recipe.id)} onShop={onShop} onOpenShopping={onOpenShopping}
+            />
+          )}
         </div>
       ))}
     </div>
