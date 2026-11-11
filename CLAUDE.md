@@ -278,8 +278,15 @@ live (2e081d8).
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
 and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
+Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
+checked it on the live site ("looks good").
 
 Where we left off (2026-11-10): BavvbScan is the price source and Josh confirmed it end to end on the live site.
+The Shopping view shipped; its Auctionator import was built from Auctionator v345's source and checked in the app,
+but a paste into the in-game Import hadn't been reported back yet. If the list misbehaves in game, check the term
+format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced.lua` first.
+- The app is used on desktop only (Josh, 2026-11-10): phone layout is not a concern (the view-switcher row is wider
+  than a phone screen; leave it).
 - Josh's setup (Chrome, live site): save file `data/private/shuffle-edits.json`; history folder
   `data/private/price-history/` (Auctioneer scans 2026-11-06 00:25 to 18:27 and 11-10 14:10, BavvbScan 11-10 14:55);
   linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\BavvbScan.lua`.
@@ -328,6 +335,9 @@ Open items to raise when relevant:
 - Offered, not taken: size the List's name column to the longest visible name (Skill would sit closer to the names);
   in the Prices view, show the g/s/c boxes only on the clicked row if the ~1 s open time bothers him; a vendor-flip
   analysis (only the "Vendor ≠ AH" filter exists; flips are outside the app's job).
+- Shopping view limits, by design for now: "or" lines go one level deep (an ingredient that is itself craftable is
+  not expanded); vendor-sold ingredients of a crafted reagent (e.g. vials for dyes) start unticked, so the list doesn't
+  remind him to buy them from a vendor. Raise if he asks for a vendor shopping note or deeper chains.
 - Possibly stale Wowhead vendor prices seen in the Vendor ≠ AH filter (Major Mana Potion 60s, Tinkerbox 1g, Lesser
   Mana Potion, Mote of Magic): Josh may want to check them in game and curate.
 - Test data caveat: `data/private/edits-v2.5.json` (the workbook export) has "Chains: craft with Mining" = No, so
