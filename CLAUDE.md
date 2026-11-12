@@ -109,7 +109,7 @@ app/                            the web app (to be built: Vite + React + TypeScr
   Refresh now also re-imports when the current prices came from elsewhere. No polling (WoW only writes SavedVariables on
   /reload, logout or exit). A realm chosen for a multi-realm file is remembered with the link. The Vitest suite runs the Python reference on the same synthetic zip when
   Python is available and requires identical rows.
-- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices, shopping list) are
+- **Edits** (typed prices, vendor-buy curation, settings, Allow crafting, Use chains, DE table, imported prices, shopping list, favorites) are
   one JSON document in the `shuffle-edits` format (`format: "shuffle-edits", version: 1`, what
   `export_workbook_edits.py` writes), with Export/Import of a JSON file.
   Storage (decided with Josh, 2026-10-22): the primary store is a file on Josh's disk that he picks once (e.g.
@@ -217,6 +217,17 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   deliberately do not write back to Allow crafting (that switch only permits crafting; it can't force it, so a
   two-way link would disagree with the model). An item on several ticked lines is listed once with the total. Stored in `edits.shopping` (recipes + counts,
   ticks that differ from the default, list name); no effect on any calculation.
+- **Favorites** (Josh, 2026-11-12; `app/src/favorites/`, classes `fav-*`): a ☆ at the left of every List row stars a
+  recipe into the group "Unsorted" (made at the top if missing); a second click unstars it. The recipe card has a
+  Favorites picker (Not in Favorites / a group / New group…). The Favorites tab (between List and Table) shows named
+  groups as collapsible sections with the List's own rows and cards. One group per recipe (Josh's choice). Groups and
+  recipes are in Josh's own order, arranged by dragging the ⠿ grips (a recipe onto a row or another group's header; a
+  group onto another group's header). Clicking a column sorts every group by that column and turns recipe dragging off
+  until "Your order". Only the search box and the Exit switch apply there (a single exit shows blank figures rather
+  than hiding a favorite); Min profit, Hide unpriced, Hide BoP and the profession chips don't, so a favorite never
+  disappears because its price moved. Deleting a non-empty group asks first and unstars its recipes. Stored in
+  `edits.favorites` (groups: id, name, recipe IDs); collapsed groups are per browser (localStorage). No effect on any
+  calculation.
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
   Export/Import of edits.
 - Money displayed as `1g 23s 45c`.
@@ -380,7 +391,7 @@ When Josh says **"sign off"** (older wording: "save everything"), the session is
 Working notes:
 - `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
   `.sub`). Give new view-specific classes a prefix (the views use `s*`, `p*`, `i*`, `d*`, `r*`) and grep before adding.
-- Views: List · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
+- Views: List · Favorites (`favorites/`) · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
   (`settings/`) · Shopping (`shopping/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
 - Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;
   reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`). Seed it by

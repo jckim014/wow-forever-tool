@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { formatMoney, formatQty, QUALITY_NAMES, sourceLabel } from '../format'
 import { recipeDetail, type ExitDetail, type GameData, type ModelResult, type Money, type RecipeRow } from '../model'
 import type { LineSource } from '../model/detail'
@@ -47,7 +47,7 @@ function How({ e, cut }: { e: ExitDetail; cut: number }) {
   )
 }
 
-export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop, onOpenShopping }: {
+export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop, onOpenShopping, fav }: {
   row: RecipeRow
   result: ModelResult
   game: GameData
@@ -55,6 +55,8 @@ export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop,
   inShopping: boolean
   onShop: (recipeId: number) => void
   onOpenShopping: () => void
+  /** the Favorites group picker */
+  fav: ReactNode
 }) {
   const d = useMemo(() => recipeDetail(result, row, game), [result, row, game])
   const has = new Set(d.exits.map((e) => e.name))
@@ -119,6 +121,7 @@ export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop,
           {inShopping
             ? <>On the shopping list · <button className="link" onClick={onOpenShopping}>open it</button></>
             : <button className="button" onClick={() => onShop(row.recipe.id)}>Add to shopping list</button>}
+          {fav}
         </div>
       </section>
     </div>

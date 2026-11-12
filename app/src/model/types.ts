@@ -102,6 +102,19 @@ export interface Edits {
   importsInfo: ImportsInfo | null
   /** The Shopping view's recipes and choices; no effect on any calculation. */
   shopping: ShoppingEdits
+  /** The Favorites view's groups; no effect on any calculation. */
+  favorites: FavoritesEdits
+}
+
+export interface FavoritesEdits {
+  /** in display order; a recipe is in at most one group, listed in the user's order */
+  groups: FavGroup[]
+}
+
+export interface FavGroup {
+  id: string
+  name: string
+  recipes: number[]
 }
 
 export interface ShoppingEdits {

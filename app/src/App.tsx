@@ -15,6 +15,9 @@ import { DeTableView } from './detable/DeTableView'
 import { setUseChains } from './intermediates/inter'
 import { ShoppingView } from './shopping/ShoppingView'
 import { addRecipe } from './shopping/list'
+import { FavoritesView } from './favorites/FavoritesView'
+import { favoriteCount } from './favorites/fav'
+import type { FavoritesEdits } from './model'
 
 // The full-column table loads AG Grid (~1.4 MB), so it is fetched only when that view is opened.
 const RecipesGrid = lazy(() => import('./grid/RecipesGrid'))
@@ -27,12 +30,12 @@ const EXIT_OPTIONS: { key: ExitView; label: string; title: string }[] = [
 ]
 const MIN_PROFIT_LABEL: Record<ExitView, string> = { all: 'Min profit at best exit', vendor: 'Min vendor profit', de: 'Min DE profit', ah: 'Min AH profit' }
 
-type View = 'list' | 'table' | 'prices' | 'intermediates' | 'detable' | 'settings' | 'shopping'
+type View = 'list' | 'favorites' | 'table' | 'prices' | 'intermediates' | 'detable' | 'settings' | 'shopping'
 const VIEW_KEY = 'wow-forever-shuffle:view'
 const savedView = (): View => {
   try {
     const v = localStorage.getItem(VIEW_KEY)
-    return v === 'table' || v === 'prices' || v === 'intermediates' || v === 'detable' || v === 'settings' || v === 'shopping' ? v : 'list'
+    return v === 'favorites' || v === 'table' || v === 'prices' || v === 'intermediates' || v === 'detable' || v === 'settings' || v === 'shopping' ? v : 'list'
   } catch {
     return 'list'
   }
@@ -61,6 +64,11 @@ export function App() {
   const text = useMemo(() => new Map((result?.recipes ?? []).map((r) => [r, searchText(r)])), [result])
   const rows = useMemo(() => (result ? filterRecipes(result.recipes, filters, text) : []), [result, filters, text])
   const shopIds = useMemo(() => new Set(edits.shopping.recipes.map((r) => r.id)), [edits.shopping])
+  // Favorites: only the search box filters them (a favorite never disappears because its price moved).
+  const favRows = useMemo(() => {
+    const all: RecipeFilters = { search: filters.search, professions: new Set(), minProfitGold: null, hideUnpriced: false, hideBop: false, exit: 'all' }
+    return new Map((result ? filterRecipes(result.recipes, all, text) : []).map((r) => [r.recipe.id, r]))
+  }, [result, filters.search, text])
 
   if (error) return <div className="message error">{error}</div>
   if (!game || !result) return <div className="message">Loading game data…</div>
@@ -74,6 +82,13 @@ export function App() {
       // a per-browser convenience only
     }
   }
+  const updateFav = (fn: (f: FavoritesEdits) => FavoritesEdits) => store.update((cur) => ({ ...cur, favorites: fn(cur.favorites) }))
+  const cardProps = {
+    result, game, onUseChains: (id: number, on: boolean) => store.update((cur) => setUseChains(cur, id, on)),
+    shopping: shopIds, onShop: (id: number) => store.update((cur) => addRecipe(cur, id)), onOpenShopping: () => chooseView('shopping'),
+    favorites: edits.favorites, updateFav,
+  }
+  const favCount = favoriteCount(edits.favorites)
   const count = view === 'table' && tableCount !== null ? tableCount : rows.length
 
   const toggleProfession = (p: string) => {
@@ -87,7 +102,7 @@ export function App() {
     <div className="app">
       <header className="toolbar">
         <h1>Forever shuffle</h1>
-        {(view === 'list' || view === 'table') && (<>
+        {(view === 'list' || view === 'table' || view === 'favorites') && (<>
         <input
           className="search" type="search" placeholder="Search recipes, items, reagents…"
           value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -100,6 +115,8 @@ export function App() {
             ))}
           </span>
         </span>
+        </>)}
+        {(view === 'list' || view === 'table') && (<>
         <label className="field">
           {MIN_PROFIT_LABEL[filters.exit]}
           <input
@@ -121,6 +138,9 @@ export function App() {
         </>)}
         <div className="seg" role="group" aria-label="View">
           <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
+          <button className={view === 'favorites' ? 'on' : ''} onClick={() => chooseView('favorites')} title="Recipes you starred, in your own groups">
+            Favorites{favCount ? ` (${favCount})` : ''}
+          </button>
           <button className={view === 'table' ? 'on' : ''} onClick={() => chooseView('table')} title="Every column, spreadsheet style">Table</button>
           <button className={view === 'prices' ? 'on' : ''} onClick={() => chooseView('prices')} title="Custom prices, vendor buy prices, and the price each item ends up using">Prices</button>
           <button className={view === 'intermediates' ? 'on' : ''} onClick={() => chooseView('intermediates')} title="Reagents that can be crafted: buy or craft, and Allow crafting">Intermediates</button>
@@ -187,11 +207,10 @@ export function App() {
         <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} />
       ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
+      ) : view === 'favorites' ? (
+        <FavoritesView rowsById={favRows} searching={!!filters.search.trim()} exit={filters.exit} {...cardProps} />
       ) : view === 'list' ? (
-        <RecipeList
-          rows={rows} result={result} game={game} exit={filters.exit} onUseChains={(id, on) => store.update((cur) => setUseChains(cur, id, on))}
-          shopping={shopIds} onShop={(id) => store.update((cur) => addRecipe(cur, id))} onOpenShopping={() => chooseView('shopping')}
-        />
+        <RecipeList rows={rows} exit={filters.exit} {...cardProps} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
           <RecipesGrid rows={rows} onCount={setTableCount} />

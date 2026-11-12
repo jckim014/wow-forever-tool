@@ -7,6 +7,7 @@ export function emptyEdits(): Edits {
   return {
     typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [], importsInfo: null,
     shopping: { recipes: [], ticks: {}, listName: null },
+    favorites: { groups: [] },
   }
 }
 
@@ -116,6 +117,26 @@ export function normalizeEdits(raw: unknown): { edits: Edits; warnings: string[]
     }
     for (const [k, v] of Object.entries((shop.ticks ?? {}) as Record<string, unknown>)) if (typeof v === 'boolean') e.shopping.ticks[k] = v
     if (typeof shop.listName === 'string') e.shopping.listName = shop.listName
+  }
+  const fav = r.favorites as Record<string, unknown> | null | undefined
+  if (fav && typeof fav === 'object') {
+    const seenGroups = new Set<string>()
+    const seenRecipes = new Set<number>()
+    for (const g of (Array.isArray(fav.groups) ? fav.groups : []) as Record<string, unknown>[]) {
+      if (!g || typeof g.id !== 'string' || typeof g.name !== 'string' || seenGroups.has(g.id)) {
+        warnings.push(`Favorites group ${JSON.stringify(g)} ignored`)
+        continue
+      }
+      seenGroups.add(g.id)
+      const recipes: number[] = []
+      for (const id of (Array.isArray(g.recipes) ? g.recipes : []) as unknown[]) {
+        if (Number.isInteger(id) && !seenRecipes.has(id as number)) {
+          seenRecipes.add(id as number)
+          recipes.push(id as number)
+        }
+      }
+      e.favorites.groups.push({ id: g.id, name: g.name, recipes })
+    }
   }
   return { edits: e, warnings }
 }
