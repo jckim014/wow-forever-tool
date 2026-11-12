@@ -31,7 +31,7 @@ tools/export_parity.py          calculated workbook -> data/private/parity-v2.5.
 tools/auctionator_to_imports.py reference implementation of the Auctionator reader, to port to TypeScript
 tools/build_forever_shuffle_sheet.py  the spreadsheet builder (v2.5), kept until the app reaches parity
 addon/BavvbScan/                Josh's own WoW addon: /bscan full AH scan -> SavedVariables\BavvbScan.lua (the price source)
-collector/                      cloud auction collector (Blizzard API, GitHub Actions every 20 min; see Collector)
+collector/                      auction collector: cloud fetch (GitHub Actions) + PC sync to F:\ForeverAuctionData (see Collector)
 .github/workflows/collect.yml   runs collector/collect.mjs, uploads snapshots as artifacts
 data/config/de-table.json       default disenchant table (Classic item-level bands), with material item IDs
 data/config/defaults.json       default settings and the cooldown-craft rule
@@ -146,13 +146,27 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   listings halving, newest data > 3 h old, HTTP errors. New API fields are notes (warnings), not failures. Raw
   responses saved unchanged (gzipped) with `manifest.json` (format `forever-auction-snapshot` v1: per file house,
   kind, lastModified, listings, items, sizes, sha256) as artifact `snapshot-<YYYYMMDDTHHMMSSZ>`, kept 90 days.
-- **PC side (step 2, not built)**: `collector/sync.mjs` from Task Scheduler (logon + hourly, below-normal priority)
-  downloads artifacts to `F:\ForeverAuctionData\raw\...`, verifies sha256, writes per-item summaries (same
-  lowest/median/cheapest-15% as the app), deletes the artifact, logs to `sync.log`, and shows Windows notifications
-  for: sync failure, F: missing, newest snapshot > 3 h, failed runs, schedule disabled (GitHub disables schedules
-  after 60 days without commits), new API fields, GitHub token near expiry. No healthchecks.io (Josh: no new accounts).
+  Run workflow has a "test_failure" box: collects normally, then fails on purpose (checks the email and PC alert).
+  In the API every regular auction has quantity 1; stacks are commodities (unit_price).
+- **PC side** (`collector/sync.mjs`, pure parts in `syncLib.mjs`): Windows task "Forever auction sync"
+  (`collector/install-task.ps1`; 2 min after logon and hourly at :40, priority 7, run via `sync-hidden.vbs` so no
+  window; node from `C:\nvm4w\nodejs\node.exe`, re-run the installer if that changes). Downloads every `snapshot-*`
+  artifact (GitHub token `data/private/github-token.txt`: fine-grained, this repo only, Actions read/write, made
+  2026-11-12, ~1 year), checks sha256 against the manifest, writes `F:\ForeverAuctionData\raw\YYYY\MM\DD\<id>\`
+  (UTC date of the data; API responses unchanged) and `summary\YYYY\MM\DD\<id>.json.gz` (format
+  `forever-auction-summary` v1: per house, per item [lowest, median, cheapest15, units, listings], auctions and
+  commodities merged; identical to the app's pricesFromUnits, checked by `app/src/history/collectorSummary.test.ts`),
+  then deletes the artifact. Log `F:\ForeverAuctionData\sync.log`; state, lock (and the log if F: is missing) in
+  `%LOCALAPPDATA%\ForeverAuctionSync\`. Windows toasts (click opens GitHub): F: not writable, GitHub unreachable twice
+  in a row or token rejected, schedule not active, newest data > 3 h old, token expiring within 14 days (lasting
+  problems: on start, every 6 h, and "fixed"); failed collector runs, a snapshot that can't be stored (kept on GitHub,
+  retried), new collector notes/problems (once each). `--dry-run` and `--test-notification` flags. First real sync
+  2026-11-12: 8.2 MB snapshot in 8.6 s, peak 336 MB; nothing new: 1 s, 56 MB. Summary of 111 vs a BavvbScan 25 min
+  earlier: 80% same lowest, 90% cheapest-15% within 5%. No healthchecks.io (Josh: no new accounts), so nothing watches
+  while the PC is off.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
+  GitHub repo settings: fork PR workflows need approval for all external contributors.
 - Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. About 800 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
 ## Model (must match the workbook)
