@@ -294,17 +294,19 @@ live (2e081d8).
 2026-11-11: BavvbScan scan panel + `/bscan demo` (8e94b11); Tailoring page re-saved ("Tailoring - Skill - WoW
   Forever.html"): 13 recipes changed (lower skill, bags need one more bolt), 36 items' vendor sell price about halved
   (Filigreed set, Slippers/Cord/Gloves sets), 12eae5d, live.
+2026-11-12: Favorites view (see UI), 571aae3, live. Josh checked screenshots and the design ("looks good") before
+  the commit; not yet used on the live site with his own save file.
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
 and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
 Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
 checked it on the live site ("looks good").
 
-Where we left off (2026-11-11): BavvbScan is the price source. Its large on-screen scan panel shipped (Josh checked
-it with `/bscan demo`: "looks good for now"; size/colours may be revisited). New Tailoring data is live. The in-game
-companion was planned and parked (Open items). Still not reported back: a paste of the Shopping view's string into
-Auctionator's in-game Import. If the list misbehaves in game, check the term
-format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced.lua` first.
+Where we left off (2026-11-12): Favorites shipped and live (star recipes into named groups, drag to arrange). Next:
+Josh uses it with real scans and comes back with iterations. BavvbScan is the price source; its scan panel is in use
+("looks good for now"; size/colours may be revisited). The in-game companion is parked (Open items). Still not
+reported back: a paste of the Shopping view's string into Auctionator's in-game Import. If the list misbehaves in
+game, check the term format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced.lua` first.
 - The app is used on desktop only (Josh, 2026-11-10): phone layout is not a concern (the view-switcher row is wider
   than a phone screen; leave it).
 - Josh's setup (Chrome, live site): save file `data/private/shuffle-edits.json`; history folder
@@ -370,6 +372,9 @@ Open items to raise when relevant:
 - Shopping view limits, by design for now: "or" lines go one level deep (an ingredient that is itself craftable is
   not expanded); vendor-sold ingredients of a crafted reagent (e.g. vials for dyes) start unticked, so the list doesn't
   remind him to buy them from a vendor. Raise if he asks for a vendor shopping note or deeper chains.
+- Favorites, offered, not taken (2026-11-12): an "add this group to the shopping list" button on each group header.
+  Not built: a move dropdown on the row itself (the card's Favorites picker and dragging onto a header cover it).
+  Group open/closed state is per browser, not in the save file.
 - Possibly stale Wowhead vendor prices seen in the Vendor ≠ AH filter (Major Mana Potion 60s, Tinkerbox 1g, Lesser
   Mana Potion, Mote of Magic): Josh may want to check them in game and curate.
 - Test data caveat: `data/private/edits-v2.5.json` (the workbook export) has "Chains: craft with Mining" = No, so
