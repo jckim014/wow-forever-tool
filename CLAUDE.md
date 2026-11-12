@@ -332,6 +332,13 @@ format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Parked 2026-11-11 (Josh: not now): in-game companion in BavvbScan. The app would write
+  `Interface\AddOns\BavvbScan\AppData.lua` (TSM-style; the AddOns folder is shared by all accounts) with per-recipe
+  cost, exits, profit and the Shopping list; the addon would show a panel beside the profession window and create
+  the Auctionator list on /reload via `Auctionator.API.v1.CreateShoppingList(callerID, name, searchStrings)` (exists
+  in v345, replaces a same-name list). Costs a second /reload after Refresh. Open questions were: auto-create vs
+  button, list name, Enchanting (CraftFrame) left out, which characters. Josh wanted ToS-clean: paste or
+  file-write only, no automation.
 - Wowhead vendor buy prices removed by hand from `game-data.json` (2026-11-11; Josh: incorrect, ignore for now):
   Black Lotus 13468 (40s), Pyrite 249391 (4s), Pristine Leather 249427 (5s), Pristine Hide 249428 (10s), Pristine
   Scale 249429 (15s). The new Tailoring page lists them; `parse_pages.py` puts them back on every run. Remove them
