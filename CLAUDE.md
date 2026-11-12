@@ -61,7 +61,12 @@ app/                            the web app (to be built: Vite + React + TypeScr
   skipped, items = { [id] = "count:buyout,..." } }`. Only complete scans are saved (Josh: no partial scans; AH closed
   or server silent for 5 min (Josh's choice; scans arrive in ~2 min) = an error and the previous scan stays). `lastRequest` in the saved file enforces the
   15-minute limit across /reload. `/bscan status` shows the last scan and the next allowed time; `/bavvbscan` is an
-  alias. 182k auctions = 1.26 MB file (0.23 MB zipped in history). The app reads it with `app/src/prices/bavvbscan.ts` and the
+  alias. While a scan runs a large panel covers the middle of the screen (75% x 70%; Josh, 2026-11-11: he alt-tabs
+  between accounts and moves by muscle memory on return): amber "AH SCAN RUNNING / Don't move or close the auction
+  house" with the live count, then green "SCAN SAVED" with a Reload button and the ready-check sound, or red "SCAN
+  FAILED" with the reason and the raid-warning sound. Clicks pass through it. `/bscan demo` (`demo fail`) plays it
+  through a fake 12 s scan without contacting the server. A movement-key lock was built and dropped at Josh's request:
+  visual only. 182k auctions = 1.26 MB file (0.23 MB zipped in history). The app reads it with `app/src/prices/bavvbscan.ts` and the
   same p1/p2/p3 as Auctioneer (`pricesFromUnits` in `auctioneer.ts`); recognised by content, works with Import, Link
   and price history (summary `source: "BavvbScan"`). Tested against a simulated AH (fengari, scripts outside the
   repo), then for real 2026-11-10 14:55: 182,071 auctions, 4,870 items, 0 skipped, data in ~2 min, file 1.26 MB,
@@ -298,8 +303,8 @@ format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced
   (0 = the server sent nothing; Josh's `/dump` attempt gave a parse error, `/run print(...)` worked).
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (then restart WoW). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
-  exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios) lived in the
-  session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
+  exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
+  the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
   realm name `CAMWOW US1 Realm 3 PvE` (-> `CAMWOW_US1_Realm_3_PvE_Alliance`). Same realm; a future per-item price
   history view must treat them as one series. Not changed.
