@@ -7,7 +7,7 @@ name: Collect auctions
 
 on:
   schedule:
-    - cron: '5,25,45 * * * *' # Blizzard refreshes at about :22 each hour
+    - cron: '6,26,46 * * * *' # Blizzard refreshes at about :22 each hour
   workflow_dispatch:
     inputs:
       test_failure:

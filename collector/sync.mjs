@@ -26,6 +26,8 @@ const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
 const ACTIONS_URL = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
 const STALE_MS = 3 * 60 * 60 * 1000;
+const BACKUP_RUN_AFTER_MS = 70 * 60 * 1000; // no collector run for this long: start one from here
+const SCHEDULE_LATE_MS = 3 * 60 * 60 * 1000; // no scheduled run for this long: alert
 const TOKEN_WARN_MS = 14 * 24 * 60 * 60 * 1000;
 const LOCK_STALE_MS = 30 * 60 * 1000;
 const LOG_MAX_BYTES = 5 * 1024 * 1024;
@@ -95,16 +97,17 @@ let token = '';
 try { token = fs.readFileSync(path.join(repoRoot, 'data/private/github-token.txt'), 'utf8').trim(); } catch { /* checked below */ }
 let tokenExpiry = null;
 
-async function gh(p, { method = 'GET', raw = false } = {}) {
+async function gh(p, { method = 'GET', raw = false, body } = {}) {
   const res = await fetch(`https://api.github.com${p}`, {
     method,
     redirect: raw ? 'manual' : 'follow',
+    body: body ? JSON.stringify(body) : undefined,
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'forever-auction-sync' },
   });
   tokenExpiry = parseTokenExpiry(res.headers.get('github-authentication-token-expiration')) ?? tokenExpiry;
   if (res.status === 401) throw new Error('GitHub rejected the token (expired or revoked?): make a new one, see CLAUDE.md');
   if (raw) return res;
-  if (method === 'DELETE') {
+  if (method !== 'GET') {
     if (res.status !== 204) throw new Error(`GitHub ${method} ${p}: HTTP ${res.status}`);
     return null;
   }
@@ -231,6 +234,26 @@ try {
     }
     const done = runs.filter((r) => r.status === 'completed').map((r) => r.id);
     if (done.length) state.lastSeenRunId = Math.max(lastSeen, ...done);
+
+    // Backup for GitHub's scheduler (which can start late or skip runs): if the collector hasn't run for a while,
+    // start a run from here. Only while the PC is on; the alert below says when the schedule itself isn't running.
+    const lastRunAt = runs.length ? Math.max(...runs.map((r) => Date.parse(r.created_at))) : 0;
+    const running = runs.some((r) => r.status !== 'completed');
+    if (wf.state === 'active' && !running && Date.now() - lastRunAt > BACKUP_RUN_AFTER_MS) {
+      if (dryRun) log('(dry run) would start a collector run');
+      else {
+        await gh(`/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: { ref: 'main' } });
+        log(`no collector run for ${((Date.now() - lastRunAt) / 60000).toFixed(0)} min: started one`);
+      }
+    }
+    const lastScheduled = runs.filter((r) => r.event === 'schedule').map((r) => Date.parse(r.created_at));
+    const lastScheduledAt = lastScheduled.length ? Math.max(...lastScheduled) : 0;
+    const scheduleSince = Math.max(lastScheduledAt, Date.parse(wf.updated_at || wf.created_at) || 0); // a new or edited schedule gets 3 h
+    if (wf.state === 'active' && Date.now() - scheduleSince > SCHEDULE_LATE_MS) {
+      conditions.scheduleLate = lastScheduledAt
+        ? `GitHub's schedule last ran the collector ${((Date.now() - lastScheduledAt) / 3600000).toFixed(1)} h ago. This PC starts runs while it is on.`
+        : "GitHub's schedule hasn't run the collector yet. This PC starts runs while it is on.";
+    }
 
     // Snapshots waiting on GitHub
     let artifacts = [];

@@ -140,7 +140,8 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   110/113/116, 111/114/117 (Josh's realm), 112/115/118 (empty), 119/120/121, 123/124/125; the two big groups are
   probably PvE and PvP. Confirm with an in-game scan on another house. Josh wants all 15 collected.
 - **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
-  runs at :05/:25/:45. Token reused from the Actions cache, encrypted (AES-GCM, secret `TOKEN_CACHE_KEY`) because
+  runs at :06/:26/:46 (was :05/:25/:45; GitHub had not started one scheduled run 1.5 h after the first push, so the
+  line was changed on 2026-11-12 to make GitHub register the schedule again). Token reused from the Actions cache, encrypted (AES-GCM, secret `TOKEN_CACHE_KEY`) because
   pull-request workflows in a public repo can read caches. Conditional GETs, 1 s apart, one retry on 5xx/network,
   never on 429. Fails the run (GitHub emails Josh) on: house list change, malformed listings, a house >= 5000
   listings halving, newest data > 3 h old, HTTP errors. New API fields are notes (warnings), not failures. Raw
@@ -160,7 +161,9 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   `%LOCALAPPDATA%\ForeverAuctionSync\`. Windows toasts (click opens GitHub): F: not writable, GitHub unreachable twice
   in a row or token rejected, schedule not active, newest data > 3 h old, token expiring within 14 days (lasting
   problems: on start, every 6 h, and "fixed"); failed collector runs, a snapshot that can't be stored (kept on GitHub,
-  retried), new collector notes/problems (once each). `--dry-run` and `--test-notification` flags. First real sync
+  retried), new collector notes/problems (once each). **Backup for GitHub's scheduler**: if no collector run has
+  started for 70 min, the sync starts one (workflow_dispatch); alert if no *scheduled* run for 3 h (a new or edited
+  workflow gets 3 h from its update time). `--dry-run` and `--test-notification` flags. First real sync
   2026-11-12: 8.2 MB snapshot in 8.6 s, peak 336 MB; nothing new: 1 s, 56 MB. Summary of 111 vs a BavvbScan 25 min
   earlier: 80% same lowest, 90% cheapest-15% within 5%. No healthchecks.io (Josh: no new accounts), so nothing watches
   while the PC is off.
