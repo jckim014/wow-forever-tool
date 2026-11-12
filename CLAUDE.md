@@ -280,31 +280,34 @@ commit; push only when he says.
 2026-11-05: new Wowhead pages parsed (First Aid page left at 2026-10-22 on purpose), exit switch and BoP shipped and
 live (2e081d8).
 2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
-2026-11-11: Tailoring page re-saved ("Tailoring - Skill - WoW Forever.html"): 13 recipes changed (lower skill, bags
-  need one more bolt), 36 items' vendor sell price about halved (Filigreed set, Slippers/Cord/Gloves sets).
+2026-11-11: BavvbScan scan panel + `/bscan demo` (8e94b11); Tailoring page re-saved ("Tailoring - Skill - WoW
+  Forever.html"): 13 recipes changed (lower skill, bags need one more bolt), 36 items' vendor sell price about halved
+  (Filigreed set, Slippers/Cord/Gloves sets), 12eae5d, live.
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
 and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
 Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
 checked it on the live site ("looks good").
 
-Where we left off (2026-11-10): BavvbScan is the price source and Josh confirmed it end to end on the live site.
-The Shopping view shipped; its Auctionator import was built from Auctionator v345's source and checked in the app,
-but a paste into the in-game Import hadn't been reported back yet. If the list misbehaves in game, check the term
+Where we left off (2026-11-11): BavvbScan is the price source. Its large on-screen scan panel shipped (Josh checked
+it with `/bscan demo`: "looks good for now"; size/colours may be revisited). New Tailoring data is live. The in-game
+companion was planned and parked (Open items). Still not reported back: a paste of the Shopping view's string into
+Auctionator's in-game Import. If the list misbehaves in game, check the term
 format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced.lua` first.
 - The app is used on desktop only (Josh, 2026-11-10): phone layout is not a concern (the view-switcher row is wider
   than a phone screen; leave it).
 - Josh's setup (Chrome, live site): save file `data/private/shuffle-edits.json`; history folder
   `data/private/price-history/` (Auctioneer scans 2026-11-06 00:25 to 18:27 and 11-10 14:10, BavvbScan 11-10 14:55);
   linked file `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\BavvbScan.lua`.
-- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/bscan`, wait for the green "Scan saved" (~2 min),
-  `/reload`, then Refresh now in the app. Refresh is always safe (unchanged file = no-op; WoW rewrites the file on
+- Scan routine (in game, on Xria, account 1120039#2): open the AH, `/bscan`, wait for the green "SCAN SAVED" panel and the ready-check
+  sound (~2 min), click its Reload button (= `/reload`), then Refresh now in the app. Refresh is always safe (unchanged file = no-op; WoW rewrites the file on
   every /reload, which re-imports the same scan and history skips it). "Allow saving" in the toolbar = Chrome wants
   the history folder's OK again. At most one full-scan request per 15 minutes, from any addon, failed ones included;
   a request inside the window gets no answer. Diagnose with `/run print(C_AuctionHouse.GetNumReplicateItems())`
   (0 = the server sent nothing; Josh's `/dump` attempt gave a parse error, `/run print(...)` worked).
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
-  any change to `addon/BavvbScan/` (then restart WoW). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
+  any change to `addon/BavvbScan/` (a changed .lua loads on `/reload`; a new file or .toc change needs a WoW restart).
+  Copied 2026-11-11 with the scan panel. `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
