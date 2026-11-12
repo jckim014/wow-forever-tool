@@ -280,6 +280,8 @@ commit; push only when he says.
 2026-11-05: new Wowhead pages parsed (First Aid page left at 2026-10-22 on purpose), exit switch and BoP shipped and
 live (2e081d8).
 2026-11-06: Auctioneer import with default column 3 (122f61b) and price history (4768e3a), live.
+2026-11-11: Tailoring page re-saved ("Tailoring - Skill - WoW Forever.html"): 13 recipes changed (lower skill, bags
+  need one more bolt), 36 items' vendor sell price about halved (Filigreed set, Slippers/Cord/Gloves sets).
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
 and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
@@ -330,6 +332,10 @@ format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Wowhead vendor buy prices removed by hand from `game-data.json` (2026-11-11; Josh: incorrect, ignore for now):
+  Black Lotus 13468 (40s), Pyrite 249391 (4s), Pristine Leather 249427 (5s), Pristine Hide 249428 (10s), Pristine
+  Scale 249429 (15s). The new Tailoring page lists them; `parse_pages.py` puts them back on every run. Remove them
+  again after a parse (or have Josh mark them "No vendor sells it" in the Prices view, which survives re-parses).
 - Auctionator is no longer the main source. Old notes: Desktop WTF backups (Benediction, 2023) use price database
   v6, which the reader rejects; the readers handle v8 only. The beta file
   `F:\World of Warcraft\_classic_beta_\WTF\Account\1120039#1\SavedVariables\Auctionator.lua` was the 2026-10-22 import.
