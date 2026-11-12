@@ -31,6 +31,8 @@ tools/export_parity.py          calculated workbook -> data/private/parity-v2.5.
 tools/auctionator_to_imports.py reference implementation of the Auctionator reader, to port to TypeScript
 tools/build_forever_shuffle_sheet.py  the spreadsheet builder (v2.5), kept until the app reaches parity
 addon/BavvbScan/                Josh's own WoW addon: /bscan full AH scan -> SavedVariables\BavvbScan.lua (the price source)
+collector/                      cloud auction collector (Blizzard API, GitHub Actions every 20 min; see Collector)
+.github/workflows/collect.yml   runs collector/collect.mjs, uploads snapshots as artifacts
 data/config/de-table.json       default disenchant table (Classic item-level bands), with material item IDs
 data/config/defaults.json       default settings and the cooldown-craft rule
 data/private/                   git-ignored: pages/, workbooks, edits-v2.5.json, parity-v2.5.json
@@ -121,6 +123,37 @@ app/                            the web app (to be built: Vite + React + TypeScr
 - **Updates**: new Wowhead pages -> run `parse_pages.py`, then `fetch_binding.py` (fetches only new products), review the
   printed changes, commit `game-data.json`. Saved page filenames only need to start with the profession name.
   New prices -> drop the Auctionator zip in the app (no commit). Rule or UI changes -> code.
+
+## Collector (Blizzard API auction history; started 2026-11-12)
+
+A separate backend tool: collect every WoW Forever US auction house's full listings over time for Josh's own trend
+analysis, stored on his F: drive. Later (agreed, not started): the app uses these as a baseline price source
+alongside BavvbScan/imports, which stay for up-to-the-minute prices.
+- **API facts (probed 2026-11-12, from https://blizzard.pinta.land/forever/, not documented by Blizzard)**: OAuth
+  client credentials (`oauth.battle.net/token`, token 24 h). Namespace `dynamic-forever-us`. No realms; rulesets
+  1 PvP, 2 Normal, 3 RP, 15 RP-PvP all list the same 15 houses with the same data (ruleset doesn't filter):
+  110-121, 123-125. `/data/wow/ruleset/2/auctions/{house}` (auctions: buyout/bid per auction) and `.../commodities`
+  (unit_price). 112/115/118 are empty (no `auctions` field). Data refreshes hourly at about :22 (all houses within
+  seconds); `If-Modified-Since` is honoured (304). Snapshot of all houses ~7.7 MB gzipped (~67 GB/year hourly).
+- **Houses**: 111 = Josh's own (Alliance, "CAMWOW US1 Realm 3 PvE"; 91.6% of listings identical to a BavvbScan
+  34 min later, other houses <= 22%). Guess from the ID pattern, unconfirmed: groups of Alliance/Horde/Blackwater
+  110/113/116, 111/114/117 (Josh's realm), 112/115/118 (empty), 119/120/121, 123/124/125; the two big groups are
+  probably PvE and PvP. Confirm with an in-game scan on another house. Josh wants all 15 collected.
+- **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
+  runs at :05/:25/:45. Token reused from the Actions cache, encrypted (AES-GCM, secret `TOKEN_CACHE_KEY`) because
+  pull-request workflows in a public repo can read caches. Conditional GETs, 1 s apart, one retry on 5xx/network,
+  never on 429. Fails the run (GitHub emails Josh) on: house list change, malformed listings, a house >= 5000
+  listings halving, newest data > 3 h old, HTTP errors. New API fields are notes (warnings), not failures. Raw
+  responses saved unchanged (gzipped) with `manifest.json` (format `forever-auction-snapshot` v1: per file house,
+  kind, lastModified, listings, items, sizes, sha256) as artifact `snapshot-<YYYYMMDDTHHMMSSZ>`, kept 90 days.
+- **PC side (step 2, not built)**: `collector/sync.mjs` from Task Scheduler (logon + hourly, below-normal priority)
+  downloads artifacts to `F:\ForeverAuctionData\raw\...`, verifies sha256, writes per-item summaries (same
+  lowest/median/cheapest-15% as the app), deletes the artifact, logs to `sync.log`, and shows Windows notifications
+  for: sync failure, F: missing, newest snapshot > 3 h, failed runs, schedule disabled (GitHub disables schedules
+  after 60 days without commits), new API fields, GitHub token near expiry. No healthchecks.io (Josh: no new accounts).
+- Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
+  the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
+- Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. About 800 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
 ## Model (must match the workbook)
 
