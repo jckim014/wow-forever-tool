@@ -1,0 +1,16 @@
+[
+  {
+    "version": 1,
+    "date": "2026-11-13",
+    "note": "First version: vanished with 2+ h left = sold unless a cheaper same-size listing appeared (repost).",
+    "records": "Josh's TSM records 2026-11-12 12:22 pm to 2026-11-13 12:22 am",
+    "summary": { "sale": { "right": 10, "wrong": 8 }, "buy": { "right": 59, "wrong": 16 }, "cancel": { "right": 15, "wrong": 0 }, "expiry": { "right": 13, "wrong": 1 } }
+  },
+  {
+    "version": 2,
+    "date": "2026-11-13",
+    "note": "A new cheaper listing explains at most one vanished listing as a repost (v1 wrote off 15 of Josh's buys).",
+    "records": "Josh's TSM records 2026-11-12 12:22 pm to 2026-11-13 12:22 am",
+    "summary": { "sale": { "right": 10, "wrong": 8 }, "buy": { "right": 72, "wrong": 3 }, "cancel": { "right": 15, "wrong": 0 }, "expiry": { "right": 13, "wrong": 1 } }
+  }
+]

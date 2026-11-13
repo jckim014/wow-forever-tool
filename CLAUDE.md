@@ -209,7 +209,7 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
 A separate local app on Josh's PC for **price trends** (any AH item's history, charts, pattern finding) and **faction
 arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
 on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
-5 Trends charts (done), 5a TSM region sale data (done), 5b our own sale-rate estimate + Method check page, 6 Faction
+5 Trends charts (done), 5a TSM region sale data (done), 5b our own sale-rate estimate + Method check page (done), 6 Faction
 (filters on both sale figures), 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month). All revisable (Josh).
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
@@ -242,6 +242,26 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   only as ground truth for checking our estimate (5b): TradeSkillMaster.lua csvSales/csvBuys/csvCancelled/csvExpired
   (account 1120039#2; 2026-11-13: 1,209 auction sales, 643 buys, 156 cancels, 432 expiries). Those rows hold other
   players' names: never store or show them.
+- **Our sale-rate estimate** (5b, 2026-11-13; `collector/departures.mjs`, method version in `METHOD_VERSION`, history in
+  `market/method-history.json`): per house (111, 114 only) and consecutive snapshot pair (<= 90 min apart), from the
+  raw listings: certain = commodity listing still there with lower quantity; probable = vanished with LONG/VERY_LONG
+  left (can't expire within the hour) and not a repost; reposted = a new cheaper listing of the same item and size
+  appeared (v2: each new listing explains at most one vanished one); unclear = vanished with SHORT/MEDIUM left (may
+  have expired). Stored in market.db `departures(item, house, t, certain, probable, reposted, unclear)` and
+  `departure_pairs(house, t, prev_t, skipped, method)`; filled by `collector/build_departures.mjs` (after a method
+  change: drop both tables and rerun, ~6 s per 10 h of data) and by the sync after each new snapshot
+  (`departuresUpdate.mjs`). Item page: "Our estimate · your realm" per faction, ≤ (certain + probable) per day over the
+  last 7 days, labelled an upper bound. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
+  items) at ~11x TSM's level (TSM only sees TSM users' sales).
+- **Method check** tab (`market/validate.mjs` pure + `methodCheck.mjs`, `/api/method-check`, `public/check.js`): Josh's
+  TSM records (`TradeSkillMaster.lua`, account 1120039#2, env FOREVER_TSM_ACCOUNT_FILE) as ground truth, never as a data
+  source; names dropped on parsing. Matching rules learned the hard way: TSM records a sale at the money received
+  (listed price x 0.95); a commodity buy takes units from several stacks (any listing at or below the price);
+  cancels/expiries have no price (narrowed to Josh's own listing prices from his sales within 2 days); sales are
+  searched up to 2 h before the record (mail delay), other records only in the pair around their time (a missing
+  snapshot = not checkable, never an earlier pair). v2 on 140 records: 88% of sales+buys detected (82/93), 0/15 cancels
+  and 1/14 expiries counted as sales; the misses are mostly sales near the end of a listing (vanish with < 2 h left,
+  indistinguishable from expiry: an hourly-snapshot limit). Tune only with ~100+ more records; record each version.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)

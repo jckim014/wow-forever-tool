@@ -2,6 +2,7 @@
 import { formatMoney, formatMoneyAxis, QUALITY_NAMES, HOUSES } from './shared.js';
 import { segments, weekdayHourGrid, daily } from './stats.js';
 import { lineChart, hourHeatmap, calendar, SERIES_COLORS } from './charts.js';
+import { showCheck } from './check.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -50,10 +51,12 @@ function showView(v) {
   for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', b.dataset.view === v);
   $('#view-trends').hidden = v !== 'trends';
   $('#view-faction').hidden = v !== 'faction';
+  $('#view-check').hidden = v !== 'check';
+  if (v === 'check') showCheck();
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
-try { showView(localStorage.getItem('forever-market:view') === 'faction' ? 'faction' : 'trends'); } catch { /* default */ }
+try { const v = localStorage.getItem('forever-market:view'); showView(v === 'faction' || v === 'check' ? v : 'trends'); } catch { /* default */ }
 
 // ---- search ----
 let selected = Number(new URLSearchParams(location.hash.slice(1)).get('item')) || null;
@@ -89,6 +92,23 @@ $('#results').addEventListener('click', (e) => {
   if (row) select(Number(row.dataset.id));
 });
 
+/** Our own estimate from the hourly snapshots, per faction (an upper bound: missed cancellations count as sales). */
+function estimateBlock(e) {
+  if (!e) return '';
+  const n = (v) => (v === null ? '—' : v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
+  const hours = Math.min(...HOUSES.map((h) => e[h.id].hours));
+  const tip = 'Units that left the auction house before they could have expired, between hourly snapshots: certain = part of '
+    + 'a stack was bought; probable = a listing vanished with 2+ hours left and was not obviously reposted cheaper. Cancellations '
+    + 'that look like this are counted too, so read it as an upper bound; listings bought within the hour they were posted are missed.';
+  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">Our estimate · your realm</span>
+    ${HOUSES.map((h) => {
+      const x = e[h.id];
+      return `<span>${h.label}: <strong>≤ ${n(x.certain === null ? null : x.certain + x.probable)}</strong> left early per day
+        <span class="mest-sub">(${n(x.certain)} certain)</span></span>`;
+    }).join('')}
+    <span class="mtsm-when">last ${e.days} days · ${hours} h of data</span></div>`;
+}
+
 /** TSM's region sale figures (pooled TSM users' real sales across Forever-US, not this realm). */
 function tsmBlock(t) {
   if (!t) return '<p class="mnote">TSM data: not found (the TSM desktop app writes it).</p>';
@@ -121,6 +141,7 @@ async function select(id) {
             <td>${l ? l.units.toLocaleString() : '<span class="blank">not listed</span>'}</td><td>${l ? esc(ago(l.t)) : ''}</td></tr>`;
         }).join('')}
       </table>
+      ${estimateBlock(it.estimate)}
       ${tsmBlock(it.tsm)}
       <div id="trends"></div>`;
     await loadTrends(id);

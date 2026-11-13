@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { searchItems, shouldStop, itemList } from './lib.mjs';
 import { parseRegionSale } from './tsm.mjs';
+import { runMethodCheck } from './methodCheck.mjs';
+import { spearman } from './validate.mjs';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -63,6 +65,53 @@ function latest(item) {
   return out;
 }
 
+/**
+ * Our sale-rate estimate (collector/departures.mjs) over the last `days`: per house units per day that left the AH
+ * early (certain = partial commodity buys; probable = vanished with 2+ h left, not a likely repost), and the hours of
+ * snapshot pairs it rests on. null when the departure tables don't exist yet.
+ */
+function estimate(item, days) {
+  const d = getDb();
+  if (!d.prepare("SELECT 1 FROM sqlite_master WHERE name = 'departures'").get()) return null;
+  const from = Math.floor(Date.now() / 1000) - days * 86400;
+  const out = { days };
+  for (const h of HOUSES) {
+    const hours = d.prepare('SELECT count(*) n FROM departure_pairs WHERE house = ? AND t >= ? AND skipped = 0').get(h, from).n;
+    const s = d.prepare('SELECT sum(certain) c, sum(probable) p, sum(reposted) r FROM departures WHERE item = ? AND house = ? AND t >= ?').get(item, h, from);
+    const perDay = (v) => (hours ? ((v ?? 0) / hours) * 24 : null);
+    out[h] = { hours, certain: perDay(s.c), probable: perDay(s.p), reposted: perDay(s.r) };
+  }
+  return out;
+}
+
+// ---- Method check (methodCheck.mjs): Josh's TSM records vs our estimate. Cached until new data arrives. ----
+const tsmAccountFile = process.env.FOREVER_TSM_ACCOUNT_FILE
+  || 'F:\\World of Warcraft\\_forever_\\WTF\\Account\\1120039#2\\SavedVariables\\TradeSkillMaster.lua';
+let checkCache = null;
+function methodCheck() {
+  const latestT = getDb().prepare('SELECT max(t) t FROM snapshots').get().t;
+  const key = `${latestT}:${fs.statSync(tsmAccountFile).mtimeMs}`;
+  if (checkCache?.key === key) return checkCache.value;
+  const r = runMethodCheck(dataRoot, tsmAccountFile);
+  getItems();
+  for (const x of r.results) x.name = byId.get(x.item)?.name ?? `Item ${x.item}`;
+  // sanity: our estimate (both factions, per day, over all data) against TSM's region sold per day, per item
+  const d = getDb();
+  const hours = Math.max(1, d.prepare('SELECT count(*) n FROM departure_pairs WHERE house = 111 AND skipped = 0').get().n);
+  const t = getTsm();
+  const points = [];
+  for (const row of d.prepare('SELECT item, sum(certain) + sum(probable) u FROM departures GROUP BY item').all()) {
+    const tsmDay = t?.items.get(row.item)?.soldPerDay;
+    if (tsmDay > 0 && row.u > 0) points.push([row.item, (row.u / hours) * 24, tsmDay, byId.get(row.item)?.name ?? `Item ${row.item}`]);
+  }
+  const value = {
+    ...r, hours, history: JSON.parse(fs.readFileSync(path.join(here, 'method-history.json'), 'utf8')),
+    agreement: spearman(points.map((p) => p[1]), points.map((p) => p[2])), points,
+  };
+  checkCache = { key, value };
+  return value;
+}
+
 // ---- API ----
 const api = {
   '/api/status': () => {
@@ -104,12 +153,13 @@ const api = {
     const snaps = getDb().prepare('SELECT t FROM snapshots WHERE t >= ? AND t <= ? ORDER BY t').all(from, to).map((r) => r.t);
     return { id, from, to, snapshots: snaps, houses };
   },
+  '/api/method-check': () => methodCheck(),
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));
     const t = getTsm();
     return {
-      ...(byId.get(id) ?? { id, name: `Item ${id}`, quality: null, icon: null }), latest: latest(id),
+      ...(byId.get(id) ?? { id, name: `Item ${id}`, quality: null, icon: null }), latest: latest(id), estimate: estimate(id, 7),
       tsm: t ? { ...(t.items.get(id) ?? { saleAvg: null, soldPerDay: null, saleRate: null }), region: t.region, downloadTime: t.downloadTime } : null,
     };
   },

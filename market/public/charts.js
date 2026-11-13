@@ -208,3 +208,41 @@ export function calendar(wrap, days, format) {
   }
   legendRamp(wrap, 'cheaper', 'dearer');
 }
+
+/**
+ * Log-log scatter (Method check sanity view): points [{ x, y, label }], one series in slot 1 colour, hover shows the
+ * nearest point. Axis ticks at powers of ten.
+ */
+export function scatterLog(wrap, { points, xLabel, yLabel, format = (v) => (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1)), height = 340 }) {
+  wrap.replaceChildren();
+  wrap.classList.add('cwrap');
+  const pts = points.filter((p) => p.x > 0 && p.y > 0);
+  if (!pts.length) { const p = document.createElement('p'); p.className = 'mempty'; p.textContent = 'Not enough data yet.'; wrap.appendChild(p); return; }
+  const W = Math.min(720, Math.max(320, wrap.clientWidth)), H = height, m = { l: 64, r: 16, t: 10, b: 40 };
+  const lx = pts.map((p) => Math.log10(p.x)), ly = pts.map((p) => Math.log10(p.y));
+  const x0 = Math.floor(Math.min(...lx)), x1 = Math.ceil(Math.max(...lx)), y0 = Math.floor(Math.min(...ly)), y1 = Math.ceil(Math.max(...ly));
+  const X = (v) => m.l + ((Math.log10(v) - x0) / Math.max(1, x1 - x0)) * (W - m.l - m.r);
+  const Y = (v) => m.t + (1 - (Math.log10(v) - y0) / Math.max(1, y1 - y0)) * (H - m.t - m.b);
+  const svg = el('svg', { width: W, height: H, class: 'cline', role: 'img' }, wrap);
+  const pow = (k) => (10 ** k >= 1 ? (10 ** k).toLocaleString() : String(10 ** k));
+  for (let k = y0; k <= y1; k++) { el('line', { x1: m.l, x2: W - m.r, y1: Y(10 ** k), y2: Y(10 ** k), class: 'cgrid' }, svg); text(svg, m.l - 8, Y(10 ** k) + 4, pow(k), { class: 'caxis', 'text-anchor': 'end' }); }
+  for (let k = x0; k <= x1; k++) { el('line', { x1: X(10 ** k), x2: X(10 ** k), y1: m.t, y2: H - m.b, class: 'cgrid' }, svg); text(svg, X(10 ** k), H - m.b + 16, pow(k), { class: 'caxis', 'text-anchor': 'middle' }); }
+  text(svg, (m.l + W - m.r) / 2, H - 4, xLabel, { class: 'caxis', 'text-anchor': 'middle' });
+  text(svg, 12, (m.t + H - m.b) / 2, yLabel, { class: 'caxis', 'text-anchor': 'middle', transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})` });
+  for (const p of pts) el('circle', { cx: X(p.x), cy: Y(p.y), r: 2.5, fill: SERIES_COLORS[0], 'fill-opacity': 0.45 }, svg);
+  const ring = el('circle', { r: 5, fill: SERIES_COLORS[0], class: 'cdot', visibility: 'hidden' }, svg);
+  const tip = tooltip(wrap);
+  const scr = pts.map((p) => [X(p.x), Y(p.y)]);
+  const hit = el('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent' }, svg);
+  hit.addEventListener('pointermove', (ev) => {
+    const box = svg.getBoundingClientRect();
+    const px = ev.clientX - box.left, py = ev.clientY - box.top;
+    let best = 0, bd = Infinity;
+    scr.forEach(([sx, sy], i) => { const d = (sx - px) ** 2 + (sy - py) ** 2; if (d < bd) { bd = d; best = i; } });
+    if (bd > 400) { ring.setAttribute('visibility', 'hidden'); tip.hide(); return; }
+    const p = pts[best];
+    ring.setAttribute('cx', scr[best][0]); ring.setAttribute('cy', scr[best][1]); ring.setAttribute('visibility', 'visible');
+    tip.show(scr[best][0], scr[best][1], p.label, [{ value: format(p.y), label: yLabel }, { value: format(p.x), label: xLabel }]);
+  });
+  hit.addEventListener('pointerleave', () => { ring.setAttribute('visibility', 'hidden'); tip.hide(); });
+}

@@ -22,6 +22,7 @@ import {
   readZip, summarizeHouse, SUMMARY_COLUMNS, snapshotDate, snapshotDayParts, updateAlerts, parseTokenExpiry,
 } from './syncLib.mjs';
 import { openDb, insertSummary } from './marketDb.mjs';
+import { updateDepartures } from './departuresUpdate.mjs';
 
 const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
@@ -318,6 +319,18 @@ try {
 }
 
 // ---- names for new items (Forever Market): at most 2 minutes per sync; skipped while another fetch runs ----
+// ---- our sale-rate estimate (departures.mjs): compare the new snapshots with the ones before ----
+if (!dryRun && stored > 0) {
+  try {
+    marketDb ??= openDb(path.join(dataRoot, 'market.db'));
+    const t0 = Date.now();
+    const r = updateDepartures(marketDb, dataRoot);
+    log(`departures: ${r.pairs} pair(s) compared${r.skipped ? `, ${r.skipped} skipped (gap)` : ''}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  } catch (e) {
+    events.push({ title: 'Auction sync: sale estimate not updated', message: `${e.message}. Run node collector/build_departures.mjs to catch up.`, url: ACTIONS_URL });
+    log(`departures: ${e.message}`);
+  }
+}
 try { marketDb?.close(); } catch { /* ignore */ }
 if (!dryRun && stored > 0) {
   const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', path.join(here, 'fetch_names.mjs'), '--limit', '120'],
