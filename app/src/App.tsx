@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { config, loadGameData } from './data'
 import { DataMenu, importEditsFile } from './DataMenu'
 import { compute, effectiveSettings, type GameData } from './model'
@@ -52,6 +52,8 @@ export function App() {
   const [message, setMessage] = useState<string | null>(null)
   const [filters, setFilters] = useState<RecipeFilters>({ search: '', professions: new Set(), minProfitGold: null, hideUnpriced: false, hideBop: false, exit: 'all' })
   const [view, setView] = useState<View>(savedView)
+  // List and Prices stay mounted once opened (hidden while another view shows): see keepAlive.ts
+  const [kept, setKept] = useState<Set<View>>(() => new Set([view]))
   const [tableCount, setTableCount] = useState<number | null>(null)
   const addMessage = (m: string) => setMessage((prev) => (prev ? `${prev} ${m}` : m))
   const history = usePriceHistory(addMessage)
@@ -73,24 +75,30 @@ export function App() {
     return new Map((result ? filterRecipes(result.recipes, all, text) : []).map((r) => [r.recipe.id, r]))
   }, [result, filters.search, text])
 
-  if (error) return <div className="message error">{error}</div>
-  if (!game || !result) return <div className="message">Loading game data…</div>
-
-  const chooseView = (v: View) => {
+  const chooseView = useCallback((v: View) => {
     setView(v)
+    setKept((k) => (k.has(v) ? k : new Set(k).add(v)))
     setTableCount(null)
     try {
       localStorage.setItem(VIEW_KEY, v)
     } catch {
       // a per-browser convenience only
     }
-  }
-  const updateFav = (fn: (f: FavoritesEdits) => FavoritesEdits) => store.update((cur) => ({ ...cur, favorites: fn(cur.favorites) }))
-  const cardProps = {
-    result, game, onUseChains: (id: number, on: boolean) => store.update((cur) => setUseChains(cur, id, on)),
-    shopping: shopIds, onShop: (id: number) => store.update((cur) => addRecipe(cur, id)), onOpenShopping: () => chooseView('shopping'),
-    favorites: edits.favorites, updateFav,
-  }
+  }, [])
+  // Stable callbacks and card props, so the kept-alive List skips re-rendering when nothing it shows changed.
+  const update = store.update
+  const updateFav = useCallback((fn: (f: FavoritesEdits) => FavoritesEdits) => update((cur) => ({ ...cur, favorites: fn(cur.favorites) })), [update])
+  const onUseChains = useCallback((id: number, on: boolean) => update((cur) => setUseChains(cur, id, on)), [update])
+  const onShop = useCallback((id: number) => update((cur) => addRecipe(cur, id)), [update])
+  const onOpenShopping = useCallback(() => chooseView('shopping'), [chooseView])
+  const cardProps = useMemo(
+    () => (result && game ? { result, game, onUseChains, shopping: shopIds, onShop, onOpenShopping, favorites: edits.favorites, updateFav } : null),
+    [result, game, onUseChains, shopIds, onShop, onOpenShopping, edits.favorites, updateFav],
+  )
+
+  if (error) return <div className="message error">{error}</div>
+  if (!game || !result || !cardProps) return <div className="message">Loading game data…</div>
+
   const favCount = favoriteCount(edits.favorites)
   const count = view === 'table' && tableCount !== null ? tableCount : rows.length
 
@@ -215,20 +223,26 @@ export function App() {
           </span>
         )}
       </nav>
-      {view === 'shopping' ? (
+      {kept.has('list') && (
+        <div className={view === 'list' ? 'vkeep' : 'vkeep off'}>
+          <RecipeList rows={rows} exit={filters.exit} active={view === 'list'} {...cardProps} />
+        </div>
+      )}
+      {kept.has('prices') && (
+        <div className={view === 'prices' ? 'vkeep' : 'vkeep off'}>
+          <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} active={view === 'prices'} />
+        </div>
+      )}
+      {view === 'list' || view === 'prices' ? null : view === 'shopping' ? (
         <ShoppingView game={game} result={result} edits={edits} update={store.update} />
       ) : view === 'detable' ? (
         <DeTableView defaults={config.deTable} edits={edits} result={result} update={store.update} />
       ) : view === 'intermediates' ? (
         <IntermediatesView game={game} result={result} update={store.update} />
-      ) : view === 'prices' ? (
-        <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} />
       ) : view === 'settings' ? (
         <SettingsView defaults={config.settings} settings={result.settings} edits={edits} update={store.update} />
       ) : view === 'favorites' ? (
         <FavoritesView rowsById={favRows} searching={!!filters.search.trim()} exit={filters.exit} {...cardProps} />
-      ) : view === 'list' ? (
-        <RecipeList rows={rows} exit={filters.exit} {...cardProps} />
       ) : (
         <Suspense fallback={<div className="message">Loading the table…</div>}>
           <RecipesGrid rows={rows} onCount={setTableCount} />

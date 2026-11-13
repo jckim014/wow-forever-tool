@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react'
+import { useResetOnShow } from '../keepAlive'
 import { formatMoney, sourceLabel } from '../format'
 import type { DeBand, Edits, GameData, Money, ModelResult } from '../model'
 import { hasUsage, itemPriceRows, joinMoney, setCustomPrice, setVendorBuy, splitMoney, type ItemPriceRow, type UsageKey } from './items'
@@ -35,13 +36,27 @@ interface Props {
   edits: Edits
   result: ModelResult
   update: (fn: (cur: Edits) => Edits) => void
+  /** false while another view is shown (the view stays mounted; see keepAlive.ts) */
+  active?: boolean
 }
 
-export function PricesView({ game, deTable, edits, result, update }: Props) {
+const NO_ONLY = { custom: false, edited: false, unpriced: false, differs: false }
+const DEFAULT_SORT: { key: SortKey; dir: 1 | -1 } = { key: 'name', dir: 1 }
+
+export const PricesView = memo(function PricesView({ game, deTable, edits, result, update, active = true }: Props) {
   const [search, setSearch] = useState('')
   const [uses, setUses] = useState<Set<UsageKey>>(() => new Set())
-  const [only, setOnly] = useState({ custom: false, edited: false, unpriced: false, differs: false })
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'name', dir: 1 })
+  const [only, setOnly] = useState(NO_ONLY)
+  const [sort, setSort] = useState(DEFAULT_SORT)
+  const listRef = useRef<HTMLDivElement>(null)
+  // Shown again after another view: start fresh, as when the view was rebuilt on every switch.
+  useResetOnShow(active, () => {
+    setSearch('')
+    setUses((u) => (u.size ? new Set() : u))
+    setOnly(NO_ONLY)
+    setSort(DEFAULT_SORT)
+    if (listRef.current) listRef.current.scrollTop = 0
+  })
 
   const all = useMemo(() => itemPriceRows(game, deTable, edits, result.prices), [game, deTable, edits, result])
   const rows = useMemo(() => {
@@ -89,7 +104,7 @@ export function PricesView({ game, deTable, edits, result, update }: Props) {
         </label>
         <span className="count">{rows.length.toLocaleString()} of {all.length.toLocaleString()} items</span>
       </div>
-      <div className="plist">
+      <div ref={listRef} className="plist">
         <div className="phead" role="row">
           {COLUMNS.map((c) => (
             <div key={c.key} className={[c.num && 'num', c.cls].filter(Boolean).join(' ')}>
@@ -99,12 +114,21 @@ export function PricesView({ game, deTable, edits, result, update }: Props) {
             </div>
           ))}
         </div>
-        {rows.length === 0 && <div className="rempty">No items match these filters.</div>}
-        {rows.map((r) => <Row key={r.id} r={r} onCustom={onCustom} onVendor={onVendor} />)}
+        <PriceRows rows={rows} onCustom={onCustom} onVendor={onVendor} />
       </div>
     </div>
   )
-}
+})
+
+/** The rows: memoised apart from PricesView so showing or hiding the kept-alive view doesn't re-render them. */
+const PriceRows = memo(function PriceRows({ rows, onCustom, onVendor }: {
+  rows: ItemPriceRow[]; onCustom: (id: number, v: Money) => void; onVendor: (id: number, v: 'wowhead' | Money) => void
+}) {
+  return (<>
+    {rows.length === 0 && <div className="rempty">No items match these filters.</div>}
+    {rows.map((r) => <Row key={r.id} r={r} onCustom={onCustom} onVendor={onVendor} />)}
+  </>)
+})
 
 const Row = memo(function Row({ r, onCustom, onVendor }: {
   r: ItemPriceRow

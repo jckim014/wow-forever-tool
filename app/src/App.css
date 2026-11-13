@@ -17,6 +17,13 @@
 body { margin: 0; }
 
 .app { display: flex; flex-direction: column; height: 100vh; padding: 0 12px 12px; box-sizing: border-box; }
+/* Kept-alive views (List, Prices): the wrapper takes no part in the layout; hidden while another view shows. */
+.vkeep { display: contents; }
+.vkeep.off { display: none; }
+/* The browser lays out and paints only rows near the screen (2,000+ rows otherwise took ~0.4 s to show).
+   "auto" remembers each row's real height once it has been on screen; Ctrl+F still finds every row. */
+.rlist > div:not(.rhead):not(.rempty) { content-visibility: auto; contain-intrinsic-size: auto 52px; }
+.plist > .prow { content-visibility: auto; contain-intrinsic-size: auto 38px; }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0 6px; }
 .toolbar h1 { font-size: 17px; margin: 0 8px 0 0; }

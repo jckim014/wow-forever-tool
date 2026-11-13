@@ -467,6 +467,12 @@ When Josh says **"sign off"** (older wording: "save everything"), the session is
 Working notes:
 - `app/src/App.css` is one global stylesheet. Two bugs came from generic class names colliding across views (`.num`,
   `.sub`). Give new view-specific classes a prefix (the views use `s*`, `p*`, `i*`, `d*`, `r*`) and grep before adding.
+- **Kept-alive views** (2026-11-12, tab-switch lag): List and Prices stay mounted once opened and are hidden
+  (`.vkeep.off`, display none) when another view shows; `useResetOnShow` (`app/src/keepAlive.ts`) resets their sort,
+  open cards, filters and scroll on return, as the old rebuild did (Josh: keep behaviour as close to today as
+  reasonable). Their rows are memoised apart (`ListBody`, `PriceRows`) and App's card props are stable, so a switch
+  doesn't re-render 2,000 rows; rows use `content-visibility: auto`. Production build: arriving at List 230-300 ms ->
+  ~25-30 ms, Prices 580-650 -> ~45-55; screenshots pixel-identical. Keep new props to these views stable (useCallback/useMemo).
 - Views: List · Favorites (`favorites/`) · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
   (`settings/`) · Shopping (`shopping/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
 - Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;

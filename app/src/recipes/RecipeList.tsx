@@ -4,6 +4,7 @@ import type { FavoritesEdits, GameData, ModelResult, Money, RecipeRow } from '..
 import { RecipeCard } from './RecipeCard'
 import { exitFigures, type ExitView } from './filter'
 import { FavPicker } from '../favorites/FavPicker'
+import { useResetOnShow } from '../keepAlive'
 import { toggleStar } from '../favorites/fav'
 
 export type SortKey = 'name' | 'skill' | 'best' | 'profit' | 'cost' | 'ret'
@@ -180,24 +181,44 @@ export function Card({ r, p }: { r: RecipeRow; p: CardProps }) {
   )
 }
 
-export function RecipeList({ rows, exit, ...p }: CardProps & { rows: RecipeRow[]; exit: ExitView }) {
-  const [chosenSort, setSort] = useState<Sort>({ key: 'profit', dir: -1 })
-  const { open, toggle } = useOpenSet()
+const DEFAULT_SORT: Sort = { key: 'profit', dir: -1 }
+
+/** The rows themselves: memoised apart from RecipeList so showing or hiding the kept-alive list doesn't re-render them. */
+const ListBody = memo(function ListBody({ sorted, open, exit, toggle, favIds, onStar, p }: {
+  sorted: RecipeRow[]; open: Set<number>; exit: ExitView; toggle: (id: number) => void
+  favIds: Set<number>; onStar: (id: number) => void; p: CardProps
+}) {
+  return (<>
+    {sorted.length === 0 && <div className="rempty">No recipes match these filters.</div>}
+    {sorted.map((r) => (
+      <div key={r.recipe.id}>
+        <Row r={r} open={open.has(r.recipe.id)} exit={exit} onToggle={toggle} fav={favIds.has(r.recipe.id)} onStar={onStar} />
+        {open.has(r.recipe.id) && <Card r={r} p={p} />}
+      </div>
+    ))}
+  </>)
+}, (a, b) => a.sorted === b.sorted && a.open === b.open && a.exit === b.exit && a.toggle === b.toggle && a.favIds === b.favIds &&
+  a.onStar === b.onStar && (Object.keys(a.p) as (keyof CardProps)[]).every((k) => a.p[k] === b.p[k]))
+
+export const RecipeList = memo(function RecipeList({ rows, exit, active = true, ...p }: CardProps & { rows: RecipeRow[]; exit: ExitView; active?: boolean }) {
+  const [chosenSort, setSort] = useState<Sort>(DEFAULT_SORT)
+  const { open, setOpen, toggle } = useOpenSet()
+  const listRef = useRef<HTMLDivElement>(null)
+  // Shown again after another view: start fresh, as when the list was rebuilt on every switch.
+  useResetOnShow(active, () => {
+    setSort(DEFAULT_SORT)
+    setOpen((o) => (o.size ? new Set() : o))
+    if (listRef.current) listRef.current.scrollTop = 0
+  })
   const sort = effectiveSort(chosenSort, exit)!
   const sorted = useMemo(() => sortRows(rows, sort, exit), [rows, sort.key, sort.dir, exit]) // eslint-disable-line react-hooks/exhaustive-deps
   const favIds = useMemo(() => new Set(p.favorites.groups.flatMap((g) => g.recipes)), [p.favorites])
   const onStar = useStable((id: number) => p.updateFav((f) => toggleStar(f, id)))
 
   return (
-    <div className={exit !== 'all' ? 'rlist r-single' : 'rlist'}>
+    <div ref={listRef} className={exit !== 'all' ? 'rlist r-single' : 'rlist'}>
       <ListHead sort={sort} exit={exit} onSort={(key) => setSort((s) => nextSort(s, key))} />
-      {sorted.length === 0 && <div className="rempty">No recipes match these filters.</div>}
-      {sorted.map((r) => (
-        <div key={r.recipe.id}>
-          <Row r={r} open={open.has(r.recipe.id)} exit={exit} onToggle={toggle} fav={favIds.has(r.recipe.id)} onStar={onStar} />
-          {open.has(r.recipe.id) && <Card r={r} p={p} />}
-        </div>
-      ))}
+      <ListBody sorted={sorted} open={open} exit={exit} toggle={toggle} favIds={favIds} onStar={onStar} p={p} />
     </div>
   )
-}
+})
