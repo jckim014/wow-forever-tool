@@ -91,7 +91,7 @@ function render(box, r) {
 
       <h3>Sanity check against TSM, every item</h3>
       <p class="mnote">Each dot is an item: our estimate (both factions, units per day that left early, from ${r.hours} hours of data)
-        against TSM's region sold per day. They measure different things (your realm vs TSM users across the region), so only
+        against TSM's region sold per day. They measure different things (NA PvE vs TSM users across the region), so only
         the ordering should agree. Rank agreement: <strong>${r.agreement === null ? '—' : r.agreement.toFixed(2)}</strong>
         (1 = same order, 0 = unrelated), over ${r.points.length.toLocaleString()} items.</p>
       <div id="c-scatter"></div>

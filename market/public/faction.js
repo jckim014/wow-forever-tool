@@ -30,7 +30,7 @@ const COLS = [
   ['profit', 'Profit / unit', (r) => r.profit, 'Sell x 0.95 (AH cut) - buy x 1.15 (15% Blackwater cut on a transfer listed at the buy price)'],
   ['margin', 'Margin', (r) => r.margin, 'Profit as a share of the buy price'],
   ['cheapUnits', 'Units to buy', (r) => r.cheapUnits, 'Units listed on the cheap side'],
-  ['ours', 'Sales / day*', (r) => r.oursPerDay ?? -1, 'Dear side, your realm: estimated units sold per day over the window (see the note below the filters)'],
+  ['ours', 'Sales / day*', (r) => r.oursPerDay ?? -1, 'Dear side, NA PvE: estimated units sold per day over the window (see the note below the filters)'],
   ['tsm', 'TSM sales / day', (r) => r.tsmPerDay ?? -1, 'TSM: sold per day across the whole Forever-US region (TSM users only)'],
   ['steady', 'Steady', steadyShare, 'Share of hourly snapshots in the window where this trade was profitable'],
 ];

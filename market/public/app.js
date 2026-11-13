@@ -102,7 +102,7 @@ function estimateBlock(e) {
   const tip = 'Worked out by comparing each hour\'s listings with the next. Confirmed = part of a stack was bought (that can only be a '
     + 'sale). The rest = listings that disappeared while they still had 2+ hours left, so they were bought or cancelled; likely '
     + 'reposts are left out. The Method check tab tests this against your own TSM sales.';
-  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">Sales · your realm (estimated*)</span>
+  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">NA PvE · Sales (estimated*)</span>
     ${HOUSES.map((h) => {
       const x = e[h.id];
       return `<span>${h.label}: <strong>~${n(x.certain === null ? null : x.certain + x.probable)}</strong> sold per day*
@@ -122,7 +122,7 @@ function tsmBlock(t) {
   return `<div class="mtsm"><span class="mtsm-h">TSM sales · ${esc(t.region)} region</span>
     <span><strong>${sold}</strong> sold per day</span><span><strong>${rate}</strong> sale rate</span>
     <span><strong>${money(t.saleAvg)}</strong> average sale price</span>
-    <span class="mtsm-when" title="Pooled real sales recorded by TSM users across the whole region, not just your realm. Updated about daily by the TSM desktop app.">data from ${esc(when)}</span></div>`;
+    <span class="mtsm-when" title="Pooled real sales recorded by TSM users across the whole region, not just NA PvE. Updated about daily by the TSM desktop app.">data from ${esc(when)}</span></div>`;
 }
 
 // ---- item detail (charts come in step 5) ----

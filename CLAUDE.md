@@ -253,8 +253,8 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   have expired). Stored in market.db `departures(item, house, t, certain, probable, reposted, unclear)` and
   `departure_pairs(house, t, prev_t, skipped, method)`; filled by `collector/build_departures.mjs` (after a method
   change: drop both tables and rerun, ~6 s per 10 h of data) and by the sync after each new snapshot
-  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13): "Sales · your realm
-  (estimated*)", per faction "~N sold per day*" (= certain + probable over the last 7 days) and "(N confirmed)" (=
+  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13): "NA PvE · Sales
+ (estimated*)", per faction "~N sold per day*" (= certain + probable over the last 7 days) and "(N confirmed)" (=
   certain, shown only when > 0); footnote "* Estimated from hourly listings: includes some cancellations and misses
   items bought within the hour. See Method check." In code and the Method check the rule names stay certain/probable. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
   items) at ~11x TSM's level (TSM only sees TSM users' sales).
