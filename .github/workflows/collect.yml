@@ -15,9 +15,14 @@ on:
         description: 'Fail this run on purpose after collecting (checks that the failure email arrives)'
         type: boolean
         default: false
+      sync_check_now:
+        description: 'Run the daily PC-sync check now (normally once a day after 17:00 UTC)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  actions: read # daily check of snapshots waiting for the PC sync
 
 concurrency:
   group: collector
@@ -49,6 +54,8 @@ jobs:
           BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
           BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
           TOKEN_CACHE_KEY: ${{ secrets.TOKEN_CACHE_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SYNC_CHECK_NOW: ${{ inputs.sync_check_now && '1' || '' }}
           STATE_DIR: collector-state
           OUT_DIR: collector-out
       - name: Upload snapshot

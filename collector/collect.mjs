@@ -12,7 +12,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import {
   EXPECTED_HOUSES, KINDS, checkHouseList, checkHouseData, checkShrink, checkStale, snapshotId,
-  tokenUsable, encryptJson, decryptJson,
+  tokenUsable, encryptJson, decryptJson, dailyCheckDue, waitingSnapshotsProblem,
 } from './lib.mjs';
 
 const API = 'https://us.api.blizzard.com';
@@ -224,6 +224,31 @@ try {
   problems.push(`run stopped: ${e.message}`);
 }
 
+// Daily (first run after 17:00 UTC): snapshots waiting on GitHub for over 2 days mean the PC sync has stopped
+// picking them up, and they are lost after 90 days. Fails this one run so GitHub emails. Needs GITHUB_TOKEN (actions: read).
+let syncCheck = '';
+if (process.env.GITHUB_TOKEN && process.env.GITHUB_REPOSITORY && (process.env.SYNC_CHECK_NOW === '1' || dailyCheckDue(state.syncCheckDay, Date.now()))) {
+  try {
+    const artifacts = [];
+    for (let page = 1; page <= 10; page++) {
+      const res = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/actions/artifacts?per_page=100&page=${page}`, {
+        headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      });
+      if (!res.ok) throw new Error(`listing artifacts: HTTP ${res.status}`);
+      const j = await res.json();
+      artifacts.push(...j.artifacts);
+      if (j.artifacts.length < 100) break;
+    }
+    const p = waitingSnapshotsProblem(artifacts, Date.now());
+    if (p) problems.push(p);
+    syncCheck = p ? 'problem (see above)' : `ok (${artifacts.filter((a) => a.name.startsWith('snapshot-') && !a.expired).length} snapshots waiting, none over 2 days)`;
+  } catch (e) {
+    problems.push(`daily sync check: ${e.message}`);
+    syncCheck = 'failed';
+  }
+  state.syncCheckDay = new Date().toISOString().slice(0, 10);
+}
+
 if (newFields.size) notes.push(`new fields in the API data: ${[...newFields].join(', ')}`);
 if (ifModifiedSinceWorks === false) notes.push('Blizzard ignored If-Modified-Since: unchanged data was downloaded again');
 
@@ -242,6 +267,7 @@ if (files.length) {
 const summary = [
   `## Auction collector ${snapshot ? `- snapshot ${snapshot}` : '- nothing new'}`,
   '',
+  ...(syncCheck ? [`Daily PC sync check: ${syncCheck}.`, ''] : []),
   `Requests: ${requests} (token ${tokenFetched ? 'fetched' : tokenUsable(token, Date.now()) ? 'reused from cache' : 'not available'}).`,
   '',
   ...(problems.length ? ['### Problems', ...problems.map((p) => `- ${p}`), ''] : []),

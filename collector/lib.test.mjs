@@ -74,3 +74,23 @@ test('token cache: round trip, wrong key and garbage give null', () => {
   assert.equal(decryptJson(box, 'key-2'), null);
   assert.equal(decryptJson('not json', 'key-1'), null);
 });
+
+test('daily sync check: due once per UTC day after the check hour', async () => {
+  const { dailyCheckDue } = await import('./lib.mjs');
+  assert.equal(dailyCheckDue(null, Date.parse('2026-11-13T16:59:00Z')), false);
+  assert.equal(dailyCheckDue(null, Date.parse('2026-11-13T17:03:00Z')), true);
+  assert.equal(dailyCheckDue('2026-11-13', Date.parse('2026-11-13T23:40:00Z')), false);
+  assert.equal(dailyCheckDue('2026-11-12', Date.parse('2026-11-13T18:10:00Z')), true);
+});
+
+test('daily sync check: snapshots waiting over 2 days are a problem', async () => {
+  const { waitingSnapshotsProblem } = await import('./lib.mjs');
+  const now = Date.parse('2026-11-16T17:00:00Z');
+  const a = (name, created_at, expired = false) => ({ name, created_at, expired });
+  assert.equal(waitingSnapshotsProblem([], now), null);
+  assert.equal(waitingSnapshotsProblem([a('snapshot-x', '2026-11-15T12:00:00Z'), a('github-pages', '2026-11-01T00:00:00Z')], now), null);
+  assert.match(
+    waitingSnapshotsProblem([a('snapshot-a', '2026-11-13T09:00:00Z'), a('snapshot-b', '2026-11-16T09:00:00Z'), a('snapshot-c', '2026-11-01T00:00:00Z', true)], now),
+    /^2 snapshots are waiting on GitHub, the oldest since 2026-11-13T09:00Z \(3\.3 days\)/,
+  );
+});

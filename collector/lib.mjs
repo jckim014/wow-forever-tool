@@ -128,3 +128,27 @@ export function decryptJson(text, secret) {
     return null;
   }
 }
+
+// ---- daily check that the PC sync is picking snapshots up ----
+
+/** Snapshots waiting on GitHub longer than this fail the daily check (they expire after 90 days). */
+export const WAITING_MAX_MS = 2 * 24 * 60 * 60 * 1000;
+/** The daily check runs in the first run at or after this UTC hour (17 = 9 am Pacific). */
+export const DAILY_CHECK_HOUR_UTC = 17;
+
+/** True if the daily check is due: not yet done on this UTC day, and it's past the check hour. */
+export function dailyCheckDue(lastDay, now) {
+  const d = new Date(now);
+  return d.getUTCHours() >= DAILY_CHECK_HOUR_UTC && lastDay !== d.toISOString().slice(0, 10);
+}
+
+/** artifacts: GitHub's list (name, created_at, expired). Returns a problem string or null. */
+export function waitingSnapshotsProblem(artifacts, now) {
+  const waiting = artifacts.filter((a) => a.name.startsWith('snapshot-') && !a.expired);
+  const old = waiting.filter((a) => now - Date.parse(a.created_at) > WAITING_MAX_MS);
+  if (!old.length) return null;
+  const oldest = Math.min(...old.map((a) => Date.parse(a.created_at)));
+  return `${waiting.length} snapshots are waiting on GitHub, the oldest since ${new Date(oldest).toISOString().slice(0, 16)}Z `
+    + `(${((now - oldest) / 86400000).toFixed(1)} days): the PC sync hasn't picked them up. They are deleted after 90 days. `
+    + 'Check the "Forever auction sync" task and F:\ForeverAuctionData\sync.log.';
+}

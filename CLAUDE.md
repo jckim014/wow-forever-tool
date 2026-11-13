@@ -155,6 +155,11 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   kind, lastModified, listings, items, sizes, sha256) as artifact `snapshot-<YYYYMMDDTHHMMSSZ>`, kept 90 days.
   Run workflow has a "test_failure" box: collects normally, then fails on purpose (checks the email and PC alert).
   In the API every regular auction has quantity 1; stacks are commodities (unit_price).
+  **Daily PC-sync check** (first run after 17:00 UTC = 9 am Pacific, day kept in the cached state): if any snapshot
+  has waited on GitHub over 2 days, that run fails (one email a day) because the PC sync has stopped picking them up
+  and they are lost after 90 days. Uses the workflow's GITHUB_TOKEN (actions: read). "sync_check_now" box on Run
+  workflow forces it. Known unwatched: the Google timer stopping while the PC is off (noticed at next login), and
+  disk space on F: (Josh declined a free-space alert, 2026-11-12).
 - **PC side** (`collector/sync.mjs`, pure parts in `syncLib.mjs`): Windows task "Forever auction sync"
   (`collector/install-task.ps1`; 2 min after logon and hourly at :55 (moved from :40 on 2026-11-12 so it falls after the timer-started runs), priority 7, run via `sync-hidden.vbs` so no
   window; node from `C:\nvm4w\nodejs\node.exe`, re-run the installer if that changes). Downloads every `snapshot-*`
