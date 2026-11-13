@@ -27,7 +27,6 @@ const WORKFLOW = 'collect.yml';
 const ACTIONS_URL = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
 const STALE_MS = 3 * 60 * 60 * 1000;
 const BACKUP_RUN_AFTER_MS = 70 * 60 * 1000; // no collector run for this long: start one from here
-const SCHEDULE_LATE_MS = 3 * 60 * 60 * 1000; // no scheduled run for this long: alert
 const TOKEN_WARN_MS = 14 * 24 * 60 * 60 * 1000;
 const LOCK_STALE_MS = 30 * 60 * 1000;
 const LOG_MAX_BYTES = 5 * 1024 * 1024;
@@ -235,8 +234,9 @@ try {
     const done = runs.filter((r) => r.status === 'completed').map((r) => r.id);
     if (done.length) state.lastSeenRunId = Math.max(lastSeen, ...done);
 
-    // Backup for GitHub's scheduler (which can start late or skip runs): if the collector hasn't run for a while,
-    // start a run from here. Only while the PC is on; the alert below says when the schedule itself isn't running.
+    // Backup for the Google Apps Script timer (collector/apps-script-timer.gs, every 15 min; GitHub's own schedule
+    // never fires in this repo): if the collector hasn't run for 70 min, start a run from here and alert, since the
+    // timer must have stopped. The alert clears at the first sync that doesn't need to step in.
     const lastRunAt = runs.length ? Math.max(...runs.map((r) => Date.parse(r.created_at))) : 0;
     const running = runs.some((r) => r.status !== 'completed');
     if (wf.state === 'active' && !running && Date.now() - lastRunAt > BACKUP_RUN_AFTER_MS) {
@@ -244,15 +244,13 @@ try {
       else {
         await gh(`/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: { ref: 'main' } });
         log(`no collector run for ${((Date.now() - lastRunAt) / 60000).toFixed(0)} min: started one`);
+        state.backupStartedAt = Date.now();
       }
+    } else if (state.backupStartedAt && lastRunAt > state.backupStartedAt + 2 * 60 * 1000) {
+      delete state.backupStartedAt; // a run this PC didn't start: the timer is back
     }
-    const lastScheduled = runs.filter((r) => r.event === 'schedule').map((r) => Date.parse(r.created_at));
-    const lastScheduledAt = lastScheduled.length ? Math.max(...lastScheduled) : 0;
-    const scheduleSince = Math.max(lastScheduledAt, Date.parse(wf.updated_at || wf.created_at) || 0); // a new or edited schedule gets 3 h
-    if (wf.state === 'active' && Date.now() - scheduleSince > SCHEDULE_LATE_MS) {
-      conditions.scheduleLate = lastScheduledAt
-        ? `GitHub's schedule last ran the collector ${((Date.now() - lastScheduledAt) / 3600000).toFixed(1)} h ago. This PC starts runs while it is on.`
-        : "GitHub's schedule hasn't run the collector yet. This PC starts runs while it is on.";
+    if (state.backupStartedAt) {
+      conditions.timer = `Collector runs are only being started by this PC (since ${new Date(state.backupStartedAt).toLocaleTimeString()}). The Google Apps Script timer may have stopped: script.google.com > Forever auction timer > Executions.`;
     }
 
     // Snapshots waiting on GitHub

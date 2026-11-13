@@ -140,8 +140,14 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   110/113/116, 111/114/117 (Josh's realm), 112/115/118 (empty), 119/120/121, 123/124/125; the two big groups are
   probably PvE and PvP. Confirm with an in-game scan on another house. Josh wants all 15 collected.
 - **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
-  runs at :06/:26/:46 (was :05/:25/:45; GitHub had not started one scheduled run 1.5 h after the first push, so the
-  line was changed on 2026-11-12 to make GitHub register the schedule again). Token reused from the Actions cache, encrypted (AES-GCM, secret `TOKEN_CACHE_KEY`) because
+  **started by a Google Apps Script timer every 15 min** (`collector/apps-script-timer.gs`, project "Forever auction
+  timer" in Josh's Google account, trigger "Minutes timer, every 15 minutes", failure email immediately; script
+  property GITHUB_TOKEN = a second fine-grained token "forever-collector-timer", this repo, Actions read/write).
+  Why: GitHub runs no scheduled workflows in this repo (2026-11-12: the cron never fired in 3.5 h, a resync commit,
+  disable/enable and a minimal */5 probe workflow didn't help; matches the 2026 reports in
+  github.com/orgs/community/discussions/185355, where an external timer calling workflow_dispatch is the only
+  confirmed fix). The `schedule:` line (:06/:26/:46) stays in case GitHub starts honouring it; concurrency queues
+  any overlap and idle runs cost 1 request. Token reused from the Actions cache, encrypted (AES-GCM, secret `TOKEN_CACHE_KEY`) because
   pull-request workflows in a public repo can read caches. Conditional GETs, 1 s apart, one retry on 5xx/network,
   never on 429. Fails the run (GitHub emails Josh) on: house list change, malformed listings, a house >= 5000
   listings halving, newest data > 3 h old, HTTP errors. New API fields are notes (warnings), not failures. Raw
@@ -161,16 +167,16 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   `%LOCALAPPDATA%\ForeverAuctionSync\`. Windows toasts (click opens GitHub): F: not writable, GitHub unreachable twice
   in a row or token rejected, schedule not active, newest data > 3 h old, token expiring within 14 days (lasting
   problems: on start, every 6 h, and "fixed"); failed collector runs, a snapshot that can't be stored (kept on GitHub,
-  retried), new collector notes/problems (once each). **Backup for GitHub's scheduler**: if no collector run has
-  started for 70 min, the sync starts one (workflow_dispatch); alert if no *scheduled* run for 3 h (a new or edited
-  workflow gets 3 h from its update time). `--dry-run` and `--test-notification` flags. First real sync
+  retried), new collector notes/problems (once each). **Backup for the timer**: if no collector run has started for
+  70 min, the sync starts one (workflow_dispatch, `state.backupStartedAt`) and alerts until a run it didn't start
+  appears (the timer is back). `--dry-run` and `--test-notification` flags. First real sync
   2026-11-12: 8.2 MB snapshot in 8.6 s, peak 336 MB; nothing new: 1 s, 56 MB. Summary of 111 vs a BavvbScan 25 min
   earlier: 80% same lowest, 90% cheapest-15% within 5%. No healthchecks.io (Josh: no new accounts), so nothing watches
   while the PC is off.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
-- Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. About 800 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
+- Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 15-min timer about 96 idle + 24 full runs, ~850 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
 ## Model (must match the workbook)
 
