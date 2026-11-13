@@ -499,14 +499,19 @@ and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phras
 Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
 checked it on the live site ("looks good").
 
-Where we left off (2026-11-13): Forever Market steps 1-6 are done and committed (last: 428747b, the TSM sales band
-laid out like the NA PvE band). The session ended in an outage and was signed off afterwards, so it isn't recorded
-whether Josh checked the last two label commits (b07cd9a "NA PvE", 428747b) in the browser; ask. Then step 7, the
-Cycles tab, was built the same day (see Forever Market). It shows "Still collecting" until items have 2 days with 12+
-priced hours that share hours (first rough results around midday 2026-11-14); amber "rough" until 7 days (~2026-11-20).
-Next: Josh uses Price history, Faction and Cycles on live data and comes back with iterations; he wants to discuss adjusting
-the Cycles conditions once he has seen results. The collector and PC sync run unattended (scheduled sync + name fetch are normal background Node
-processes; don't stop them).
+Where we left off (2026-11-13, signed off): Forever Market steps 1-7 are done, committed and pushed (last: b5802db,
+the Cycles tab, tabs renamed Price history / Faction / Cycles / Method check, "expensive" wording; Josh checked it:
+"looks good"). Josh's summary of the state: apps tentatively working as expected, data being collected; Cycles waits
+for data (shows "Still collecting" until items have 2 days with 12+ priced hours that share hours: first rough results
+around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20); Faction works now (profit from the latest
+snapshot) but Steady and Sales/day firm up with more data. Not recorded whether Josh checked b07cd9a ("NA PvE") and
+428747b (TSM band layout) from before the morning's outage; ask if relevant. Next: Josh uses Price history, Faction and
+Cycles on live data and comes back with iterations; he wants to discuss adjusting the Cycles conditions (window,
+stretch length, 12-hour day rule, 2-day minimum, a held-on threshold above break-even) once he has seen results.
+Collection check 2026-11-13: every hourly snapshot stored since the Google timer took over (2026-11-12 17:40 PT);
+one hour lost before it (2026-11-12 15:22 PT, manual-run period); the one failed run was the deliberate test; Google
+skipped one timer start (09:40 PT) at no cost. The collector and PC sync run unattended (scheduled sync + name fetch
+are normal background Node processes; don't stop them).
 Shuffle app: Favorites and API prices shipped and live. Josh uses them with real scans and comes back with
 iterations. BavvbScan is the price source for up-to-the-minute prices; its scan panel is in use
 ("looks good for now"; size/colours may be revisited). The in-game companion is parked (Open items). Still not
