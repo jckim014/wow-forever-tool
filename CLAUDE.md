@@ -184,8 +184,11 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
 - **Item names** (for Forever Market, 2026-11-13): `collector/fetch_names.mjs` (logic in `namesLib.mjs`) names every
   item ID in the summaries from `nether.wowhead.com/forever/tooltip/item/<id>` (game data only: name, quality, icon;
   covers Forever-only items), 1/s, falling back to Blizzard's item API (static-forever-us, then static-us). Cache
-  `F:\ForeverAuctionData\items.json` (`{id: {name, quality, icon, source, at} | {missing, at}}`, misses retried after
-  7 days), saved every 50 items; restartable. First full run ~7,000 items (~2 h). Plan: Forever Market (local app,
+  `F:\ForeverAuctionData\items.json` (`{id: {name, quality, icon, source, at} | {missing, at}}`, fetch order: new
+  items, then misses (retried daily), then names older than 30 days (monthly re-check for renames; a failed re-check
+  keeps the name)), saved every 50 items; restartable. First full run 2026-11-12/13: 7,026 items, all named (none
+  missing); checked: 1,384/1,384 equal to the shuffle app's names, 193/195 of a random 200 equal to Blizzard's API
+  (120/120 Forever data; the 2 differences are later Retail renames, e.g. 1934 Stonemason Trousers). Plan: Forever Market (local app,
   price DB on F:, Trends + Faction tabs); see `~/.claude/plans/polymorphic-sleeping-lighthouse.md` until it lands.
 - **Price database** (Forever Market step 3, 2026-11-13): `F:\ForeverAuctionData\market.db`, SQLite via Node's
   built-in `node:sqlite` (`collector/marketDb.mjs`; "experimental" warning, silenced with
@@ -210,7 +213,8 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
-  (latest figures per house), `/api/heartbeat`. Listens on 127.0.0.1:5310 only. Tests: `node --test market/*.test.mjs`.
+  (latest figures per house), `/api/heartbeat`. A typed item number always finds the item if it was ever on the AH
+  (shown as "Item 12345" until named). Listens on 127.0.0.1:5310 only. Tests: `node --test market/*.test.mjs`.
 - **Starts from Chrome, stops by itself**: Chrome bookmark `forever-market://open` -> per-user link registered by
   `market/install.ps1` (HKCU\Software\Classes\forever-market; re-run if the repo moves or Node's path changes) ->
   `launch-hidden.vbs` -> `launch.mjs`: starts the server hidden and detached if it isn't answering, then opens

@@ -2,7 +2,8 @@
 // Reads all item IDs in F:\ForeverAuctionData\summary, and for those not yet named fetches the Wowhead Forever tooltip
 // (game data: name, quality, icon) one per second; misses fall back to Blizzard's item API (Forever, then Retail data).
 // Cache: F:\ForeverAuctionData\items.json  { "<id>": { name, quality, icon, source, at } | { missing: true, at } },
-// saved every 50 items and at the end, so it can be stopped and restarted any time.
+// saved every 50 items and at the end, so it can be stopped and restarted any time. Order: new items, then
+// unnamed ones (retried daily), then names older than 30 days (re-checked in case a patch renamed them).
 //
 // Usage: node collector/fetch_names.mjs [--limit N]       (FOREVER_DATA_ROOT overrides the data folder)
 import fs from 'node:fs';
@@ -107,7 +108,9 @@ try {
   for (const id of ids) {
     const at = new Date().toISOString();
     const v = (await wowhead(id)) ?? (await blizzard(id));
-    if (v) { cache[id] = { ...v, at }; named++; } else { cache[id] = { missing: true, at }; missing++; }
+    if (v) { cache[id] = { ...v, at }; named++; }
+    else if (cache[id]?.name) cache[id] = { ...cache[id], at }; // a failed monthly re-check keeps the name
+    else { cache[id] = { missing: true, at }; missing++; }
     if (++done % 50 === 0) { save(); console.log(`${done}/${ids.length}: ${named} named, ${missing} not found`); }
     await sleep(PAUSE_MS);
   }

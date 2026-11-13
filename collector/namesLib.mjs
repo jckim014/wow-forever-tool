@@ -22,14 +22,26 @@ export function fromBlizzard(json) {
 }
 
 /** How long to wait before asking again about an item no source could name. */
-export const RETRY_MISSING_MS = 7 * 24 * 60 * 60 * 1000;
+export const RETRY_MISSING_MS = 24 * 60 * 60 * 1000;
+/** Named items are checked again after this long, in case a patch renamed them. */
+export const REFRESH_NAMED_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** IDs (numbers, ascending) that need fetching: not in the cache, or missing and due for a retry. */
+/**
+ * IDs (numbers) that need fetching, most urgent first: never fetched, then missing and due for a retry, then named
+ * but due for the monthly re-check (oldest first). The sync fetches at most 120 per run, so new items never wait
+ * behind re-checks.
+ */
 export function toFetch(ids, cache, now) {
-  const out = [];
-  for (const id of ids) {
+  const fresh = [], retry = [], refresh = [];
+  for (const id of new Set(ids.map(String))) {
     const c = cache[id];
-    if (!c || (c.missing && now - Date.parse(c.at) > RETRY_MISSING_MS)) out.push(Number(id));
+    const age = c ? now - Date.parse(c.at) : Infinity;
+    if (!c) fresh.push(Number(id));
+    else if (c.missing && age > RETRY_MISSING_MS) retry.push(Number(id));
+    else if (!c.missing && age > REFRESH_NAMED_MS) refresh.push([Number(id), Date.parse(c.at)]);
   }
-  return [...new Set(out)].sort((a, b) => a - b);
+  fresh.sort((a, b) => a - b);
+  retry.sort((a, b) => a - b);
+  refresh.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  return [...fresh, ...retry, ...refresh.map((r) => r[0])];
 }

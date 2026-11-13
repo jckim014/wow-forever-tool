@@ -67,7 +67,14 @@ const api = {
   },
   '/api/search': (params) => {
     getItems();
-    return searchItems(items, params.get('q') ?? '', 50).map((it) => ({ ...it, latest: latest(it.id) }));
+    const q = (params.get('q') ?? '').trim();
+    const found = searchItems(items, q, 50);
+    // An item number always finds its item, even before it has a name (if it has ever been on the AH).
+    if (/^\d+$/.test(q) && !found.some((it) => it.id === Number(q))
+      && getDb().prepare('SELECT 1 FROM item_ids WHERE item = ?').get(Number(q))) {
+      found.unshift({ id: Number(q), name: `Item ${q}`, quality: null, icon: null });
+    }
+    return found.map((it) => ({ ...it, latest: latest(it.id) }));
   },
   '/api/item': (params) => {
     getItems();
