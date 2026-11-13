@@ -164,7 +164,8 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   workflow forces it. Known unwatched: the Google timer stopping while the PC is off (noticed at next login), and
   disk space on F: (Josh declined a free-space alert, 2026-11-12).
 - **PC side** (`collector/sync.mjs`, pure parts in `syncLib.mjs`): Windows task "Forever auction sync"
-  (`collector/install-task.ps1`; 2 min after logon and hourly at :55 (moved from :40 on 2026-11-12 so it falls after the timer-started runs), priority 7, run via `sync-hidden.vbs` so no
+  (`collector/install-task.ps1`; node runs with --max-old-space-size=512 (set in sync-hidden.vbs: Node frees memory
+  lazily, so one sync peaked at ~690 MB; with the ceiling the estimate rebuild used 199 MB instead of 380 MB); 2 min after logon and hourly at :55 (moved from :40 on 2026-11-12 so it falls after the timer-started runs), priority 7, run via `sync-hidden.vbs` so no
   window; node from `C:\nvm4w\nodejs\node.exe`, re-run the installer if that changes). Downloads every `snapshot-*`
   artifact (GitHub token `data/private/github-token.txt`: fine-grained, this repo only, Actions read/write, made
   2026-11-12, ~1 year), checks sha256 against the manifest, writes `F:\ForeverAuctionData\raw\YYYY\MM\DD\<id>\`
