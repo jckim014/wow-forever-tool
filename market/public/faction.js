@@ -12,7 +12,9 @@ const f = {
   search: '', dir: prefs.dir ?? 'both', minProfit: prefs.minProfit ?? '', minMargin: prefs.minMargin ?? '',
   minSold: prefs.minSold ?? '', steady: prefs.steady ?? '0', hideThin: prefs.hideThin ?? true,
   sort: prefs.sort ?? 'profit', sortDir: prefs.sortDir ?? -1,
+  days: prefs.days ?? 3, // steadiness and sales window
 };
+const WINDOWS = [3, 7, 30];
 const save = () => { try { const { search, ...rest } = f; localStorage.setItem(PREFS_KEY, JSON.stringify(rest)); } catch { /* convenience only */ } };
 
 let data = null;
@@ -28,9 +30,9 @@ const COLS = [
   ['profit', 'Profit / unit', (r) => r.profit, 'Sell x 0.95 (AH cut) - buy x 1.15 (15% Blackwater cut on a transfer listed at the buy price)'],
   ['margin', 'Margin', (r) => r.margin, 'Profit as a share of the buy price'],
   ['cheapUnits', 'Units to buy', (r) => r.cheapUnits, 'Units listed on the cheap side'],
-  ['ours', 'Sells / day', (r) => r.oursPerDay ?? -1, 'Dear side, our estimate: units that left that AH early per day (an upper bound)'],
-  ['tsm', 'TSM / day', (r) => r.tsmPerDay ?? -1, 'TSM: sold per day across the Forever-US region (TSM users only)'],
-  ['steady', 'Steady', steadyShare, 'Share of hourly snapshots in the last 3 days where this trade was profitable'],
+  ['ours', 'Sales / day*', (r) => r.oursPerDay ?? -1, 'Dear side, your realm: estimated units sold per day over the window (see the note below the filters)'],
+  ['tsm', 'TSM sales / day', (r) => r.tsmPerDay ?? -1, 'TSM: sold per day across the whole Forever-US region (TSM users only)'],
+  ['steady', 'Steady', steadyShare, 'Share of hourly snapshots in the window where this trade was profitable'],
 ];
 
 export function initFaction(open) { openItem = open; }
@@ -40,10 +42,11 @@ export async function showFaction() {
   if (!data) box.innerHTML = '<p class="mempty">Comparing Alliance and Horde…</p>';
   try {
     const status = await (await fetch('/api/status')).json();
-    if (data && loadedFor === status.latest) return;
-    data = await (await fetch('/api/faction')).json();
+    const want = `${status.latest}:${f.days}`;
+    if (data && loadedFor === want) return;
+    data = await (await fetch(`/api/faction?days=${f.days}`)).json();
     if (data.error) throw new Error(data.error);
-    loadedFor = status.latest;
+    loadedFor = want;
     render();
   } catch (e) {
     box.innerHTML = `<p class="mempty">Couldn't compare the factions: ${esc(e.message)}</p>`;
@@ -84,14 +87,20 @@ function render() {
       </span></span>
       <label class="field">Min profit <input id="f-profit" type="number" step="any" min="0" placeholder="gold" value="${esc(f.minProfit)}"> g</label>
       <label class="field">Min margin <input id="f-margin" type="number" step="any" min="0" placeholder="%" value="${esc(f.minMargin)}"> %</label>
-      <label class="field" title="Dear side: our estimate or TSM's region figure, whichever is higher">Min sells/day <input id="f-sold" type="number" step="any" min="0" value="${esc(f.minSold)}"></label>
+      <label class="field" title="Dear side: our sales estimate or TSM's region figure, whichever is higher">Min sales/day <input id="f-sold" type="number" step="any" min="0" value="${esc(f.minSold)}"></label>
+      <span class="field" title="The period used for Steady and for Sales / day">Window <span class="seg" id="f-window">
+        ${WINDOWS.map((d) => `<button data-v="${d}" class="${f.days === d ? 'on' : ''}">${d} days</button>`).join('')}
+        <button data-v="custom" class="${WINDOWS.includes(f.days) ? '' : 'on'}">${WINDOWS.includes(f.days) ? 'Custom' : `${f.days} day${f.days === 1 ? '' : 's'}`}</button>
+      </span>
+      <span id="f-custom" hidden><input id="f-days" type="number" min="1" max="365" step="1" value="${f.days}"> days <button id="f-days-apply" class="mbtn">Apply</button></span></span>
       <label class="field">Steady <select id="f-steady">${[['0', 'any'], ['50', '50%+'], ['75', '75%+'], ['100', 'always']].map(([v, l]) => `<option value="${v}"${f.steady === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="field" title="Cheap side with 2 or fewer units, or dear side with 2 or fewer listings"><input id="f-thin" type="checkbox"${f.hideThin ? ' checked' : ''}> Hide thin markets</label>
       <span class="count">${rows.length.toLocaleString()} of ${data.rows.length.toLocaleString()} profitable${rows.length > shown.length ? `, first ${shown.length} shown` : ''}</span>
     </div>
     <p class="mhint2">Profit per unit = sell × 0.95 − buy × 1.15 (AH cut on the sale; 15% Blackwater cut on a transfer listed at the buy price;
       deposits left out). Latest snapshot ${esc(new Date(data.latest * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))};
-      “Steady” over the last ${data.days} days (${data.snapshots} snapshots so far). Click a row to see the item in Trends.</p>
+      Steady and Sales / day over the last ${data.days} day${data.days === 1 ? '' : 's'} (${data.snapshots} hourly snapshots). Click a row to see the item in Trends.<br>
+      * Sales / day is estimated from hourly listings: it includes some cancellations and misses items bought within the hour. See Method check.</p>
     <div class="mfaction">
       <table class="mtable mft">
         <tr>${COLS.map(([k, label, , cls]) => {
@@ -116,6 +125,16 @@ function render() {
     $(id).addEventListener('change', (e) => { f[key] = e.target.value; rerender(); });
   }
   $('#f-steady').addEventListener('change', (e) => { f.steady = e.target.value; rerender(); });
+  const setDays = (d) => { f.days = d; save(); showFaction(); };
+  $('#f-window').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.v === 'custom') { $('#f-custom').hidden = false; $('#f-days').focus(); return; }
+    setDays(Number(b.dataset.v));
+  });
+  const applyDays = () => { const d = Math.round(Number($('#f-days').value)); if (d >= 1 && d <= 365) setDays(d); };
+  $('#f-days-apply').addEventListener('click', applyDays);
+  $('#f-days').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyDays(); });
   $('#f-thin').addEventListener('change', (e) => { f.hideThin = e.target.checked; rerender(); });
   $('#f-dir').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { f.dir = b.dataset.v; rerender(); } });
   box.querySelector('.mft').addEventListener('click', (e) => {

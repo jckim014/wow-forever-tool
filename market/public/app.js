@@ -94,21 +94,22 @@ $('#results').addEventListener('click', (e) => {
   if (row) select(Number(row.dataset.id));
 });
 
-/** Our own estimate from the hourly snapshots, per faction (an upper bound: missed cancellations count as sales). */
+/** Our own sales estimate from the hourly snapshots, per faction (approximate: see the footnote and Method check). */
 function estimateBlock(e) {
   if (!e) return '';
   const n = (v) => (v === null ? '—' : v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
   const hours = Math.min(...HOUSES.map((h) => e[h.id].hours));
-  const tip = 'Units that left the auction house before they could have expired, between hourly snapshots: certain = part of '
-    + 'a stack was bought; probable = a listing vanished with 2+ hours left and was not obviously reposted cheaper. Cancellations '
-    + 'that look like this are counted too, so read it as an upper bound; listings bought within the hour they were posted are missed.';
-  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">Our estimate · your realm</span>
+  const tip = 'Worked out by comparing each hour\'s listings with the next. Confirmed = part of a stack was bought (that can only be a '
+    + 'sale). The rest = listings that disappeared while they still had 2+ hours left, so they were bought or cancelled; likely '
+    + 'reposts are left out. The Method check tab tests this against your own TSM sales.';
+  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">Sales · your realm (estimated*)</span>
     ${HOUSES.map((h) => {
       const x = e[h.id];
-      return `<span>${h.label}: <strong>≤ ${n(x.certain === null ? null : x.certain + x.probable)}</strong> left early per day
-        <span class="mest-sub">(${n(x.certain)} certain)</span></span>`;
+      return `<span>${h.label}: <strong>~${n(x.certain === null ? null : x.certain + x.probable)}</strong> sold per day*
+        ${x.certain > 0.05 ? `<span class="mest-sub">(${n(x.certain)} confirmed)</span>` : ''}</span>`;
     }).join('')}
-    <span class="mtsm-when">last ${e.days} days · ${hours} h of data</span></div>`;
+    <span class="mtsm-when">last ${e.days} days · ${hours} h of data</span>
+    <span class="mfoot">* Estimated from hourly listings: includes some cancellations and misses items bought within the hour. See Method check.</span></div>`;
 }
 
 /** TSM's region sale figures (pooled TSM users' real sales across Forever-US, not this realm). */
@@ -118,7 +119,7 @@ function tsmBlock(t) {
   if (t.soldPerDay === null && t.saleAvg === null) return `<p class="mnote">TSM (${esc(t.region)} region): no sales recorded for this item.</p>`;
   const sold = t.soldPerDay === null ? '—' : t.soldPerDay >= 100 ? Math.round(t.soldPerDay).toLocaleString() : t.soldPerDay.toFixed(1);
   const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
-  return `<div class="mtsm"><span class="mtsm-h">TSM · ${esc(t.region)} region</span>
+  return `<div class="mtsm"><span class="mtsm-h">TSM sales · ${esc(t.region)} region</span>
     <span><strong>${sold}</strong> sold per day</span><span><strong>${rate}</strong> sale rate</span>
     <span><strong>${money(t.saleAvg)}</strong> average sale price</span>
     <span class="mtsm-when" title="Pooled real sales recorded by TSM users across the whole region, not just your realm. Updated about daily by the TSM desktop app.">data from ${esc(when)}</span></div>`;

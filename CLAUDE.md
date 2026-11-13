@@ -253,8 +253,10 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   have expired). Stored in market.db `departures(item, house, t, certain, probable, reposted, unclear)` and
   `departure_pairs(house, t, prev_t, skipped, method)`; filled by `collector/build_departures.mjs` (after a method
   change: drop both tables and rerun, ~6 s per 10 h of data) and by the sync after each new snapshot
-  (`departuresUpdate.mjs`). Item page: "Our estimate · your realm" per faction, ≤ (certain + probable) per day over the
-  last 7 days, labelled an upper bound. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
+  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13): "Sales · your realm
+  (estimated*)", per faction "~N sold per day*" (= certain + probable over the last 7 days) and "(N confirmed)" (=
+  certain, shown only when > 0); footnote "* Estimated from hourly listings: includes some cancellations and misses
+  items bought within the hour. See Method check." In code and the Method check the rule names stay certain/probable. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
   items) at ~11x TSM's level (TSM only sees TSM users' sales).
 - **Method check** tab (`market/validate.mjs` pure + `methodCheck.mjs`, `/api/method-check`, `public/check.js`): Josh's
   TSM records (`TradeSkillMaster.lua`, account 1120039#2, env FOREVER_TSM_ACCOUNT_FILE) as ground truth, never as a data
@@ -271,8 +273,9 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   the buy price (15% cut, Josh: just use the buy price, no Blackwater-price trick); final 5% AH cut; deposits left out.
   Profit/unit = sell x 0.95 - buy x 1.15 (break-even: dear side > ~21% above buy). Rows: every item and direction with
   profit > 0 at the latest snapshot; thin = cheap side <= 2 units or dear side <= 2 listings (hidden by default);
-  "Steady" = share of snapshots in the last 3 days where the trade was profitable (information + optional filter, it
-  doesn't change the profit); sells/day = dear side, our estimate and TSM region. Filters remembered per browser; a
+  "Steady" = share of snapshots in the window where the trade was profitable (information + optional filter, it
+  doesn't change the profit). Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
+  cached per window); it also sets the period of "Sales / day*" (dear side, our estimate) next to "TSM sales / day". Filters remembered per browser; a
   row opens the item in Trends (both factions). First run: 2,716 profitable rows, ~0.9 s, cached per snapshot.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 

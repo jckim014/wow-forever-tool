@@ -129,3 +129,6 @@ body { margin: 0; }
 .mfrow { cursor: pointer; }
 .mfrow:hover td { background: #f3f6fb; }
 .mflag { font-size: 11px; color: #8a5a00; border: 1px solid #e0c48a; background: #fff8e6; border-radius: 3px; padding: 0 4px; margin-left: 4px; }
+
+.mfoot { flex-basis: 100%; color: var(--muted); font-size: 11px; }
+#f-custom input { width: 56px; }

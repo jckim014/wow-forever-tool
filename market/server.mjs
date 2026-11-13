@@ -114,16 +114,17 @@ function methodCheck() {
 }
 
 // ---- Faction tab (faction.mjs): every item, both directions, from the latest snapshot; steadiness over 3 days ----
-const STEADY_DAYS = 3;
-let factionCache = null;
-function faction() {
+const STEADY_DAYS = 3; // default window; the tab can ask for 1-365 days
+const factionCache = new Map(); // days -> { key, value }
+function faction(daysParam) {
+  const days = Math.min(365, Math.max(1, Math.round(Number(daysParam)) || STEADY_DAYS));
   const d = getDb();
   const lastT = (h) => d.prepare('SELECT max(t) t FROM snapshot_houses WHERE house = ?').get(h).t;
   const latestA = lastT(111), latestH = lastT(114);
   const t = getTsm();
   const key = `${latestA}:${latestH}:${tsmMtime}`;
-  if (factionCache?.key === key) return factionCache.value;
-  const from = Math.max(latestA, latestH) - STEADY_DAYS * 86400;
+  if (factionCache.get(days)?.key === key) return factionCache.get(days).value;
+  const from = Math.max(latestA, latestH) - days * 86400;
   const q = d.prepare('SELECT item, t, lowest, cheapest15, units, listings FROM prices WHERE house = ? AND t >= ?');
   const series = new Map(); // item -> Map(t -> { 111: row, 114: row })
   const latest = { 111: new Map(), 114: new Map() };
@@ -169,8 +170,8 @@ function faction() {
     }
   }
   const snapsInWindow = d.prepare('SELECT count(*) n FROM snapshots WHERE t >= ?').get(from).n;
-  const value = { latest: Math.max(latestA, latestH), days: STEADY_DAYS, snapshots: snapsInWindow, rows };
-  factionCache = { key, value };
+  const value = { latest: Math.max(latestA, latestH), days, snapshots: snapsInWindow, rows };
+  factionCache.set(days, { key, value });
   return value;
 }
 
@@ -216,7 +217,7 @@ const api = {
     return { id, from, to, snapshots: snaps, houses };
   },
   '/api/method-check': () => methodCheck(),
-  '/api/faction': () => faction(),
+  '/api/faction': (params) => faction(params.get('days')),
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));
