@@ -5,9 +5,9 @@ import { NumberField } from '../NumberField'
 import { resetAllSettings, setChains, setSetting, toPercent, type ScalarKey } from './settingsEdits'
 
 /** What the three imported columns mean, by the addon the current prices came from (importsInfo.source). */
-/** The WoW Forever US auction houses in the API (2026-11-12). Only 111 is confirmed; the others are guesses from the ID pattern. */
+/** The WoW Forever US auction houses in the API. Josh's realm (111, 114, 117) is confirmed by in-game scans (2026-11-12/13); the others are guesses from the ID pattern. */
 const API_HOUSES: [number, string][] = [
-  [111, 'Alliance, your realm (CAMWOW US1 Realm 3 PvE)'], [114, 'Horde, your realm (probably)'], [117, 'Blackwater, your realm (probably)'],
+  [111, 'Alliance, your realm (CAMWOW US1 Realm 3 PvE)'], [114, 'Horde, your realm'], [117, 'Blackwater (neutral), your realm'],
   [110, 'Alliance, other big realm (PvP?)'], [113, 'Horde, other big realm'], [116, 'Blackwater, other big realm'],
   [119, 'Alliance, smaller realm'], [120, 'Horde, smaller realm'], [121, 'Blackwater, smaller realm'],
   [123, 'Alliance, smaller realm 2'], [124, 'Horde, smaller realm 2'], [125, 'Blackwater, smaller realm 2'],

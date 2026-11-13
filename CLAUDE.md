@@ -135,10 +135,12 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   110-121, 123-125. `/data/wow/ruleset/2/auctions/{house}` (auctions: buyout/bid per auction) and `.../commodities`
   (unit_price). 112/115/118 are empty (no `auctions` field). Data refreshes hourly at about :22 (all houses within
   seconds); `If-Modified-Since` is honoured (304). Snapshot of all houses ~7.7 MB gzipped (~67 GB/year hourly).
-- **Houses**: 111 = Josh's own (Alliance, "CAMWOW US1 Realm 3 PvE"; 91.6% of listings identical to a BavvbScan
-  34 min later, other houses <= 22%). Guess from the ID pattern, unconfirmed: groups of Alliance/Horde/Blackwater
-  110/113/116, 111/114/117 (Josh's realm), 112/115/118 (empty), 119/120/121, 123/124/125; the two big groups are
-  probably PvE and PvP. Confirm with an in-game scan on another house. Josh wants all 15 collected.
+- **Houses**: Josh's realm ("CAMWOW US1 Realm 3 PvE") = **111 Alliance, 114 Horde, 117 Blackwater (neutral)**, each
+  confirmed by matching an in-game BavvbScan listing by listing: 111 91.6% identical (2026-11-12, other houses
+  <= 22%), 114 90.0% (Horde scan 2026-11-13 04:41 UTC, next best 18.5%), 117 87.9% (neutral scan 05:01 UTC, next best
+  6.4%). Josh scanned Horde and Blackwater with a Horde character on account folder 1120039#2. The ID pattern holds:
+  groups of Alliance/Horde/Blackwater 110/113/116, 111/114/117, 112/115/118 (empty), 119/120/121, 123/124/125; the
+  other groups' realms are unconfirmed (the other big group is probably PvP). Josh wants all 15 collected.
 - **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
   **started by a Google Apps Script timer every 30 min** (Josh chose 30 over 15: two chances per hourly refresh is enough) (`collector/apps-script-timer.gs`, project "Forever auction
   timer" in Josh's Google account, trigger "Minutes timer, every 30 minutes", failure email immediately; script
