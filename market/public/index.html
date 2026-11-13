@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forever Market</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <h1>Forever Market</h1>
+      <div class="seg" role="group" aria-label="View">
+        <button data-view="trends" class="on">Trends</button>
+        <button data-view="faction">Faction</button>
+      </div>
+      <span id="status" class="mstatus">Loading…</span>
+    </header>
+    <div id="stopped" class="mbanner" hidden>
+      Forever Market has stopped (it stops by itself 10 minutes after the last tab closes). Click your Forever Market
+      bookmark to start it again.
+    </div>
+
+    <main id="view-trends" class="mview">
+      <section class="msearch">
+        <input id="q" class="search" type="search" placeholder="Search any item on the auction house…" autocomplete="off">
+        <div class="mhint">Price shown: average of the cheapest 15% of units, latest snapshot · A = Alliance (111), H = Horde (114), N = Blackwater (117)</div>
+        <div id="results" class="mresults"></div>
+      </section>
+      <section id="detail" class="mdetail">
+        <p class="mempty">Search for an item and pick it to see its prices.</p>
+      </section>
+    </main>
+
+    <main id="view-faction" class="mview" hidden>
+      <p class="mempty">Faction arbitrage comes in step 6: items much cheaper on one faction's auction house than the other's,
+        after the cost of moving them through Blackwater.</p>
+    </main>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

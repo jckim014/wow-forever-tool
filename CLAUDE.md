@@ -33,6 +33,7 @@ tools/build_forever_shuffle_sheet.py  the spreadsheet builder (v2.5), kept until
 addon/BavvbScan/                Josh's own WoW addon: /bscan full AH scan -> SavedVariables\BavvbScan.lua (the price source)
 collector/                      auction collector: cloud fetch (GitHub Actions) + PC sync to F:\ForeverAuctionData (see Collector)
 .github/workflows/collect.yml   runs collector/collect.mjs, uploads snapshots as artifacts
+market/                         Forever Market: local app for price trends and faction arbitrage (see Forever Market)
 data/config/de-table.json       default disenchant table (Classic item-level bands), with material item IDs
 data/config/defaults.json       default settings and the cooldown-craft rule
 data/private/                   git-ignored: pages/, workbooks, edits-v2.5.json, parity-v2.5.json
@@ -199,6 +200,25 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
 - Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 30-min timer about 24 idle + 24 full runs, ~770 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
+
+## Forever Market (local app; plan approved 2026-11-12, steps 1-4 done)
+
+A separate local app on Josh's PC for **price trends** (any AH item's history, charts, pattern finding) and **faction
+arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
+on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
+5 Trends charts, 6 Faction, 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month).
+- **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
+  `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
+  `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
+  (latest figures per house), `/api/heartbeat`. Listens on 127.0.0.1:5310 only. Tests: `node --test market/*.test.mjs`.
+- **Starts from Chrome, stops by itself**: Chrome bookmark `forever-market://open` -> per-user link registered by
+  `market/install.ps1` (HKCUSoftwareClassesorever-market; re-run if the repo moves or Node's path changes) ->
+  `launch-hidden.vbs` -> `launch.mjs`: starts the server hidden and detached if it isn't answering, then opens
+  http://localhost:5310/. Open tabs check in every minute; the server exits 10 min after the last check-in
+  (`FOREVER_MARKET_IDLE_MS` / `FOREVER_MARKET_PORT` override for tests). A tab whose server stopped shows a banner.
+- Houses shown: Josh's realm, A = Alliance 111, H = Horde 114, N = Blackwater 117 (`market/public/shared.js`).
+  Price shown by default: cheapest15 (average of the cheapest 15% of units), as in the shuffle app's column 3.
+- CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)
 
