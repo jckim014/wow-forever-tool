@@ -212,7 +212,7 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
   (latest figures per house), `/api/heartbeat`. Listens on 127.0.0.1:5310 only. Tests: `node --test market/*.test.mjs`.
 - **Starts from Chrome, stops by itself**: Chrome bookmark `forever-market://open` -> per-user link registered by
-  `market/install.ps1` (HKCUSoftwareClassesorever-market; re-run if the repo moves or Node's path changes) ->
+  `market/install.ps1` (HKCU\Software\Classes\forever-market; re-run if the repo moves or Node's path changes) ->
   `launch-hidden.vbs` -> `launch.mjs`: starts the server hidden and detached if it isn't answering, then opens
   http://localhost:5310/. Open tabs check in every minute; the server exits 10 min after the last check-in
   (`FOREVER_MARKET_IDLE_MS` / `FOREVER_MARKET_PORT` override for tests). A tab whose server stopped shows a banner.
