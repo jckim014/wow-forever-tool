@@ -234,7 +234,7 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   labels and a table view exists), crosshair readout lists every house, a line breaks where a snapshot passed without
   the item listed, money axes use whole-copper ticks and compact labels ("40g"). Light theme only, like the shuffle app.
 - **TSM region sale data** (5a, 2026-11-13): `market/tsm.mjs` parses AUCTIONDB_REGION_SALE (Forever-US) from
-  `F:World of Warcraft_forever_InterfaceAddOnsTradeSkillMaster_AppHelperAppData.lua` (env FOREVER_TSM_FILE), re-read when it
+  `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua` (env FOREVER_TSM_FILE), re-read when it
   changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
   tooltip: Linen Cloth 15,998/day, 95.4%; Runecloth 1,846, 61.5%; Arcanite Bar 2.96, 22.8%). Shown on the item page as
   "TSM · Forever-US region" (sold/day, sale rate, average sale price, download date): pooled TSM users' sales,
