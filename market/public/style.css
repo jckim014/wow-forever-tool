@@ -132,3 +132,6 @@ body { margin: 0; }
 
 .mfoot { flex-basis: 100%; color: var(--muted); font-size: 11px; }
 #f-custom input { width: 56px; }
+/* Timing tab */
+.mearly { font-size: 13px; color: #8a5a00; background: #fff8e6; border: 1px solid #e0c48a; border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
+.mft td.mwarn { color: #8a5a00; font-weight: 600; }

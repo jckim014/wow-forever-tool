@@ -26,11 +26,11 @@ const COLS = [
   ['name', 'Item', (r) => r.name, 'mleft'],
   ['dir', 'Direction', (r) => r.from, 'mleft'],
   ['buy', 'Buy', (r) => r.buy, 'Cheap side: average of the cheapest 15% of units'],
-  ['sell', 'Sell', (r) => r.sell, 'Dear side: lowest listing (or its cheapest-15% average when the lowest is a lone outlier)'],
+  ['sell', 'Sell', (r) => r.sell, 'Expensive side: lowest listing (or its cheapest-15% average when the lowest is a lone outlier)'],
   ['profit', 'Profit / unit', (r) => r.profit, 'Sell x 0.95 (AH cut) - buy x 1.15 (15% Blackwater cut on a transfer listed at the buy price)'],
   ['margin', 'Margin', (r) => r.margin, 'Profit as a share of the buy price'],
   ['cheapUnits', 'Units to buy', (r) => r.cheapUnits, 'Units listed on the cheap side'],
-  ['ours', 'Sales / day*', (r) => r.oursPerDay ?? -1, 'Dear side, NA PvE: estimated units sold per day over the window (see the note below the filters)'],
+  ['ours', 'Sales / day*', (r) => r.oursPerDay ?? -1, 'Expensive side, NA PvE: estimated units sold per day over the window (see the note below the filters)'],
   ['tsm', 'TSM sales / day', (r) => r.tsmPerDay ?? -1, 'TSM: sold per day across the whole Forever-US region (TSM users only)'],
   ['steady', 'Steady', steadyShare, 'Share of hourly snapshots in the window where this trade was profitable'],
 ];
@@ -87,19 +87,19 @@ function render() {
       </span></span>
       <label class="field">Min profit <input id="f-profit" type="number" step="any" min="0" placeholder="gold" value="${esc(f.minProfit)}"> g</label>
       <label class="field">Min margin <input id="f-margin" type="number" step="any" min="0" placeholder="%" value="${esc(f.minMargin)}"> %</label>
-      <label class="field" title="Dear side: our sales estimate or TSM's region figure, whichever is higher">Min sales/day <input id="f-sold" type="number" step="any" min="0" value="${esc(f.minSold)}"></label>
+      <label class="field" title="Expensive side: our sales estimate or TSM's region figure, whichever is higher">Min sales/day <input id="f-sold" type="number" step="any" min="0" value="${esc(f.minSold)}"></label>
       <span class="field" title="The period used for Steady and for Sales / day">Window <span class="seg" id="f-window">
         ${WINDOWS.map((d) => `<button data-v="${d}" class="${f.days === d ? 'on' : ''}">${d} days</button>`).join('')}
         <button data-v="custom" class="${WINDOWS.includes(f.days) ? '' : 'on'}">${WINDOWS.includes(f.days) ? 'Custom' : `${f.days} day${f.days === 1 ? '' : 's'}`}</button>
       </span>
       <span id="f-custom" hidden><input id="f-days" type="number" min="1" max="365" step="1" value="${f.days}"> days <button id="f-days-apply" class="mbtn">Apply</button></span></span>
       <label class="field">Steady <select id="f-steady">${[['0', 'any'], ['50', '50%+'], ['75', '75%+'], ['100', 'always']].map(([v, l]) => `<option value="${v}"${f.steady === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-      <label class="field" title="Cheap side with 2 or fewer units, or dear side with 2 or fewer listings"><input id="f-thin" type="checkbox"${f.hideThin ? ' checked' : ''}> Hide thin markets</label>
+      <label class="field" title="Cheap side with 2 or fewer units, or expensive side with 2 or fewer listings"><input id="f-thin" type="checkbox"${f.hideThin ? ' checked' : ''}> Hide thin markets</label>
       <span class="count">${rows.length.toLocaleString()} of ${data.rows.length.toLocaleString()} profitable${rows.length > shown.length ? `, first ${shown.length} shown` : ''}</span>
     </div>
     <p class="mhint2">Profit per unit = sell × 0.95 − buy × 1.15 (AH cut on the sale; 15% Blackwater cut on a transfer listed at the buy price;
       deposits left out). Latest snapshot ${esc(new Date(data.latest * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))};
-      Steady and Sales / day over the last ${data.days} day${data.days === 1 ? '' : 's'} (${data.snapshots} hourly snapshots). Click a row to see the item in Trends.<br>
+      Steady and Sales / day over the last ${data.days} day${data.days === 1 ? '' : 's'} (${data.snapshots} hourly snapshots). Click a row to see the item in Price history.<br>
       * Sales / day is estimated from hourly listings: it includes some cancellations and misses items bought within the hour. See Method check.</p>
     <div class="mfaction">
       <table class="mtable mft">
@@ -108,7 +108,7 @@ function render() {
           return `<th class="${cls === 'mleft' ? 'mleft' : ''}" ${title ? `title="${esc(title)}"` : ''}><button data-sort="${k}">${label}${f.sort === k ? (f.sortDir < 0 ? ' ▾' : ' ▴') : ''}</button></th>`;
         }).join('')}</tr>
         ${shown.map((r) => `<tr data-item="${r.item}" class="mfrow">
-          <td class="mleft"><span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.outlier ? ' <span class="mflag" title="The dear side\'s lowest listing was far below the rest (bait?), so its cheapest-15% average is used">outlier ignored</span>' : ''}${r.thin ? ' <span class="mflag">thin</span>' : ''}</td>
+          <td class="mleft"><span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.outlier ? ' <span class="mflag" title="The expensive side\'s lowest listing was far below the rest (bait?), so its cheapest-15% average is used">outlier ignored</span>' : ''}${r.thin ? ' <span class="mflag">thin</span>' : ''}</td>
           <td class="mleft">${HOUSE[r.from]} → ${HOUSE[r.to]}</td>
           <td>${esc(formatMoney(r.buy))}</td><td>${esc(formatMoney(r.sell))}</td>
           <td><strong>${esc(formatMoney(r.profit))}</strong></td><td>${Math.round(r.margin * 100)}%</td>

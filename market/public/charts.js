@@ -177,7 +177,7 @@ export function hourHeatmap(wrap, grid, format) {
       r.addEventListener('pointerleave', () => tip.hide());
     });
   });
-  legendRamp(wrap, 'cheaper', 'dearer');
+  legendRamp(wrap, 'cheaper', 'more expensive');
 }
 
 /** Calendar heat map: one row per week (Mon-Sun), one cell per day. days: [{ date, weekday, value, n }]. */
@@ -206,7 +206,7 @@ export function calendar(wrap, days, format) {
     });
     r.addEventListener('pointerleave', () => tip.hide());
   }
-  legendRamp(wrap, 'cheaper', 'dearer');
+  legendRamp(wrap, 'cheaper', 'more expensive');
 }
 
 /**

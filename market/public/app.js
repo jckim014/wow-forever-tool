@@ -4,6 +4,7 @@ import { segments, weekdayHourGrid, daily } from './stats.js';
 import { lineChart, hourHeatmap, calendar, SERIES_COLORS } from './charts.js';
 import { showCheck } from './check.js';
 import { initFaction, showFaction } from './faction.js';
+import { initTiming, showTiming } from './timing.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -52,13 +53,15 @@ function showView(v) {
   for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', b.dataset.view === v);
   $('#view-trends').hidden = v !== 'trends';
   $('#view-faction').hidden = v !== 'faction';
+  $('#view-timing').hidden = v !== 'timing';
   $('#view-check').hidden = v !== 'check';
   if (v === 'check') showCheck();
   if (v === 'faction') showFaction();
+  if (v === 'timing') showTiming();
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
-try { const v = localStorage.getItem('forever-market:view'); showView(v === 'faction' || v === 'check' ? v : 'trends'); } catch { /* default */ }
+try { const v = localStorage.getItem('forever-market:view'); showView(['faction', 'timing', 'check'].includes(v) ? v : 'trends'); } catch { /* default */ }
 
 // ---- search ----
 let selected = Number(new URLSearchParams(location.hash.slice(1)).get('item')) || null;
@@ -261,9 +264,16 @@ function renderTrends() {
 let resizeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderTrends, 150); });
 
-// The Faction tab opens an item in Trends (with both factions shown).
+// The Faction tab opens an item in Price history (code name "trends") (with both factions shown).
 initFaction((id) => {
   opt.show = 'both';
+  showView('trends');
+  select(id);
+});
+// The Cycles tab (timing.js) opens an item in Price history with that faction's hour heat map.
+initTiming((id, house) => {
+  opt.show = 'both';
+  if (HOUSES.some((h) => h.id === house)) opt.heat = house;
   showView('trends');
   select(id);
 });

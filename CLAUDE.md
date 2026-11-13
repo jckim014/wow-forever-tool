@@ -208,13 +208,16 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   GitHub repo settings: fork PR workflows need approval for all external contributors.
 - Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 30-min timer about 24 idle + 24 full runs, ~770 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
-## Forever Market (local app; plan approved 2026-11-12, steps 1-5 done)
+## Forever Market (local app; plan approved 2026-11-12, steps 1-7 done)
 
 A separate local app on Josh's PC for **price trends** (any AH item's history, charts, pattern finding) and **faction
 arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
 on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
 5 Trends charts (done), 5a TSM region sale data (done), 5b our own sale-rate estimate + Method check page (done), 6 Faction
-(filters on both sale figures) (done), 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month). All revisable (Josh).
+(filters on both sale figures) (done), 7 Cycles tab (time-of-day patterns; done 2026-11-13, results from ~2 days of data;
+weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
+- **Tabs** (renamed by Josh 2026-11-13; on screen / code name): **Price history** / trends (step 5; older notes here say
+  "Trends"), **Faction** / faction, **Cycles** / timing (step 7), **Method check** / check. The code keeps the old names.
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
@@ -279,6 +282,23 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   doesn't change the profit). Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
   cached per window); it also sets the period of "Sales / day*" (dear side, our estimate) next to "TSM sales / day". Filters remembered per browser; a
   row opens the item in Trends (both factions). First run: 2,716 profitable rows, ~0.9 s, cached per snapshot.
+- **Cycles tab** (step 7, 2026-11-13; code name "timing" in files, ids and API; calculation `market/timing.mjs`, tested on synthetic series; `/api/timing?days=&width=`;
+  `public/timing.js`). Named "Cycles" (Josh, after "Patterns" (sounds like crafting recipes), "Timing" and "Flips"). Per item and faction (111, 114),
+  cheapest15 over the window (7 / 14 / 30 / custom days, default 14): local calendar days with the item priced in 12+
+  hours; each hourly price / that day's median (so a drift over the week isn't a time-of-day pattern); hour profile =
+  median ratio per hour across days; cheap and expensive windows = the lowest / highest `width` consecutive hours
+  (2 / 3 / 4 / 6, default 4, wrapping midnight, not overlapping). Swing = expensive / cheap - 1; buy around / sell
+  around = median day price x window ratio; profit/unit = sell x 0.95 - buy (break-even swing 5.3%; deposits left out).
+  "Held on N of M days" is leave-one-out: each day is checked against windows picked from the other days, and counts
+  when buying in the cheap and selling in the expensive window made money that day after the cut. Rows: profit > 0.
+  Columns (all sortable, Josh wants the raw numbers whatever the ranking): hours, prices, swing, profit, held, days
+  (amber under 7: "rough"), median units listed, Sales/day* (ours, that faction), TSM, Max gold/day* = profit x our
+  sales/day (a ceiling; default sort). Filters: search, faction, min swing / profit / sales/day, held share, hide thin
+  (median units <= 2). Results show from 2 qualifying days (Josh: rough early results with a warning, not a 7-day wait).
+  A row opens the item in Trends with that faction's heat map. Speed (synthetic 30-day DB, ~6,000 items): 7 d 2.6 s,
+  14 d 3.6 s, 30 d 6.5 s, cached per snapshot; prices are read one item at a time (PK range) because the time index
+  needs a table lookup per row (~7x slower). `FOREVER_TIMING_MIN_DAY_HOURS` lowers the 12-hour rule for trying it out.
+  UI wording: "expensive", never "dear" (Josh didn't know the word; Faction tooltips and heat-map legends changed too).
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)
@@ -481,10 +501,11 @@ checked it on the live site ("looks good").
 
 Where we left off (2026-11-13): Forever Market steps 1-6 are done and committed (last: 428747b, the TSM sales band
 laid out like the NA PvE band). The session ended in an outage and was signed off afterwards, so it isn't recorded
-whether Josh checked the last two label commits (b07cd9a "NA PvE", 428747b) in the browser; ask. Next: Josh uses
-Trends and the Faction tab on live data and comes back with iterations. Step 7 (pattern finder) waits for data:
-collection started 2026-11-12, so ~2 weeks of history around 2026-11-26, ~1 month (weekly patterns) around
-2026-12-12. The collector and PC sync run unattended (scheduled sync + name fetch are normal background Node
+whether Josh checked the last two label commits (b07cd9a "NA PvE", 428747b) in the browser; ask. Then step 7, the
+Cycles tab, was built the same day (see Forever Market). It shows "Still collecting" until items have 2 days with 12+
+priced hours that share hours (first rough results around midday 2026-11-14); amber "rough" until 7 days (~2026-11-20).
+Next: Josh uses Price history, Faction and Cycles on live data and comes back with iterations; he wants to discuss adjusting
+the Cycles conditions once he has seen results. The collector and PC sync run unattended (scheduled sync + name fetch are normal background Node
 processes; don't stop them).
 Shuffle app: Favorites and API prices shipped and live. Josh uses them with real scans and comes back with
 iterations. BavvbScan is the price source for up-to-the-minute prices; its scan panel is in use
@@ -532,7 +553,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Forever Market: step 7 pattern finder when enough data exists (dates in "Where we left off"). Sale-rate method:
+- Forever Market: weekday patterns in Cycles (not built; need ~3 weeks of data, ~2026-12-03). Sale-rate method:
   re-run the Method check and consider tuning only once ~100+ more of Josh's TSM records exist; record any new method
   version in `market/method-history.json`. The realms behind house groups 110/113/116, 119/120/121 and 123/124/125 are
   unconfirmed (collected anyway).

@@ -12,6 +12,7 @@ import { parseRegionSale } from './tsm.mjs';
 import { runMethodCheck } from './methodCheck.mjs';
 import { spearman } from './validate.mjs';
 import { trade, steadiness } from './faction.mjs';
+import { analyse, median, MIN_DAYS, MIN_DAY_HOURS as DEFAULT_MIN_DAY_HOURS } from './timing.mjs';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -113,6 +114,75 @@ function methodCheck() {
   return value;
 }
 
+/** Our sale-rate estimate per house since `from`: { 111: Map(item -> units per day), 114: ... } (empty without data). */
+function salesPerDay(from) {
+  const d = getDb();
+  const hasDep = d.prepare("SELECT 1 FROM sqlite_master WHERE name = 'departures'").get();
+  const out = {};
+  for (const h of HOUSES) {
+    out[h] = new Map();
+    const hours = hasDep ? d.prepare('SELECT count(*) n FROM departure_pairs WHERE house = ? AND t >= ? AND skipped = 0').get(h, from).n : 0;
+    if (!hours) continue;
+    for (const r of d.prepare('SELECT item, sum(certain) + sum(probable) u FROM departures WHERE house = ? AND t >= ? GROUP BY item').all(h, from)) {
+      out[h].set(r.item, (r.u / hours) * 24);
+    }
+  }
+  return out;
+}
+
+// ---- Timing tab (timing.mjs): time-of-day patterns per item and faction over the last N days ----
+const TIMING_DAYS = 14;
+const TIMING_WIDTHS = [2, 3, 4, 6];
+// FOREVER_TIMING_MIN_DAY_HOURS: lower the hours a day needs (for trying the tab out before there is enough data)
+const MIN_DAY_HOURS = Number(process.env.FOREVER_TIMING_MIN_DAY_HOURS) || undefined;
+const timingCache = new Map(); // `${days}:${width}` -> { key, value }
+function timing(daysParam, widthParam) {
+  const days = Math.min(365, Math.max(1, Math.round(Number(daysParam)) || TIMING_DAYS));
+  const width = TIMING_WIDTHS.includes(Number(widthParam)) ? Number(widthParam) : 4;
+  const d = getDb();
+  const latestT = d.prepare('SELECT max(t) t FROM snapshots').get().t;
+  const t = getTsm();
+  const key = `${latestT}:${tsmMtime}`;
+  const ck = `${days}:${width}`;
+  if (timingCache.get(ck)?.key === key) return timingCache.get(ck).value;
+  const started = Date.now();
+  const from = latestT - days * 86400;
+  const ours = salesPerDay(from);
+  getItems();
+  const rows = [];
+  let bestDays = 0;
+  for (const h of HOUSES) {
+    // One item at a time: the table is stored in (item, house, t) order, so each read is one contiguous range
+    // (about 7x faster than going through the time index, which needs a lookup per row).
+    const q = d.prepare('SELECT t, cheapest15, units FROM prices WHERE item = ? AND house = ? AND t >= ?');
+    q.setReturnArrays(true);
+    for (const { item } of d.prepare('SELECT item FROM item_ids').all()) {
+      const raw = q.all(item, h, from);
+      if (raw.length < 2) continue;
+      const s = { pts: raw.map((r) => [r[0], r[1]]), units: raw.map((r) => r[2]) };
+      const a = analyse(s.pts, { width, minDayHours: MIN_DAY_HOURS });
+      bestDays = Math.max(bestDays, a.days);
+      if (a.swing === undefined || !(a.profit > 0)) continue;
+      const it = byId.get(item);
+      const perDay = ours[h].get(item) ?? null;
+      rows.push({
+        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, house: h,
+        days: a.days, cheapStart: a.cheapStart, expStart: a.expStart, width,
+        cheapPrice: a.cheapPrice, expPrice: a.expPrice, swing: a.swing, profit: a.profit, held: a.held, tested: a.tested,
+        units: median(s.units), oursPerDay: perDay, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
+        goldPerDay: perDay === null ? null : a.profit * perDay,
+      });
+    }
+  }
+  const snapshots = d.prepare('SELECT count(*) n FROM snapshots WHERE t > ?').get(from).n;
+  const value = {
+    latest: latestT, days, width, snapshots, rows, bestDays, minDays: MIN_DAYS,
+    minDayHours: MIN_DAY_HOURS ?? DEFAULT_MIN_DAY_HOURS, ms: Date.now() - started,
+  };
+  timingCache.set(ck, { key, value });
+  return value;
+}
+
 // ---- Faction tab (faction.mjs): every item, both directions, from the latest snapshot; steadiness over 3 days ----
 const STEADY_DAYS = 3; // default window; the tab can ask for 1-365 days
 const factionCache = new Map(); // days -> { key, value }
@@ -139,16 +209,7 @@ function faction(daysParam) {
     }
   }
   // our estimate on the dear side, per day over the same window
-  const hasDep = d.prepare("SELECT 1 FROM sqlite_master WHERE name = 'departures'").get();
-  const ours = {};
-  for (const h of HOUSES) {
-    const hours = hasDep ? d.prepare('SELECT count(*) n FROM departure_pairs WHERE house = ? AND t >= ? AND skipped = 0').get(h, from).n : 0;
-    ours[h] = new Map();
-    if (!hours) continue;
-    for (const r of d.prepare('SELECT item, sum(certain) + sum(probable) u FROM departures WHERE house = ? AND t >= ? GROUP BY item').all(h, from)) {
-      ours[h].set(r.item, (r.u / hours) * 24);
-    }
-  }
+  const ours = salesPerDay(from);
   getItems();
   const rows = [];
   const items = new Set([...latest[111].keys(), ...latest[114].keys()]);
@@ -218,6 +279,7 @@ const api = {
   },
   '/api/method-check': () => methodCheck(),
   '/api/faction': (params) => faction(params.get('days')),
+  '/api/timing': (params) => timing(params.get('days'), params.get('width')),
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));

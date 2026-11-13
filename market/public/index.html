@@ -12,8 +12,9 @@
     <header class="toolbar">
       <h1>Forever Market</h1>
       <div class="seg" role="group" aria-label="View">
-        <button data-view="trends" class="on">Trends</button>
+        <button data-view="trends" class="on">Price history</button>
         <button data-view="faction">Faction</button>
+        <button data-view="timing">Cycles</button>
         <button data-view="check">Method check</button>
       </div>
       <span id="status" class="mstatus">Loading…</span>
@@ -35,6 +36,8 @@
     </main>
 
     <main id="view-faction" class="mview mscroll" hidden><div id="faction"></div></main>
+
+    <main id="view-timing" class="mview mscroll" hidden><div id="timing"></div></main>
 
     <main id="view-check" class="mview mscroll" hidden><div id="check"></div></main>
   </div>
