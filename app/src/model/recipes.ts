@@ -89,7 +89,7 @@ export function computeRecipe(
   // auction house (a price of 0 counts as unpriced); a product that binds when picked up can't be listed
   const pp = price(r.product)
   const ahPrice = pp.selling || null
-  const ahSource = ahPrice === null ? null : pp.typed !== null ? 'Typed' : 'Imported'
+  const ahSource = ahPrice === null ? null : pp.typed !== null ? 'Typed' : pp.importedSource
   const ahApplies = item?.bind !== 'pickup'
   const ahValue = ahPrice === null || !ahApplies ? null : ahPrice * q * cut
 

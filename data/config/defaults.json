@@ -4,6 +4,8 @@
   "useVendorBuy": true,
   "useImports": true,
   "importColumn": 3,
+  "useApiPrices": true,
+  "apiHouse": 111,
   "salvagerOn": false,
   "salvagerProcChance": 0.10,
   "salvagerExtraPerProc": 1,

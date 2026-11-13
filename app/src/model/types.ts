@@ -61,6 +61,10 @@ export interface Settings {
   useVendorBuy: boolean
   useImports: boolean
   importColumn: 1 | 2 | 3
+  /** Use the hourly API auction data (collector) as well; per item the newer of it and the import wins. */
+  useApiPrices: boolean
+  /** Which auction house's API data to use (111 = Josh's Alliance house). */
+  apiHouse: number
   salvagerOn: boolean
   salvagerProcChance: number
   salvagerExtraPerProc: number
@@ -131,15 +135,28 @@ export interface ImportsInfo {
   /** ISO time of the import */
   at: string
   count: number
+  /** ISO time of the scan itself, when the file says (BavvbScan, Auctioneer); compared with the API data's time. */
+  dataAt?: string
+}
+
+/** The newest API auction data for one house (from the collector's summaries; not stored in the edits). */
+export interface ApiPrices {
+  house: number
+  /** Snapshot id, e.g. "20261113T012242Z", and the same as an ISO time (when Blizzard made the data). */
+  snapshot: string
+  at: string
+  rows: ImportRow[]
 }
 
 // ---------- model output ----------
-export type PriceSource = 'Typed' | 'Vendor buy' | 'Imported'
+export type PriceSource = 'Typed' | 'Vendor buy' | 'Imported' | 'API'
 
 export interface PriceInfo {
   typed: Money
   vendorBuy: Money
+  /** the newer of the price import and the API data that has the item (see importedPrices) */
   imported: Money
+  importedSource: 'Imported' | 'API' | null
   /** typed, else vendor buy (if enabled), else imported */
   reagent: Money
   reagentSource: PriceSource | null
@@ -198,7 +215,7 @@ export interface RecipeRow {
   deBeats: 'Yes' | 'No' | null
   // auction house
   ahPrice: Money
-  ahSource: 'Typed' | 'Imported' | null
+  ahSource: 'Typed' | 'Imported' | 'API' | null
   ahValue: Money
   ahBeats: 'Yes' | 'No' | null
   // profits

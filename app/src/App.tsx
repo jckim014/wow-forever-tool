@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { config, loadGameData } from './data'
 import { DataMenu, importEditsFile } from './DataMenu'
-import { compute, type GameData } from './model'
+import { compute, effectiveSettings, type GameData } from './model'
+import { useApiPrices } from './apiprices/useApiPrices'
+import { ageText, API_OLD_MS } from './apiprices/read'
 import { plural, usePageDrop, usePriceImport } from './PriceImport'
 import { usePriceHistory } from './history/usePriceHistory'
 import { isEmptyEdits } from './storage/doc'
@@ -54,13 +56,14 @@ export function App() {
   const addMessage = (m: string) => setMessage((prev) => (prev ? `${prev} ${m}` : m))
   const history = usePriceHistory(addMessage)
   const prices = usePriceImport(store, setMessage, history.keep)
+  const api = useApiPrices(effectiveSettings(config, edits).apiHouse, addMessage)
   const dragging = usePageDrop((f) => (/\.json$/i.test(f.name) ? importEditsFile(store, f, setMessage) : prices.importFile(f)))
 
   useEffect(() => {
     loadGameData().then(setGame, (e: Error) => setError(e.message))
   }, [])
 
-  const result = useMemo(() => (game ? compute(game, config, edits) : null), [game, edits])
+  const result = useMemo(() => (game ? compute(game, config, edits, api.data) : null), [game, edits, api.data])
   const text = useMemo(() => new Map((result?.recipes ?? []).map((r) => [r, searchText(r)])), [result])
   const rows = useMemo(() => (result ? filterRecipes(result.recipes, filters, text) : []), [result, filters, text])
   const shopIds = useMemo(() => new Set(edits.shopping.recipes.map((r) => r.id)), [edits.shopping])
@@ -154,6 +157,7 @@ export function App() {
           store={store} onMessage={setMessage} onImportPrices={prices.importFile} onPastePrices={prices.openPaste}
           link={{ supported: prices.linkSupported, file: prices.linked?.file ?? null, onLink: prices.linkFile, onUnlink: prices.unlinkFile }}
           history={{ supported: history.supported, folder: history.folder, onChoose: history.choose, onStop: history.stop }}
+          auctionData={{ supported: api.supported, folder: api.folder, onChoose: api.choose, onStop: api.stop }}
         />
       </header>
       <nav className="chips">
@@ -166,14 +170,28 @@ export function App() {
         ))}
         </>)}
         {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
-        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && (
+        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && !api.folder && (
           <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
         )}
-        {(edits.importsInfo || prices.linked || history.folder) && (
+        {(edits.importsInfo || prices.linked || history.folder || api.folder) && (
           <span className="note prices-info">
+            {api.folder && (
+              <span className="papi" title={`Hourly auction data from the collector (${api.folder}), read when the app opens and every 10 minutes. Per item, the newer of this and your import is used.`}>
+                API: {api.data
+                  ? (<>
+                    {new Date(api.data.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}, house {api.data.house},{' '}
+                    {plural(api.data.rows.length, 'item')}{' '}
+                    <span className={api.now - Date.parse(api.data.at) > API_OLD_MS ? 'status warn' : 'papi-age'}>({ageText(api.data.at, api.now)})</span>
+                    {!result.settings.useApiPrices && <span className="status warn"> (off in Settings)</span>}
+                  </>)
+                  : api.needsPermission ? 'Chrome needs your OK to read the folder' : api.error ?? 'reading…'}
+                {api.needsPermission && <>{' '}<button className="button" onClick={api.refresh}>Allow reading</button></>}
+                {!prices.linked && !api.needsPermission && <>{' '}<button className="button" onClick={api.refresh}>Refresh now</button></>}
+              </span>
+            )}
             {edits.importsInfo && (
               <span title={prices.linked ? undefined : 'Drop a new BavvbScan.lua on the page to refresh'}>
-                Prices: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
+                Import: {edits.importsInfo.source}, {new Date(edits.importsInfo.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })},{' '}
                 {plural(edits.importsInfo.count, 'item')}
               </span>
             )}
@@ -181,7 +199,7 @@ export function App() {
               <span className="plink" title="Checked when the app opens; WoW writes the file on /reload, logout or exit">
                 Linked: {prices.linked.file}
                 {prices.linked.needsPermission && <span className="status warn"> (Chrome needs your OK to read it)</span>}{' '}
-                <button className="button" onClick={prices.linked.refresh}>Refresh now</button>
+                <button className="button" onClick={() => { prices.linked?.refresh(); if (api.folder) api.refresh() }}>Refresh now</button>
               </span>
             )}
             {history.folder && (

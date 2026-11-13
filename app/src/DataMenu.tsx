@@ -53,13 +53,14 @@ export async function importEditsFile(store: Store, file: File, onMessage: (m: s
   }
 }
 
-export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link, history }: {
+export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link, history, auctionData }: {
   store: Store
   onMessage: (m: string) => void
   onImportPrices: (f: File) => void
   onPastePrices: () => void
   link: { supported: boolean; file: string | null; onLink: () => void; onUnlink: () => void }
   history: { supported: boolean; folder: string | null; onChoose: () => void; onStop: () => void }
+  auctionData: { supported: boolean; folder: string | null; onChoose: () => void; onStop: () => void }
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -103,6 +104,11 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
               {history.folder ? 'Change price history folder…' : 'Keep price history in a folder…'}
             </button>
             {history.folder && <button role="menuitem" onClick={act(history.onStop)}>Stop keeping price history</button>}
+            <button role="menuitem" disabled={!auctionData.supported} onClick={act(auctionData.onChoose)}
+              title="The auction collector's folder (F:ForeverAuctionData): hourly API prices, used per item where newer than your import">
+              {auctionData.folder ? 'Change auction data folder…' : 'Link auction data folder…'}
+            </button>
+            {auctionData.folder && <button role="menuitem" onClick={act(auctionData.onStop)}>Stop using API prices from {auctionData.folder}</button>}
             <hr />
             <button role="menuitem" onClick={act(() => fileInput.current?.click())}>Import edits file…</button>
             <button role="menuitem" onClick={act(store.exportFile)}>Export edits (backup)</button>

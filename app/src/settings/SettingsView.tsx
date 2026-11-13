@@ -5,6 +5,15 @@ import { NumberField } from '../NumberField'
 import { resetAllSettings, setChains, setSetting, toPercent, type ScalarKey } from './settingsEdits'
 
 /** What the three imported columns mean, by the addon the current prices came from (importsInfo.source). */
+/** The WoW Forever US auction houses in the API (2026-11-12). Only 111 is confirmed; the others are guesses from the ID pattern. */
+const API_HOUSES: [number, string][] = [
+  [111, 'Alliance, your realm (CAMWOW US1 Realm 3 PvE)'], [114, 'Horde, your realm (probably)'], [117, 'Blackwater, your realm (probably)'],
+  [110, 'Alliance, other big realm (PvP?)'], [113, 'Horde, other big realm'], [116, 'Blackwater, other big realm'],
+  [119, 'Alliance, smaller realm'], [120, 'Horde, smaller realm'], [121, 'Blackwater, smaller realm'],
+  [123, 'Alliance, smaller realm 2'], [124, 'Horde, smaller realm 2'], [125, 'Blackwater, smaller realm 2'],
+  [112, 'empty'], [115, 'empty'], [118, 'empty'],
+]
+
 const COLUMN_LABELS: { prefix: string; labels: [string, string, string] }[] = [
   { prefix: 'BavvbScan', labels: ['Lowest buyout per unit', 'Median per unit (by units listed)', 'Average of the cheapest 15% of units'] },
   { prefix: 'Auctioneer', labels: ['Lowest buyout per unit', 'Median per unit (by units listed)', 'Average of the cheapest 15% of units'] },
@@ -58,13 +67,13 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
             Use imported prices</label>
           {dflt('useImports', defaults.useImports ? 'on' : 'off')}
         </Row>
-        <div className={settings.useImports ? 'ssub' : 'ssub off'}>
-          <div className="lbl">Imported price column</div>
+        <div className={settings.useImports || settings.useApiPrices ? 'ssub' : 'ssub off'}>
+          <div className="lbl">Imported price column (imports and API data)</div>
           {importColumnLabels(edits.importsInfo?.source).map((label, k) => {
             const col = (k + 1) as 1 | 2 | 3
             return (
               <label key={col} className="radio">
-                <input type="radio" name="importColumn" checked={settings.importColumn === col} disabled={!settings.useImports}
+                <input type="radio" name="importColumn" checked={settings.importColumn === col} disabled={!settings.useImports && !settings.useApiPrices}
                   onChange={() => set('importColumn', col)} />
                 {col} · {label}
               </label>
@@ -72,8 +81,24 @@ export function SettingsView({ defaults, settings, edits, update }: Props) {
           })}
           {dflt('importColumn', `column ${defaults.importColumn}`)}
         </div>
+        <Row>
+          <label><input type="checkbox" checked={settings.useApiPrices} onChange={(e) => set('useApiPrices', e.target.checked)} />
+            Use API prices (hourly auction data from the collector)</label>
+          {dflt('useApiPrices', defaults.useApiPrices ? 'on' : 'off')}
+        </Row>
+        <div className={settings.useApiPrices ? 'ssub' : 'ssub off'}>
+          <Row>
+            <span className="lbl">Auction house</span>
+            <select value={settings.apiHouse} disabled={!settings.useApiPrices} onChange={(e) => set('apiHouse', Number(e.target.value))}>
+              {API_HOUSES.map(([id, label]) => <option key={id} value={id}>{id} · {label}</option>)}
+            </select>
+            {dflt('apiHouse', String(defaults.apiHouse))}
+          </Row>
+          <p className="hint">Read from the auction data folder (File menu). Uses the same column as imports.</p>
+        </div>
         <p className="hint">Reagent cost uses a custom price first, then the vendor buy price (if on), then the imported price (if on).
-          Selling prices use a custom price, then the imported price; never a vendor price.</p>
+          Selling prices use a custom price, then the imported price; never a vendor price. The imported price is from your
+          price import or the API data, whichever is newer for that item (the other fills items it lacks).</p>
       </Group>
 
       <Group title="Selling">

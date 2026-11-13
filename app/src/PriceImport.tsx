@@ -43,25 +43,25 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
   }
 
   /** Returns the new importsInfo.at, or null if nothing was imported. */
-  function apply(rows: ImportRow[], source: string, detail: string): string | null {
+  function apply(rows: ImportRow[], source: string, detail: string, dataAt?: string): string | null {
     if (!rows.length) {
       onMessage(`${source}: no prices found; nothing was changed.`)
       return null
     }
     const before = editsRef.current.imports.length
     const at = new Date().toISOString()
-    store.update((cur) => ({ ...cur, imports: rows, importsInfo: { source, at, count: rows.length } }))
+    store.update((cur) => ({ ...cur, imports: rows, importsInfo: { source, at, count: rows.length, ...(dataAt ? { dataAt } : {}) } }))
     onMessage(`Imported ${plural(rows.length, 'price')} from ${source}${detail}.` + (before ? ` They replace the previous ${plural(before, 'imported price')}.` : ''))
     return at
   }
 
   /** Imports one realm's prices (`read` does the work) and, for the linked file, remembers what was imported. */
-  function applyRealm(file: string, realm: string, origin: Origin, read: () => { rows: ImportRow[]; source: string; detail: string }) {
+  function applyRealm(file: string, realm: string, origin: Origin, read: () => { rows: ImportRow[]; source: string; detail: string; dataAt?: string }) {
     setRealmChoice(null)
     try {
       const r = read()
       const from = origin ? ` (linked ${file}, written by WoW ${when(origin.modified)})` : ''
-      const at = apply(r.rows, r.source, `${from}: ${r.detail}`)
+      const at = apply(r.rows, r.source, `${from}: ${r.detail}`, r.dataAt)
       if (origin && at) {
         const rec = { ...origin.link, realm, importedModified: origin.modified, importedAt: at }
         if (linkRef.current?.handle === origin.link.handle) setLink(rec)
@@ -73,7 +73,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
   }
 
   /** Imports straight away when there is one realm (or the linked file's remembered one), else asks which. */
-  function chooseRealm<T>(file: string, realms: Map<string, T>, origin: Origin, read: (data: T, realm: string) => { rows: ImportRow[]; source: string; detail: string }) {
+  function chooseRealm<T>(file: string, realms: Map<string, T>, origin: Origin, read: (data: T, realm: string) => { rows: ImportRow[]; source: string; detail: string; dataAt?: string }) {
     const go = (realm: string) => applyRealm(file, realm, origin, () => read(realms.get(realm)!, realm))
     const remembered = origin?.link.realm
     if (remembered && realms.has(remembered)) go(remembered)
@@ -95,7 +95,7 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
       const s = readBavvbScan(raw)
       const r = s.result
       chooseRealm(name, new Map([[s.server, s]]), origin, () => ({
-        rows: r.rows, source: `BavvbScan (${s.server})`,
+        rows: r.rows, source: `BavvbScan (${s.server})`, dataAt: new Date(s.scanTime * 1000).toISOString(),
         detail: `${plural(r.listings, 'auction')} from the scan of ${when(s.scanTime * 1000)}`
           + (r.noBuyout ? `, ${plural(r.noBuyout, 'bid-only listing')} left out` : '')
           + (s.skipped ? `, ${plural(s.skipped, 'unreadable listing')} skipped by the addon` : ''),
@@ -110,10 +110,10 @@ export function usePriceImport(store: Store, onMessage: (m: string) => void, onS
         if (!results.has(key)) results.set(key, pricesFromScan(servers.get(key)!.ropes))
         return results.get(key)!
       }
-      chooseRealm(name, servers, origin, (_scan, realm) => {
+      chooseRealm(name, servers, origin, (scan, realm) => {
         const r = resultOf(realm)
         return {
-          rows: r.rows, source: `Auctioneer (${realm})`,
+          rows: r.rows, source: `Auctioneer (${realm})`, ...(scan.scanTime ? { dataAt: new Date(scan.scanTime * 1000).toISOString() } : {}),
           detail: `${plural(r.listings, 'listing')} from the last scan` + (r.noBuyout ? `, ${plural(r.noBuyout, 'bid-only listing')} left out` : ''),
         }
       })

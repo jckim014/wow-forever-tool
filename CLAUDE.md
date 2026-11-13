@@ -127,8 +127,8 @@ app/                            the web app (to be built: Vite + React + TypeScr
 ## Collector (Blizzard API auction history; started 2026-11-12)
 
 A separate backend tool: collect every WoW Forever US auction house's full listings over time for Josh's own trend
-analysis, stored on his F: drive. Later (agreed, not started): the app uses these as a baseline price source
-alongside BavvbScan/imports, which stay for up-to-the-minute prices.
+analysis, stored on his F: drive. The app uses the newest summary as a baseline price source (see Model, "Imported
+price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to-the-minute prices.
 - **API facts (probed 2026-11-12, from https://blizzard.pinta.land/forever/, not documented by Blizzard)**: OAuth
   client credentials (`oauth.battle.net/token`, token 24 h). Namespace `dynamic-forever-us`. No realms; rulesets
   1 PvP, 2 Normal, 3 RP, 15 RP-PvP all list the same 15 houses with the same data (ruleset doesn't filter):
@@ -195,7 +195,12 @@ item has a curated vendor buy price, else imported price if *Use imported prices
   Wowhead lists nominal buy prices for many items nobody sells, so this is curated by hand.
 **Price used for selling** (DE materials and crafted products): typed price, else imported price. Never a vendor price.
 **Imported price**: the chosen column (1, 2 or 3; default 3, Josh 2026-11-06, meant for Auctioneer's average of the
-cheapest 15%) for the item ID; 0 or blank counts as no price.
+cheapest 15%) for the item ID; 0 or blank counts as no price. Two sources (Josh, 2026-11-12, "meaning A"): the price
+import (`edits.imports`, if *Use imported prices*) and the **API data** (newest collector summary for *API auction
+house*, default 111, if *Use API prices*; same three columns: lowest, median, cheapest 15%). Where both have the item,
+the newer wins: the import's scan time (`importsInfo.dataAt`, BavvbScan/Auctioneer) or else its import time, against
+the API snapshot's time; a tie goes to the import. Where only one has it, that one. The price's source shows as
+"imported" or "API". The API data is read from the linked auction data folder and never stored in the edits.
 
 **Vendor side** (from game data): vendor value per craft = `round(sell x qtyMade)`; blank if the product has no sell
 price. Reagents vendor value = sum of `sell x qty` over reagents with a sell price (count the ones without).
@@ -289,6 +294,11 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   disappears because its price moved. Deleting a non-empty group asks first and unstars its recipes. Stored in
   `edits.favorites` (groups: id, name, recipe IDs); collapsed groups are per browser (localStorage). No effect on any
   calculation.
+- **API prices** (Josh, 2026-11-12; `app/src/apiprices/`, class `papi`): File > Link auction data folder
+  (F:ForeverAuctionData, read-only handle in IndexedDB key `auctionDataDir`). Read on open, every 10 min while open, on
+  Refresh now and when the house changes; walks summary/YYYY/MM/DD newest first (up to 72 files) for the house.
+  Toolbar: "API: <data time>, house 111, N items (age)" (amber after 3 h), then "Import: ..." (was "Prices:").
+  Settings > Prices: Use API prices, Auction house (list of the 15 with guessed labels; only 111 confirmed).
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
   Export/Import of edits.
 - Money displayed as `1g 23s 45c`.

@@ -16,7 +16,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; cls?: string; title
   { key: 'used', label: 'Used as', cls: 'c-used', title: 'Reagent (and in how many recipes), product, disenchanting material, craftable reagent' },
   { key: 'custom', label: 'Custom', title: 'Your own price: overrides every other source for this item' },
   { key: 'vendor', label: 'Vendor buy', title: "What a vendor sells it for (Wowhead's price unless you've corrected it). Used for reagent cost only." },
-  { key: 'imported', label: 'Imported', num: true, cls: 'c-imp', title: 'From your last price import, in the column chosen in Settings' },
+  { key: 'imported', label: 'Imported', num: true, cls: 'c-imp', title: 'From your last price import or the hourly API data, whichever is newer for the item, in the column chosen in Settings' },
   { key: 'price', label: 'Price used', num: true,
     title: 'For a reagent, what it costs: custom, else vendor buy, else imported. For an item only sold, its sale price: custom, else imported (never a vendor price). A second line shows the sale price when it differs.' },
 ]
@@ -141,7 +141,7 @@ const Row = memo(function Row({ r, onCustom, onVendor }: {
   )
 })
 
-const sellSource = (r: ItemPriceRow) => (r.price.selling === null ? null : r.price.typed !== null ? 'Typed' : 'Imported')
+const sellSource = (r: ItemPriceRow) => (r.price.selling === null ? null : r.price.typed !== null ? 'Typed' : r.price.importedSource)
 
 function Used({ v, src }: { v: Money; src: string | null }) {
   if (v === null) return <span className="miss">unpriced</span>

@@ -29,5 +29,5 @@ export const formatQty = (q: number) => String(Math.round(q * 100) / 100)
 export const QUALITY_NAMES: Record<number, string> = { 0: 'Poor', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic' }
 
 /** How a price source is shown. The model and the edits file call user-entered prices "Typed"; the UI says "custom". */
-const SOURCE_LABELS: Record<string, string> = { Typed: 'custom', 'Vendor buy': 'vendor buy', Imported: 'imported', Craft: 'craft' }
+const SOURCE_LABELS: Record<string, string> = { Typed: 'custom', 'Vendor buy': 'vendor buy', Imported: 'imported', API: 'API', Craft: 'craft' }
 export const sourceLabel = (s: string | null | undefined) => (s ? SOURCE_LABELS[s] ?? s.toLowerCase() : '')

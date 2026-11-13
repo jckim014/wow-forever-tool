@@ -1,7 +1,7 @@
 import { computeIntermediates } from './intermediates'
 import { makePriceLookup } from './prices'
 import { computeRecipe } from './recipes'
-import type { Config, DeBand, Edits, GameData, ModelResult, Settings } from './types'
+import type { ApiPrices, Config, DeBand, Edits, GameData, ModelResult, Settings } from './types'
 
 export * from './types'
 export { emptyEdits, normalizeEdits } from './edits'
@@ -20,10 +20,10 @@ export function effectiveSettings(config: Config, edits: Edits): Settings {
   }
 }
 
-/** Pure: game data + config + edits -> one row per recipe, plus the intermediates. */
-export function compute(game: GameData, config: Config, edits: Edits): ModelResult {
+/** Pure: game data + config + edits (+ the newest API auction data, if any) -> one row per recipe, plus the intermediates. */
+export function compute(game: GameData, config: Config, edits: Edits, api: ApiPrices | null = null): ModelResult {
   const settings = effectiveSettings(config, edits)
-  const price = makePriceLookup(game, edits, settings)
+  const price = makePriceLookup(game, edits, settings, api)
   const { rows, loops } = computeIntermediates(game, config, edits, settings, price)
   const deTable = edits.deTable ?? config.deTable
   const noChains = new Set(edits.useChainsNo)

@@ -22,9 +22,11 @@ const SETTING_LABELS: Record<string, keyof Settings> = {
   'Salvager: flat yield bonus': 'salvagerFlatBonus',
   'AH cut on sales': 'ahCut',
   'AH cut on DE materials sold': 'ahCut', // pre-v2.5 name
+  'Use API prices': 'useApiPrices', // app-only settings (not in the workbook)
+  'API auction house': 'apiHouse',
 }
 const CHAINS_PREFIX = 'Chains: craft with '
-const BOOL_KEYS = new Set<keyof Settings>(['useVendorBuy', 'useImports', 'salvagerOn'])
+const BOOL_KEYS = new Set<keyof Settings>(['useVendorBuy', 'useImports', 'useApiPrices', 'salvagerOn'])
 
 const yesNo = (v: unknown): boolean | undefined =>
   typeof v === 'boolean' ? v : v === 'Yes' ? true : v === 'No' ? false : undefined
@@ -108,6 +110,7 @@ export function normalizeEdits(raw: unknown): { edits: Edits; warnings: string[]
   const info = r.importsInfo as Partial<ImportsInfo> | null | undefined
   if (info && typeof info.source === 'string' && typeof info.at === 'string' && typeof info.count === 'number') {
     e.importsInfo = { source: info.source, at: info.at, count: info.count }
+    if (typeof info.dataAt === 'string') e.importsInfo.dataAt = info.dataAt
   }
   const shop = r.shopping as Record<string, unknown> | null | undefined
   if (shop && typeof shop === 'object') {

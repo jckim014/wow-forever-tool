@@ -56,7 +56,7 @@ export interface ExitDetail {
   qtyMade: number
   vendor?: { unitSell: number }
   disenchant?: { band: string; materials: DeMaterial[]; priced: number; withChance: number; multiplier: number }
-  ah?: { unit: Money; source: 'Typed' | 'Imported' | null }
+  ah?: { unit: Money; source: 'Typed' | 'Imported' | 'API' | null }
 }
 
 export interface RecipeDetail {
