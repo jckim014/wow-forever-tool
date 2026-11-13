@@ -209,7 +209,8 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
 A separate local app on Josh's PC for **price trends** (any AH item's history, charts, pattern finding) and **faction
 arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
 on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
-5 Trends charts (done), 6 Faction, 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month).
+5 Trends charts (done), 5a TSM region sale data (done), 5b our own sale-rate estimate + Method check page, 6 Faction
+(filters on both sale figures), 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month). All revisable (Josh).
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
@@ -232,6 +233,15 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   categorical slots 1-3 of its reference palette (validated all-pairs; aqua < 3:1 contrast, so lines carry direct end
   labels and a table view exists), crosshair readout lists every house, a line breaks where a snapshot passed without
   the item listed, money axes use whole-copper ticks and compact labels ("40g"). Light theme only, like the shuffle app.
+- **TSM region sale data** (5a, 2026-11-13): `market/tsm.mjs` parses AUCTIONDB_REGION_SALE (Forever-US) from
+  `F:World of Warcraft_forever_InterfaceAddOnsTradeSkillMaster_AppHelperAppData.lua` (env FOREVER_TSM_FILE), re-read when it
+  changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
+  tooltip: Linen Cloth 15,998/day, 95.4%; Runecloth 1,846, 61.5%; Arcanite Bar 2.96, 22.8%). Shown on the item page as
+  "TSM · Forever-US region" (sold/day, sale rate, average sale price, download date): pooled TSM users' sales,
+  region-wide, updated about daily. Josh's own TSM sale records are NOT a data source (too limited/biased); planned
+  only as ground truth for checking our estimate (5b): TradeSkillMaster.lua csvSales/csvBuys/csvCancelled/csvExpired
+  (account 1120039#2; 2026-11-13: 1,209 auction sales, 643 buys, 156 cancels, 432 expiries). Those rows hold other
+  players' names: never store or show them.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)

@@ -89,6 +89,19 @@ $('#results').addEventListener('click', (e) => {
   if (row) select(Number(row.dataset.id));
 });
 
+/** TSM's region sale figures (pooled TSM users' real sales across Forever-US, not this realm). */
+function tsmBlock(t) {
+  if (!t) return '<p class="mnote">TSM data: not found (the TSM desktop app writes it).</p>';
+  const when = t.downloadTime ? new Date(t.downloadTime * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '?';
+  if (t.soldPerDay === null && t.saleAvg === null) return `<p class="mnote">TSM (${esc(t.region)} region): no sales recorded for this item.</p>`;
+  const sold = t.soldPerDay === null ? '—' : t.soldPerDay >= 100 ? Math.round(t.soldPerDay).toLocaleString() : t.soldPerDay.toFixed(1);
+  const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
+  return `<div class="mtsm"><span class="mtsm-h">TSM · ${esc(t.region)} region</span>
+    <span><strong>${sold}</strong> sold per day</span><span><strong>${rate}</strong> sale rate</span>
+    <span><strong>${money(t.saleAvg)}</strong> average sale price</span>
+    <span class="mtsm-when" title="Pooled real sales recorded by TSM users across the whole region, not just your realm. Updated about daily by the TSM desktop app.">data from ${esc(when)}</span></div>`;
+}
+
 // ---- item detail (charts come in step 5) ----
 async function select(id) {
   selected = id;
@@ -108,6 +121,7 @@ async function select(id) {
             <td>${l ? l.units.toLocaleString() : '<span class="blank">not listed</span>'}</td><td>${l ? esc(ago(l.t)) : ''}</td></tr>`;
         }).join('')}
       </table>
+      ${tsmBlock(it.tsm)}
       <div id="trends"></div>`;
     await loadTrends(id);
   } catch (e) {

@@ -8,6 +8,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { searchItems, shouldStop, itemList } from './lib.mjs';
+import { parseRegionSale } from './tsm.mjs';
+
+// TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
+const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
+let tsm = null, tsmMtime = 0;
+function getTsm() {
+  try {
+    const m = fs.statSync(tsmFile).mtimeMs;
+    if (m !== tsmMtime) { tsm = parseRegionSale(fs.readFileSync(tsmFile, 'utf8')); tsmMtime = m; }
+  } catch { /* keep what we have (or null) */ }
+  return tsm;
+}
 
 export const PORT = Number(process.env.FOREVER_MARKET_PORT) || 5310;
 const dataRoot = process.env.FOREVER_DATA_ROOT || 'F:\\ForeverAuctionData';
@@ -95,7 +107,11 @@ const api = {
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));
-    return { ...(byId.get(id) ?? { id, name: `Item ${id}`, quality: null, icon: null }), latest: latest(id) };
+    const t = getTsm();
+    return {
+      ...(byId.get(id) ?? { id, name: `Item ${id}`, quality: null, icon: null }), latest: latest(id),
+      tsm: t ? { ...(t.items.get(id) ?? { saleAvg: null, soldPerDay: null, saleRate: null }), region: t.region, downloadTime: t.downloadTime } : null,
+    };
   },
 };
 
