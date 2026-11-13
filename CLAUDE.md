@@ -183,9 +183,18 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
 - **Item names** (for Forever Market, 2026-11-13): `collector/fetch_names.mjs` (logic in `namesLib.mjs`) names every
   item ID in the summaries from `nether.wowhead.com/forever/tooltip/item/<id>` (game data only: name, quality, icon;
   covers Forever-only items), 1/s, falling back to Blizzard's item API (static-forever-us, then static-us). Cache
-  `F:ForeverAuctionDataitems.json` (`{id: {name, quality, icon, source, at} | {missing, at}}`, misses retried after
+  `F:\ForeverAuctionData\items.json` (`{id: {name, quality, icon, source, at} | {missing, at}}`, misses retried after
   7 days), saved every 50 items; restartable. First full run ~7,000 items (~2 h). Plan: Forever Market (local app,
   price DB on F:, Trends + Faction tabs); see `~/.claude/plans/polymorphic-sleeping-lighthouse.md` until it lands.
+- **Price database** (Forever Market step 3, 2026-11-13): `F:\ForeverAuctionData\market.db`, SQLite via Node's
+  built-in `node:sqlite` (`collector/marketDb.mjs`; "experimental" warning, silenced with
+  `--disable-warning=ExperimentalWarning`). Tables: `snapshots(t, id, collected_at)` (t = data time, Unix s),
+  `snapshot_houses(house, t, listings, bid_only, items)`, `prices(item, house, t, lowest, median, cheapest15, units,
+  listings)` (PK item, house, t; WITHOUT ROWID), `item_ids(item, first_t)`; WAL mode. Filled by
+  `collector/build_db.mjs` (backfill/catch-up from the summaries, skips stored snapshots) and by `sync.mjs` right after
+  it stores each summary (a failure there notifies and is caught up by build_db). After storing snapshots the sync runs
+  `fetch_names.mjs --limit 120` for new items (lock `items.json.lock`, one fetch at a time; it reads IDs from
+  `item_ids`). Size: 8 snapshots = 10.2 MB, ~11 GB/year. Names stay in items.json, not the DB.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
@@ -303,7 +312,7 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   `edits.favorites` (groups: id, name, recipe IDs); collapsed groups are per browser (localStorage). No effect on any
   calculation.
 - **API prices** (Josh, 2026-11-12; `app/src/apiprices/`, class `papi`): File > Link auction data folder
-  (F:ForeverAuctionData, read-only handle in IndexedDB key `auctionDataDir`). Read on open, every 10 min while open, on
+  (F:\ForeverAuctionData, read-only handle in IndexedDB key `auctionDataDir`). Read on open, every 10 min while open, on
   Refresh now and when the house changes; walks summary/YYYY/MM/DD newest first (up to 72 files) for the house.
   Toolbar: "API: <data time>, house 111, N items (age)" (amber after 3 h), then "Import: ..." (was "Prices:").
   Settings > Prices: Use API prices, Auction house (list of the 15 with guessed labels; only 111 confirmed).

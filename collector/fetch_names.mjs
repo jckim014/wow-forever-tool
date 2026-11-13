@@ -10,6 +10,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { fromWowhead, fromBlizzard, toFetch } from './namesLib.mjs';
+import { openDb } from './marketDb.mjs';
 
 const root = process.env.FOREVER_DATA_ROOT || 'F:\\ForeverAuctionData';
 const cachePath = path.join(root, 'items.json');
@@ -19,7 +20,15 @@ const limit = limitArg > 0 ? Number(process.argv[limitArg + 1]) : Infinity;
 const PAUSE_MS = 1000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Every item ID seen: from the price database's item list when it exists, else by reading every summary. */
 function allIds() {
+  const dbFile = path.join(root, 'market.db');
+  if (fs.existsSync(dbFile)) {
+    const db = openDb(dbFile);
+    const ids = db.prepare('SELECT item FROM item_ids').all().map((r) => String(r.item));
+    db.close();
+    if (ids.length) return ids;
+  }
   const ids = new Set();
   const walk = (d) => {
     for (const n of fs.readdirSync(d)) {
@@ -34,6 +43,13 @@ function allIds() {
   walk(path.join(root, 'summary'));
   return [...ids];
 }
+
+// One fetch at a time (the hourly sync starts one for new items): a lock younger than 3 h means another is running.
+const lockPath = path.join(root, 'items.json.lock');
+try {
+  if (Date.now() - fs.statSync(lockPath).mtimeMs < 3 * 60 * 60 * 1000) { console.log('another name fetch is running: skipped'); process.exit(0); }
+} catch { /* no lock */ }
+fs.writeFileSync(lockPath, String(process.pid));
 
 let cache = {};
 try { cache = JSON.parse(fs.readFileSync(cachePath, 'utf8')); } catch { /* first run */ }
@@ -97,5 +113,6 @@ try {
   }
 } finally {
   save();
+  fs.rmSync(lockPath, { force: true });
   console.log(`done: ${done} fetched, ${named} named, ${missing} not found; cache has ${Object.keys(cache).length} items`);
 }

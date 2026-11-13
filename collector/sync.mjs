@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   readZip, summarizeHouse, SUMMARY_COLUMNS, snapshotDate, snapshotDayParts, updateAlerts, parseTokenExpiry,
 } from './syncLib.mjs';
+import { openDb, insertSummary } from './marketDb.mjs';
 
 const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
@@ -186,6 +187,16 @@ function storeSnapshot(artifactName, files) {
     }
     fs.writeFileSync(sumPath + '.tmp', zlib.gzipSync(JSON.stringify(merged)));
     fs.renameSync(sumPath + '.tmp', sumPath);
+
+    // Forever Market's price database (market.db): a failure here doesn't lose data (the summary is stored);
+    // build_db.mjs catches up.
+    try {
+      marketDb ??= openDb(path.join(dataRoot, 'market.db'));
+      insertSummary(marketDb, merged);
+    } catch (e) {
+      events.push({ title: 'Auction sync: price database not updated', message: `${id}: ${e.message}. The snapshot is stored; run node collector/build_db.mjs to catch up.`, url: ACTIONS_URL });
+      log(`price database: ${e.message}`);
+    }
   }
 
   for (const n of [...(manifest.notes ?? []), ...(manifest.problems ?? [])]) {
@@ -200,6 +211,7 @@ function storeSnapshot(artifactName, files) {
 }
 
 // ---- run ----
+let marketDb = null;
 const started = Date.now();
 let stored = 0;
 try {
@@ -303,6 +315,15 @@ try {
 } catch (e) {
   conditions.crash = e.message;
   log(`error: ${e.stack || e.message}`);
+}
+
+// ---- names for new items (Forever Market): at most 2 minutes per sync; skipped while another fetch runs ----
+try { marketDb?.close(); } catch { /* ignore */ }
+if (!dryRun && stored > 0) {
+  const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', path.join(here, 'fetch_names.mjs'), '--limit', '120'],
+    { windowsHide: true, timeout: 5 * 60 * 1000, encoding: 'utf8', env: { ...process.env, FOREVER_DATA_ROOT: dataRoot } });
+  const last = String(r.stdout || '').trim().split(/\r?\n/).pop();
+  log(`names: ${r.status === 0 ? last : `fetch failed (${String(r.stderr || r.error || '').trim().slice(0, 200)})`}`);
 }
 
 // ---- alerts ----
