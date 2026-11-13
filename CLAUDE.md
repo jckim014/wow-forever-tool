@@ -189,8 +189,9 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   items, then misses (retried daily), then names older than 30 days (monthly re-check for renames; a failed re-check
   keeps the name)), saved every 50 items; restartable. First full run 2026-11-12/13: 7,026 items, all named (none
   missing); checked: 1,384/1,384 equal to the shuffle app's names, 193/195 of a random 200 equal to Blizzard's API
-  (120/120 Forever data; the 2 differences are later Retail renames, e.g. 1934 Stonemason Trousers). Plan: Forever Market (local app,
-  price DB on F:, Trends + Faction tabs); see `~/.claude/plans/polymorphic-sleeping-lighthouse.md` until it lands.
+  (120/120 Forever data; the 2 differences are later Retail renames, e.g. 1934 Stonemason Trousers). Forever Market's plan
+  (`~/.claude/plans/polymorphic-sleeping-lighthouse.md`, 2026-11-12) is superseded by the Forever Market section below,
+  which keeps the current step list.
 - **Price database** (Forever Market step 3, 2026-11-13): `F:\ForeverAuctionData\market.db`, SQLite via Node's
   built-in `node:sqlite` (`collector/marketDb.mjs`; "experimental" warning, silenced with
   `--disable-warning=ExperimentalWarning`). Tables: `snapshots(t, id, collected_at)` (t = data time, Unix s),
@@ -469,14 +470,24 @@ live (2e081d8).
   (Filigreed set, Slippers/Cord/Gloves sets), 12eae5d, live.
 2026-11-12: Favorites view (see UI), 571aae3, live. Josh checked screenshots and the design ("looks good") before
   the commit; not yet used on the live site with his own save file.
+2026-11-12/13: Collector (Blizzard API auction history, cloud + PC sync, price database on F:), API prices in the
+  shuffle app, and Forever Market steps 1-6 (names, Trends, TSM region sales, our sale-rate estimate + Method check,
+  Faction tab), last 428747b, all pushed. Market is local only (not on GitHub Pages).
 
 2026-11-10: Auctioneer 4.0.3 stopped loading (new hard dependency on LoadOnDemand Enchantrix); Josh uninstalled it
 and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phrase and checklist added.
 Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
 checked it on the live site ("looks good").
 
-Where we left off (2026-11-12): Favorites shipped and live (star recipes into named groups, drag to arrange). Next:
-Josh uses it with real scans and comes back with iterations. BavvbScan is the price source; its scan panel is in use
+Where we left off (2026-11-13): Forever Market steps 1-6 are done and committed (last: 428747b, the TSM sales band
+laid out like the NA PvE band). The session ended in an outage and was signed off afterwards, so it isn't recorded
+whether Josh checked the last two label commits (b07cd9a "NA PvE", 428747b) in the browser; ask. Next: Josh uses
+Trends and the Faction tab on live data and comes back with iterations. Step 7 (pattern finder) waits for data:
+collection started 2026-11-12, so ~2 weeks of history around 2026-11-26, ~1 month (weekly patterns) around
+2026-12-12. The collector and PC sync run unattended (scheduled sync + name fetch are normal background Node
+processes; don't stop them).
+Shuffle app: Favorites and API prices shipped and live. Josh uses them with real scans and comes back with
+iterations. BavvbScan is the price source for up-to-the-minute prices; its scan panel is in use
 ("looks good for now"; size/colours may be revisited). The in-game companion is parked (Open items). Still not
 reported back: a paste of the Shopping view's string into Auctionator's in-game Import. If the list misbehaves in
 game, check the term format in `app/src/shopping/list.ts` against `Auctionator/Source/Search/Advanced.lua` first.
@@ -510,8 +521,8 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   numbers in base 32 (0-9A-V). Josh's realm is "Normal-Alliance" (its min buyouts match his scans); region
   "Forever-US". Kinds: NON_COMMODITY_DATA (minBuyout, numAuctions, marketValueRecent), NON_COMMODITY_SCAN_STAT
   (marketValue = DBMarket), NON_COMMODITY_HISTORICAL (historical), REGION_STAT (regionMarketValue), REGION_HISTORICAL,
-  REGION_SALE (regionSale, regionSoldPerDay, regionSalePercent: the last two look scaled, probably x1000; check
-  against a TSM tooltip before use). A trial CSV is `data/private/tsm-prices-2026-11-06.csv` (p1 minBuyout,
+  REGION_SALE (regionSale, regionSoldPerDay, regionSalePercent: the last two are x1000, confirmed by Josh against
+  TSM's tooltip 2026-11-13; Forever Market reads them, see there). A trial CSV is `data/private/tsm-prices-2026-11-06.csv` (p1 minBuyout,
   p2 marketValueRecent, p3 marketValue). Next step when Josh wants it: a TSM reader (link AppData.lua like the
   scan file) and his choice of which figures fill the three columns; needs his yes. TSM's full scan only runs on the
   Mists client and only uploads listings; it is not a price source by itself. TSM on that account also records his
@@ -521,6 +532,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Forever Market: step 7 pattern finder when enough data exists (dates in "Where we left off"). Sale-rate method:
+  re-run the Method check and consider tuning only once ~100+ more of Josh's TSM records exist; record any new method
+  version in `market/method-history.json`. The realms behind house groups 110/113/116, 119/120/121 and 123/124/125 are
+  unconfirmed (collected anyway).
 - Parked 2026-11-11 (Josh: not now): in-game companion in BavvbScan. The app would write
   `Interface\AddOns\BavvbScan\AppData.lua` (TSM-style; the AddOns folder is shared by all accounts) with per-recipe
   cost, exits, profit and the Shopping list; the addon would show a panel beside the profession window and create
