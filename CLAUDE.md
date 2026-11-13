@@ -240,7 +240,8 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua` (env FOREVER_TSM_FILE), re-read when it
   changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
   tooltip: Linen Cloth 15,998/day, 95.4%; Runecloth 1,846, 61.5%; Arcanite Bar 2.96, 22.8%). Shown on the item page as
-  "TSM · Forever-US region" (sold/day, sale rate, average sale price, download date): pooled TSM users' sales,
+  "NA region · Sales (TSM**)", laid out like the NA PvE band (~sold/day, then sale rate and average sale price, download
+  date, footnote): pooled TSM users' sales,
   region-wide, updated about daily. Josh's own TSM sale records are NOT a data source (too limited/biased); planned
   only as ground truth for checking our estimate (5b): TradeSkillMaster.lua csvSales/csvBuys/csvCancelled/csvExpired
   (account 1120039#2; 2026-11-13: 1,209 auction sales, 643 buys, 156 cancels, 432 expiries). Those rows hold other

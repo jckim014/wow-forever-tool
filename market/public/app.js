@@ -112,17 +112,22 @@ function estimateBlock(e) {
     <span class="mfoot">* Estimated from hourly listings: includes some cancellations and misses items bought within the hour. See Method check.</span></div>`;
 }
 
-/** TSM's region sale figures (pooled TSM users' real sales across Forever-US, not this realm). */
+/** TSM's region sale figures (real sales by TSM users across all Forever-US realms), laid out like the NA PvE band. */
 function tsmBlock(t) {
-  if (!t) return '<p class="mnote">TSM data: not found (the TSM desktop app writes it).</p>';
+  const head = '<span class="mtsm-h">NA region · Sales (TSM**)</span>';
+  const foot = '<span class="mfoot">** Real sales recorded by TSM users across all Forever-US realms. Not everyone runs TSM, so actual sales are higher. Updated about daily by the TSM desktop app.</span>';
+  if (!t) return `<div class="mtsm">${head}<span class="blank">TSM data not found (the TSM desktop app writes it)</span>${foot}</div>`;
   const when = t.downloadTime ? new Date(t.downloadTime * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '?';
-  if (t.soldPerDay === null && t.saleAvg === null) return `<p class="mnote">TSM (${esc(t.region)} region): no sales recorded for this item.</p>`;
+  if (t.soldPerDay === null && t.saleAvg === null) {
+    return `<div class="mtsm">${head}<span class="blank">No sales recorded for this item</span><span class="mtsm-when">data from ${esc(when)}</span>${foot}</div>`;
+  }
   const sold = t.soldPerDay === null ? '—' : t.soldPerDay >= 100 ? Math.round(t.soldPerDay).toLocaleString() : t.soldPerDay.toFixed(1);
   const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
-  return `<div class="mtsm"><span class="mtsm-h">TSM sales · ${esc(t.region)} region</span>
-    <span><strong>${sold}</strong> sold per day</span><span><strong>${rate}</strong> sale rate</span>
-    <span><strong>${money(t.saleAvg)}</strong> average sale price</span>
-    <span class="mtsm-when" title="Pooled real sales recorded by TSM users across the whole region, not just NA PvE. Updated about daily by the TSM desktop app.">data from ${esc(when)}</span></div>`;
+  return `<div class="mtsm">${head}
+    <span>All realms: <strong>~${sold}</strong> sold per day**
+      <span class="mest-sub">(${rate} of listings sell · average sale price ${t.saleAvg === null ? '—' : esc(formatMoney(t.saleAvg))})</span></span>
+    <span class="mtsm-when">data from ${esc(when)}</span>
+    ${foot}</div>`;
 }
 
 // ---- item detail (charts come in step 5) ----
