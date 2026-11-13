@@ -234,7 +234,7 @@ try {
     const done = runs.filter((r) => r.status === 'completed').map((r) => r.id);
     if (done.length) state.lastSeenRunId = Math.max(lastSeen, ...done);
 
-    // Backup for the Google Apps Script timer (collector/apps-script-timer.gs, every 15 min; GitHub's own schedule
+    // Backup for the Google Apps Script timer (collector/apps-script-timer.gs, every 30 min; GitHub's own schedule
     // never fires in this repo): if the collector hasn't run for 70 min, start a run from here and alert, since the
     // timer must have stopped. The alert clears at the first sync that doesn't need to step in.
     const lastRunAt = runs.length ? Math.max(...runs.map((r) => Date.parse(r.created_at))) : 0;

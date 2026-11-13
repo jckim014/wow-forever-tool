@@ -1,4 +1,4 @@
-# Collects WoW Forever auction data from the Blizzard API (collector/collect.mjs). Started every 15 minutes by a Google
+# Collects WoW Forever auction data from the Blizzard API (collector/collect.mjs). Started every 30 minutes by a Google
 # Apps Script timer (collector/apps-script-timer.gs) because GitHub never fires the schedule below in this repo.
 # Each run downloads only houses whose data changed since the last run; new data is uploaded as an artifact
 # named snapshot-<time> (kept 90 days) for the sync script on Josh's PC to download to F:.

@@ -140,8 +140,8 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   110/113/116, 111/114/117 (Josh's realm), 112/115/118 (empty), 119/120/121, 123/124/125; the two big groups are
   probably PvE and PvP. Confirm with an in-game scan on another house. Josh wants all 15 collected.
 - **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
-  **started by a Google Apps Script timer every 15 min** (`collector/apps-script-timer.gs`, project "Forever auction
-  timer" in Josh's Google account, trigger "Minutes timer, every 15 minutes", failure email immediately; script
+  **started by a Google Apps Script timer every 30 min** (Josh chose 30 over 15: two chances per hourly refresh is enough) (`collector/apps-script-timer.gs`, project "Forever auction
+  timer" in Josh's Google account, trigger "Minutes timer, every 30 minutes", failure email immediately; script
   property GITHUB_TOKEN = a second fine-grained token "forever-collector-timer", this repo, Actions read/write).
   Why: GitHub runs no scheduled workflows in this repo (2026-11-12: the cron never fired in 3.5 h, a resync commit,
   disable/enable and a minimal */5 probe workflow didn't help; matches the 2026 reports in
@@ -176,7 +176,7 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
-- Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 15-min timer about 96 idle + 24 full runs, ~850 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
+- Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 30-min timer about 24 idle + 24 full runs, ~770 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
 ## Model (must match the workbook)
 

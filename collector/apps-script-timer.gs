@@ -1,6 +1,6 @@
 // Google Apps Script (script.google.com, Josh's Google account): the outside timer for the auction collector.
 // GitHub does not run scheduled workflows in this repo (tested 2026-11-12: not even a 5-minute probe ran), so a
-// time-driven trigger here calls startCollector every 15 minutes, which asks GitHub to run collect.yml now.
+// time-driven trigger here calls startCollector every 30 minutes, which asks GitHub to run collect.yml now.
 // Script property GITHUB_TOKEN: a fine-grained GitHub token for jckim014/wow-forever-tool only, Actions: Read and
 // write (separate from the PC sync's token, so either can be revoked alone). A failed call throws, and Apps Script
 // emails Josh (trigger set to "Notify me immediately").
