@@ -180,6 +180,12 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   2026-11-12: 8.2 MB snapshot in 8.6 s, peak 336 MB; nothing new: 1 s, 56 MB. Summary of 111 vs a BavvbScan 25 min
   earlier: 80% same lowest, 90% cheapest-15% within 5%. No healthchecks.io (Josh: no new accounts), so nothing watches
   while the PC is off.
+- **Item names** (for Forever Market, 2026-11-13): `collector/fetch_names.mjs` (logic in `namesLib.mjs`) names every
+  item ID in the summaries from `nether.wowhead.com/forever/tooltip/item/<id>` (game data only: name, quality, icon;
+  covers Forever-only items), 1/s, falling back to Blizzard's item API (static-forever-us, then static-us). Cache
+  `F:ForeverAuctionDataitems.json` (`{id: {name, quality, icon, source, at} | {missing, at}}`, misses retried after
+  7 days), saved every 50 items; restartable. First full run ~7,000 items (~2 h). Plan: Forever Market (local app,
+  price DB on F:, Trends + Faction tabs); see `~/.claude/plans/polymorphic-sleeping-lighthouse.md` until it lands.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
