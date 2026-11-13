@@ -111,42 +111,9 @@ export function App() {
 
   return (
     <div className="app">
+      {/* Row 1 and row 2 are the same on every tab; each view's own filters come below them. */}
       <header className="toolbar">
         <h1>Forever shuffle</h1>
-        {(view === 'list' || view === 'table' || view === 'favorites') && (<>
-        <input
-          className="search" type="search" placeholder="Search recipes, items, reagents…"
-          value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-        />
-        <span className="field">
-          Exit
-          <span className="seg" role="group" aria-label="Exit">
-            {EXIT_OPTIONS.map((o) => (
-              <button key={o.key} className={filters.exit === o.key ? 'on' : ''} title={o.title} onClick={() => setFilters({ ...filters, exit: o.key })}>{o.label}</button>
-            ))}
-          </span>
-        </span>
-        </>)}
-        {(view === 'list' || view === 'table') && (<>
-        <label className="field">
-          {MIN_PROFIT_LABEL[filters.exit]}
-          <input
-            type="number" step="any" placeholder="gold" className="gold"
-            value={filters.minProfitGold ?? ''}
-            onChange={(e) => setFilters({ ...filters, minProfitGold: e.target.value === '' ? null : Number(e.target.value) })}
-          />
-          g
-        </label>
-        <label className="field">
-          <input type="checkbox" checked={filters.hideUnpriced} onChange={(e) => setFilters({ ...filters, hideUnpriced: e.target.checked })} />
-          Hide unpriced
-        </label>
-        <label className="field" title="Hide recipes whose product binds when picked up (the AH view always leaves them out)">
-          <input type="checkbox" checked={filters.hideBop} onChange={(e) => setFilters({ ...filters, hideBop: e.target.checked })} />
-          Hide BoP
-        </label>
-        <span className="count">{count.toLocaleString()} of {result.recipes.length.toLocaleString()} recipes</span>
-        </>)}
         <div className="seg" role="group" aria-label="View">
           <button className={view === 'list' ? 'on' : ''} onClick={() => chooseView('list')} title="Compact list; click a recipe for the full breakdown">List</button>
           <button className={view === 'favorites' ? 'on' : ''} onClick={() => chooseView('favorites')} title="Recipes you starred, in your own groups">
@@ -168,19 +135,13 @@ export function App() {
           auctionData={{ supported: api.supported, folder: api.folder, onChoose: api.choose, onStop: api.stop }}
         />
       </header>
-      <nav className="chips">
-        {(view === 'list' || view === 'table') && (<>
-        <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
-          All professions
-        </button>
-        {game.professions.map((p) => (
-          <button key={p} className={filters.professions.has(p) ? 'chip on' : 'chip'} onClick={() => toggleProfession(p)}>{p}</button>
-        ))}
-        </>)}
-        {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
-        {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && !api.folder && (
-          <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
-        )}
+      <div className="statusbar">
+        <span className="sb-msg">
+          {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
+          {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && !api.folder && (
+            <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
+          )}
+        </span>
         {(edits.importsInfo || prices.linked || history.folder || api.folder) && (
           <span className="note prices-info">
             {api.folder && (
@@ -222,7 +183,53 @@ export function App() {
             )}
           </span>
         )}
-      </nav>
+      </div>
+      {(view === 'list' || view === 'table' || view === 'favorites') && (
+        <div className="rfilters">
+          <input
+            className="search" type="search" placeholder="Search recipes, items, reagents…"
+            value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          />
+          <span className="field">
+            Exit
+            <span className="seg" role="group" aria-label="Exit">
+              {EXIT_OPTIONS.map((o) => (
+                <button key={o.key} className={filters.exit === o.key ? 'on' : ''} title={o.title} onClick={() => setFilters({ ...filters, exit: o.key })}>{o.label}</button>
+              ))}
+            </span>
+          </span>
+          {(view === 'list' || view === 'table') && (<>
+          <label className="field">
+            {MIN_PROFIT_LABEL[filters.exit]}
+            <input
+              type="number" step="any" placeholder="gold" className="gold"
+              value={filters.minProfitGold ?? ''}
+              onChange={(e) => setFilters({ ...filters, minProfitGold: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+            g
+          </label>
+          <label className="field">
+            <input type="checkbox" checked={filters.hideUnpriced} onChange={(e) => setFilters({ ...filters, hideUnpriced: e.target.checked })} />
+            Hide unpriced
+          </label>
+          <label className="field" title="Hide recipes whose product binds when picked up (the AH view always leaves them out)">
+            <input type="checkbox" checked={filters.hideBop} onChange={(e) => setFilters({ ...filters, hideBop: e.target.checked })} />
+            Hide BoP
+          </label>
+          <span className="count">{count.toLocaleString()} of {result.recipes.length.toLocaleString()} recipes</span>
+          </>)}
+        </div>
+      )}
+      {(view === 'list' || view === 'table') && (
+        <nav className="chips">
+          <button className={filters.professions.size === 0 ? 'chip on' : 'chip'} onClick={() => setFilters({ ...filters, professions: new Set() })}>
+            All professions
+          </button>
+          {game.professions.map((p) => (
+            <button key={p} className={filters.professions.has(p) ? 'chip on' : 'chip'} onClick={() => toggleProfession(p)}>{p}</button>
+          ))}
+        </nav>
+      )}
       {kept.has('list') && (
         <div className={view === 'list' ? 'vkeep' : 'vkeep off'}>
           <RecipeList rows={rows} exit={filters.exit} active={view === 'list'} {...cardProps} />

@@ -301,6 +301,11 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   Settings > Prices: Use API prices, Auction house (list of the 15 with guessed labels; only 111 confirmed).
 - Prices, Intermediates, DE table and Settings views (details in Build plan steps 7-10); Auctionator drop zone;
   Export/Import of edits.
+- **Fixed top rows** (Josh, 2026-11-12: the bar moved between tabs): row 1 = title, view tabs, save status + File;
+  row 2 (`.statusbar`, always present) = messages left, API / Import / Linked / History right. Both identical on every
+  tab. Each view's own controls come below: List/Table/Favorites share `.rfilters` (search, Exit; List/Table add Min
+  profit, Hide unpriced, Hide BoP, count, then the profession chips); Prices has its own `.pfilters`. Don't put
+  per-view controls back into rows 1-2.
 - Money displayed as `1g 23s 45c`.
 - User-entered prices are called **custom** in the UI (the model and the edits file keep the name `typed`/`typedPrices`).
   Cost lines in the detail card use dot leaders from the reagent name to its price; amounts in the card's columns are

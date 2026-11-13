@@ -35,6 +35,11 @@ body { margin: 0; }
 .button:hover { background: #eef3fc; }
 
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 8px; }
+/* Row 2: always present at the same height (messages left, price sources right), so views start at the same place. */
+.statusbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 26px; padding-bottom: 8px; }
+.statusbar .sb-msg .note { margin-left: 0; }
+/* List / Table / Favorites filters, below the fixed rows. */
+.rfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-bottom: 8px; }
 .chip { padding: 3px 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--fg); cursor: pointer; font: inherit; font-size: 13px; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .note { color: var(--muted); font-size: 13px; margin-left: 8px; }
