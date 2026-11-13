@@ -22,9 +22,11 @@ export function formatMoneyAxis(v) {
 
 export const QUALITY_NAMES = { 0: 'Poor', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary', 6: 'Artifact', 7: 'Heirloom' };
 
-/** Josh's realm (confirmed by in-game scans, 2026-11-12/13). */
+/** Josh's realm (confirmed by in-game scans, 2026-11-12/13). Only the two faction houses are shown: Blackwater is
+ *  just the transfer route between them, its prices don't matter (Josh, 2026-11-13). */
 export const HOUSES = [
   { id: 111, label: 'Alliance', short: 'A' },
   { id: 114, label: 'Horde', short: 'H' },
-  { id: 117, label: 'Blackwater', short: 'N' },
 ];
+/** The neutral house on Josh's realm: used only as the transfer route (15% cut, Josh confirmed 2026-11-13). */
+export const BLACKWATER = { id: 117, label: 'Blackwater', cut: 0.15 };

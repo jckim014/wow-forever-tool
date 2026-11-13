@@ -220,11 +220,13 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   `launch-hidden.vbs` -> `launch.mjs`: starts the server hidden and detached if it isn't answering, then opens
   http://localhost:5310/. Open tabs check in every minute; the server exits 10 min after the last check-in
   (`FOREVER_MARKET_IDLE_MS` / `FOREVER_MARKET_PORT` override for tests). A tab whose server stopped shows a banner.
-- Houses shown: Josh's realm, A = Alliance 111, H = Horde 114, N = Blackwater 117 (`market/public/shared.js`).
+- Houses shown: Alliance 111 and Horde 114 only (`market/public/shared.js` HOUSES). Blackwater 117 is only the
+  transfer route; its prices are never shown (Josh, 2026-11-13). Its cut is 15% (Josh confirmed), `BLACKWATER` in shared.js.
   Price shown by default: cheapest15 (average of the cheapest 15% of units), as in the shuffle app's column 3.
 - **Trends** (step 5): picking an item shows latest figures per house, then charts from `/api/history?id=&days=`
   (per house [t, lowest, median, cheapest15, units, listings] + all snapshot times): price per unit (Cheapest 15% /
-  Lowest / Median) and units listed as two separate line charts (one y-axis each), ranges 24 h / 7 d / 30 d / All;
+  Lowest / Median) and units listed as two separate line charts (one y-axis each), Show Both / Alliance / Horde,
+  ranges 24 h / 7 d / 30 d / All / Custom (from-to date-times; also drives the heat maps and table);
   weekday x hour and per-day heat maps (median, local time, quantile colour bins) for a chosen house; table view.
   Plain SVG in `market/public/charts.js`, calculations in `stats.js` (tested). Per the dataviz guidance: houses use
   categorical slots 1-3 of its reference palette (validated all-pairs; aqua < 3:1 contrast, so lines carry direct end

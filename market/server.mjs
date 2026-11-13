@@ -13,7 +13,7 @@ export const PORT = Number(process.env.FOREVER_MARKET_PORT) || 5310;
 const dataRoot = process.env.FOREVER_DATA_ROOT || 'F:\\ForeverAuctionData';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(here, 'public');
-const HOUSES = [111, 114, 117];
+const HOUSES = [111, 114]; // Alliance, Horde (Blackwater prices are not shown)
 
 // ---- data ----
 let db = null;
@@ -76,17 +76,21 @@ const api = {
     }
     return found.map((it) => ({ ...it, latest: latest(it.id) }));
   },
-  /** Price history of one item in Josh's three houses: per house [[t, lowest, median, cheapest15, units, listings], ...]. */
+  /**
+   * Price history of one item in Alliance and Horde: per house [[t, lowest, median, cheapest15, units, listings], ...].
+   * Range: days=N (last N days; 0 = all), or from= / to= in Unix seconds (a custom range).
+   */
   '/api/history': (params) => {
     const id = Number(params.get('id'));
-    const days = Number(params.get('days')) || 0; // 0 = everything
-    const from = days ? Math.floor(Date.now() / 1000) - days * 86400 : 0;
-    const q = getDb().prepare('SELECT t, lowest, median, cheapest15, units, listings FROM prices WHERE item = ? AND house = ? AND t >= ? ORDER BY t');
+    const days = Number(params.get('days')) || 0;
+    const from = params.has('from') ? Number(params.get('from')) : days ? Math.floor(Date.now() / 1000) - days * 86400 : 0;
+    const to = params.has('to') ? Number(params.get('to')) : 4e9;
+    const q = getDb().prepare('SELECT t, lowest, median, cheapest15, units, listings FROM prices WHERE item = ? AND house = ? AND t >= ? AND t <= ? ORDER BY t');
     const houses = {};
-    for (const h of HOUSES) houses[h] = q.all(id, h, from).map((r) => [r.t, r.lowest, r.median, r.cheapest15, r.units, r.listings]);
+    for (const h of HOUSES) houses[h] = q.all(id, h, from, to).map((r) => [r.t, r.lowest, r.median, r.cheapest15, r.units, r.listings]);
     // Snapshot times in range (so a gap in an item's line means "not listed", not "no data")
-    const snaps = getDb().prepare('SELECT t FROM snapshots WHERE t >= ? ORDER BY t').all(from).map((r) => r.t);
-    return { id, from, snapshots: snaps, houses };
+    const snaps = getDb().prepare('SELECT t FROM snapshots WHERE t >= ? AND t <= ? ORDER BY t').all(from, to).map((r) => r.t);
+    return { id, from, to, snapshots: snaps, houses };
   },
   '/api/item': (params) => {
     getItems();

@@ -65,7 +65,10 @@ body { margin: 0; }
 .mctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 14px 0 4px; }
 .mctl .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .mcount { color: var(--muted); font-size: 12px; }
-.mlegend { display: flex; gap: 16px; font-size: 13px; margin-top: 6px; }
+.mlegend { display: inline-flex; gap: 16px; font-size: 13px; }
+.mrange input { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; }
+.mbtn { padding: 3px 10px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); background: #fff; cursor: pointer; font: inherit; font-size: 13px; }
+.mbtn:hover { background: #eef3fc; }
 .mlegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 .mheats { display: flex; flex-wrap: wrap; gap: 24px; }
 .mtablewrap { margin-top: 12px; }

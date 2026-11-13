@@ -118,9 +118,16 @@ if (selected) select(selected);
 
 // ---- Trends: history charts for the selected item ----
 const MEASURES = [['cheapest15', 'Cheapest 15%', 3], ['lowest', 'Lowest', 1], ['median', 'Median', 2]];
-const RANGES = [['1', '24 h'], ['7', '7 days'], ['30', '30 days'], ['0', 'All']];
+const RANGES = [['1', '24 h'], ['7', '7 days'], ['30', '30 days'], ['0', 'All'], ['custom', 'Custom']];
+const SHOW = [['both', 'Both'], ...HOUSES.map((h) => [String(h.id), h.label])];
+/** "YYYY-MM-DDTHH:MM" in local time, for datetime-local inputs. */
+const localInput = (ms) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('forever-market:trends') ?? '{}'); } catch { return {}; } })();
-const opt = { measure: prefs.measure ?? 'cheapest15', days: prefs.days ?? '7', heat: prefs.heat ?? 111 };
+const opt = {
+  measure: prefs.measure ?? 'cheapest15', days: prefs.days ?? '7', show: prefs.show ?? 'both',
+  heat: HOUSES.some((h) => h.id === prefs.heat) ? prefs.heat : HOUSES[0].id,
+  from: prefs.from ?? localInput(Date.now() - 7 * 86400000), to: prefs.to ?? localInput(Date.now()),
+};
 const savePrefs = () => { try { localStorage.setItem('forever-market:trends', JSON.stringify(opt)); } catch { /* convenience only */ } };
 let hist = null;
 
@@ -129,7 +136,10 @@ async function loadTrends(id) {
   if (!box) return;
   box.innerHTML = '<p class="mempty">Loading history…</p>';
   try {
-    hist = await get(`/api/history?id=${id}&days=${opt.days}`);
+    const range = opt.days === 'custom'
+      ? `from=${Math.floor(new Date(opt.from).getTime() / 1000)}&to=${Math.floor(new Date(opt.to).getTime() / 1000)}`
+      : `days=${opt.days}`;
+    hist = await get(`/api/history?id=${id}&${range}`);
     if (selected === id) renderTrends();
   } catch (e) {
     box.innerHTML = `<p class="mempty">Couldn't load the history: ${esc(e.message)}</p>`;
@@ -146,13 +156,19 @@ function renderTrends() {
   const pts = (h) => (hist.houses[h] ?? []).map((r) => [r[0], r[col]]);
   const unitPts = (h) => (hist.houses[h] ?? []).map((r) => [r[0], r[4]]);
   const n = hist.snapshots.length;
+  // Colour follows the house, not its position in the list shown (Alliance always slot 1, Horde slot 2).
+  const colorOf = (h) => SERIES_COLORS[HOUSES.indexOf(h)];
+  const shown = opt.show === 'both' ? HOUSES : HOUSES.filter((h) => String(h.id) === opt.show);
   box.innerHTML = `
     <div class="mctl">
       <span class="field">Price ${segButtons('measure', MEASURES.map((m) => [m[0], m[1]]), opt.measure)}</span>
       <span class="field">Range ${segButtons('days', RANGES, opt.days)}</span>
+      ${opt.days === 'custom' ? `<span class="field mrange"><input type="datetime-local" id="r-from" value="${esc(opt.from)}"> to
+        <input type="datetime-local" id="r-to" value="${esc(opt.to)}"> <button id="r-apply" class="mbtn">Apply</button></span>` : ''}
       <span class="mcount">${n.toLocaleString()} snapshot${n === 1 ? '' : 's'} in range</span>
     </div>
-    <div class="mlegend">${HOUSES.map((h, i) => `<span><i style="background:${SERIES_COLORS[i]}"></i>${h.label}</span>`).join('')}</div>
+    <div class="mctl"><span class="field">Show ${segButtons('show', SHOW, opt.show)}</span>
+      <span class="mlegend">${shown.map((h) => `<span><i style="background:${colorOf(h)}"></i>${h.label}</span>`).join('')}</span></div>
     <h3>Price per unit</h3><div id="c-price"></div>
     <h3>Units listed</h3><div id="c-units"></div>
     <div class="mctl"><span class="field">Heat maps for ${segButtons('heat', HOUSES.map((h) => [h.id, h.label]), opt.heat)}</span></div>
@@ -163,7 +179,7 @@ function renderTrends() {
     <p class="mnote">${n < 24 * 7 ? 'Patterns by hour and weekday need about a week of hourly data to mean much; the maps fill in as data arrives. ' : ''}Heat maps use the price chosen above over the selected range, in your local time.</p>
     <details class="mtablewrap"><summary>Show as a table</summary><div id="c-table"></div></details>`;
 
-  const series = (getPts) => HOUSES.map((h, i) => ({ label: h.label, color: SERIES_COLORS[i], segments: segments(getPts(h.id), hist.snapshots) }));
+  const series = (getPts) => shown.map((h) => ({ label: h.label, color: colorOf(h), segments: segments(getPts(h.id), hist.snapshots) }));
   lineChart($('#c-price'), { series: series(pts), times: hist.snapshots, format: (v) => formatMoney(v), axisFormat: formatMoneyAxis });
   lineChart($('#c-units'), { series: series(unitPts), times: hist.snapshots, format: (v) => Math.round(v).toLocaleString(), height: 150, zero: true });
   hourHeatmap($('#c-hours'), weekdayHourGrid(pts(opt.heat)), (v) => formatMoney(v));
@@ -190,6 +206,13 @@ function renderTrends() {
       if (name === 'days') loadTrends(selected); else renderTrends();
     });
   }
+  $('#r-apply')?.addEventListener('click', () => {
+    const from = $('#r-from').value, to = $('#r-to').value;
+    if (!from || !to || new Date(from) >= new Date(to)) { $('#r-from').setCustomValidity('Pick a start before the end'); $('#r-from').reportValidity(); return; }
+    opt.from = from; opt.to = to;
+    savePrefs();
+    loadTrends(selected);
+  });
 }
 
 let resizeTimer = null;

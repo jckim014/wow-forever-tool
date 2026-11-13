@@ -19,7 +19,7 @@ const text = (parent, x, y, s, attrs = {}) => { const t = el('text', { x, y, ...
 
 function timeTicks(t0, t1) {
   const span = t1 - t0;
-  const step = span <= 36 * 3600 ? 3 * 3600 : span <= 10 * 86400 ? 86400 : 7 * 86400;
+  const step = span <= 8 * 3600 ? 3600 : span <= 36 * 3600 ? 3 * 3600 : span <= 10 * 86400 ? 86400 : 7 * 86400;
   const out = [];
   const first = new Date(t0 * 1000);
   first.setMinutes(0, 0, 0);
