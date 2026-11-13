@@ -204,12 +204,12 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   GitHub repo settings: fork PR workflows need approval for all external contributors.
 - Rate: an idle run is 1 request (sentinel: house 111 auctions unchanged = all unchanged, since all houses refresh within seconds; a run where 111 changed but others did not fails, as the sentinel would then miss data); a full run ~31. With the 30-min timer about 24 idle + 24 full runs, ~770 requests/day; Blizzard allows 36,000/hour. Josh: stay well clear of Blizzard limits; chose token reuse per their advice.
 
-## Forever Market (local app; plan approved 2026-11-12, steps 1-4 done)
+## Forever Market (local app; plan approved 2026-11-12, steps 1-5 done)
 
 A separate local app on Josh's PC for **price trends** (any AH item's history, charts, pattern finding) and **faction
 arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
 on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
-5 Trends charts, 6 Faction, 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month).
+5 Trends charts (done), 6 Faction, 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month).
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
@@ -222,6 +222,14 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   (`FOREVER_MARKET_IDLE_MS` / `FOREVER_MARKET_PORT` override for tests). A tab whose server stopped shows a banner.
 - Houses shown: Josh's realm, A = Alliance 111, H = Horde 114, N = Blackwater 117 (`market/public/shared.js`).
   Price shown by default: cheapest15 (average of the cheapest 15% of units), as in the shuffle app's column 3.
+- **Trends** (step 5): picking an item shows latest figures per house, then charts from `/api/history?id=&days=`
+  (per house [t, lowest, median, cheapest15, units, listings] + all snapshot times): price per unit (Cheapest 15% /
+  Lowest / Median) and units listed as two separate line charts (one y-axis each), ranges 24 h / 7 d / 30 d / All;
+  weekday x hour and per-day heat maps (median, local time, quantile colour bins) for a chosen house; table view.
+  Plain SVG in `market/public/charts.js`, calculations in `stats.js` (tested). Per the dataviz guidance: houses use
+  categorical slots 1-3 of its reference palette (validated all-pairs; aqua < 3:1 contrast, so lines carry direct end
+  labels and a table view exists), crosshair readout lists every house, a line breaks where a snapshot passed without
+  the item listed, money axes use whole-copper ticks and compact labels ("40g"). Light theme only, like the shuffle app.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)

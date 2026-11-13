@@ -59,3 +59,34 @@ body { margin: 0; }
 .q3 { color: #1f5fbf; }
 .q4 { color: #8b3fc7; }
 .q5 { color: #c26a00; }
+
+/* Trends charts (charts.js). Grid and axes recessive; text in ink, never the series colour. */
+.mdetail h3 { font-size: 13px; margin: 16px 0 4px; color: var(--muted); font-weight: 600; }
+.mctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 14px 0 4px; }
+.mctl .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.mcount { color: var(--muted); font-size: 12px; }
+.mlegend { display: flex; gap: 16px; font-size: 13px; margin-top: 6px; }
+.mlegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.mheats { display: flex; flex-wrap: wrap; gap: 24px; }
+.mtablewrap { margin-top: 12px; }
+.mtablewrap summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.mtablewrap .mtable { margin-top: 8px; font-size: 13px; }
+.cwrap { position: relative; }
+.cline, .cheat { display: block; overflow: visible; }
+.cgrid { stroke: #eceef2; stroke-width: 1; }
+.cbase { stroke: #c9ced8; stroke-width: 1; }
+.caxis { font-size: 11px; fill: var(--muted); }
+.clabel { font-size: 12px; fill: var(--fg); }
+.cpath { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chair { stroke: #9aa3b2; stroke-width: 1; }
+.cdot { stroke: #fff; stroke-width: 2; }
+.ccell { stroke: none; }
+.cempty { fill: #f7f8fa; stroke: #e3e6ec; stroke-dasharray: 2 2; }
+.ctip { position: absolute; z-index: 5; pointer-events: none; background: #fff; border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12); padding: 6px 9px; font-size: 12px; white-space: nowrap; }
+.ctip-title { color: var(--muted); margin-bottom: 3px; }
+.ctip-row { display: flex; align-items: center; gap: 6px; }
+.ctip-sw { width: 10px; height: 3px; border-radius: 2px; }
+.cramp { display: flex; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); margin-top: 6px; }
+.cramp i { width: 18px; height: 10px; border-radius: 2px; }
+.cramp span { margin: 0 6px; }

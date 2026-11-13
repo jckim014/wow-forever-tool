@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { searchItems, shouldStop, IDLE_MS, itemList } from './lib.mjs';
-import { formatMoney } from './public/shared.js';
+import { formatMoney, formatMoneyAxis } from './public/shared.js';
 
 const items = itemList({
   2589: { name: 'Linen Cloth', quality: 1 },
@@ -37,4 +37,5 @@ test('money format matches the shuffle app', () => {
   assert.equal(formatMoney(20504, true), '2g 05s 04c');
   assert.equal(formatMoney(5), '5c');
   assert.equal(formatMoney(null), '');
+  assert.deepEqual([400000, 397500, 250, 5, 10000].map(formatMoneyAxis), ['40g', '39g 75s', '2s 50c', '5c', '1g']);
 });

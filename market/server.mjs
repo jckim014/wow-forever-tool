@@ -76,6 +76,18 @@ const api = {
     }
     return found.map((it) => ({ ...it, latest: latest(it.id) }));
   },
+  /** Price history of one item in Josh's three houses: per house [[t, lowest, median, cheapest15, units, listings], ...]. */
+  '/api/history': (params) => {
+    const id = Number(params.get('id'));
+    const days = Number(params.get('days')) || 0; // 0 = everything
+    const from = days ? Math.floor(Date.now() / 1000) - days * 86400 : 0;
+    const q = getDb().prepare('SELECT t, lowest, median, cheapest15, units, listings FROM prices WHERE item = ? AND house = ? AND t >= ? ORDER BY t');
+    const houses = {};
+    for (const h of HOUSES) houses[h] = q.all(id, h, from).map((r) => [r.t, r.lowest, r.median, r.cheapest15, r.units, r.listings]);
+    // Snapshot times in range (so a gap in an item's line means "not listed", not "no data")
+    const snaps = getDb().prepare('SELECT t FROM snapshots WHERE t >= ? ORDER BY t').all(from).map((r) => r.t);
+    return { id, from, snapshots: snaps, houses };
+  },
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));

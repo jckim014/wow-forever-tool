@@ -11,6 +11,15 @@ export function formatMoney(v, pad = false) {
   return (v < 0 ? '-' : '') + parts.join(' ');
 }
 
+/** Compact money for chart axes: zero parts dropped ("40g", "39g 75s", "2s 50c", "5c"). */
+export function formatMoneyAxis(v) {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '';
+  const c = Math.round(Math.abs(v));
+  const g = Math.floor(c / 10000), sv = Math.floor((c % 10000) / 100), cc = c % 100;
+  const parts = g ? [`${g}g`, sv && `${sv}s`] : sv ? [`${sv}s`, cc && `${cc}c`] : [`${cc}c`];
+  return (v < 0 ? '-' : '') + parts.filter(Boolean).join(' ');
+}
+
 export const QUALITY_NAMES = { 0: 'Poor', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary', 6: 'Artifact', 7: 'Heirloom' };
 
 /** Josh's realm (confirmed by in-game scans, 2026-11-12/13). */
