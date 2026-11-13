@@ -3,6 +3,7 @@ import { formatMoney, formatMoneyAxis, QUALITY_NAMES, HOUSES } from './shared.js
 import { segments, weekdayHourGrid, daily } from './stats.js';
 import { lineChart, hourHeatmap, calendar, SERIES_COLORS } from './charts.js';
 import { showCheck } from './check.js';
+import { initFaction, showFaction } from './faction.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -53,6 +54,7 @@ function showView(v) {
   $('#view-faction').hidden = v !== 'faction';
   $('#view-check').hidden = v !== 'check';
   if (v === 'check') showCheck();
+  if (v === 'faction') showFaction();
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
@@ -252,3 +254,10 @@ function renderTrends() {
 
 let resizeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderTrends, 150); });
+
+// The Faction tab opens an item in Trends (with both factions shown).
+initFaction((id) => {
+  opt.show = 'both';
+  showView('trends');
+  select(id);
+});

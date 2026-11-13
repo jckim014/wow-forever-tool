@@ -11,6 +11,7 @@ import { searchItems, shouldStop, itemList } from './lib.mjs';
 import { parseRegionSale } from './tsm.mjs';
 import { runMethodCheck } from './methodCheck.mjs';
 import { spearman } from './validate.mjs';
+import { trade, steadiness } from './faction.mjs';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -112,6 +113,67 @@ function methodCheck() {
   return value;
 }
 
+// ---- Faction tab (faction.mjs): every item, both directions, from the latest snapshot; steadiness over 3 days ----
+const STEADY_DAYS = 3;
+let factionCache = null;
+function faction() {
+  const d = getDb();
+  const lastT = (h) => d.prepare('SELECT max(t) t FROM snapshot_houses WHERE house = ?').get(h).t;
+  const latestA = lastT(111), latestH = lastT(114);
+  const t = getTsm();
+  const key = `${latestA}:${latestH}:${tsmMtime}`;
+  if (factionCache?.key === key) return factionCache.value;
+  const from = Math.max(latestA, latestH) - STEADY_DAYS * 86400;
+  const q = d.prepare('SELECT item, t, lowest, cheapest15, units, listings FROM prices WHERE house = ? AND t >= ?');
+  const series = new Map(); // item -> Map(t -> { 111: row, 114: row })
+  const latest = { 111: new Map(), 114: new Map() };
+  for (const [h, lt] of [[111, latestA], [114, latestH]]) {
+    for (const r of q.all(h, from)) {
+      let m = series.get(r.item);
+      if (!m) series.set(r.item, (m = new Map()));
+      let s = m.get(r.t);
+      if (!s) m.set(r.t, (s = {}));
+      s[h] = r;
+      if (r.t === lt) latest[h].set(r.item, r);
+    }
+  }
+  // our estimate on the dear side, per day over the same window
+  const hasDep = d.prepare("SELECT 1 FROM sqlite_master WHERE name = 'departures'").get();
+  const ours = {};
+  for (const h of HOUSES) {
+    const hours = hasDep ? d.prepare('SELECT count(*) n FROM departure_pairs WHERE house = ? AND t >= ? AND skipped = 0').get(h, from).n : 0;
+    ours[h] = new Map();
+    if (!hours) continue;
+    for (const r of d.prepare('SELECT item, sum(certain) + sum(probable) u FROM departures WHERE house = ? AND t >= ? GROUP BY item').all(h, from)) {
+      ours[h].set(r.item, (r.u / hours) * 24);
+    }
+  }
+  getItems();
+  const rows = [];
+  const items = new Set([...latest[111].keys(), ...latest[114].keys()]);
+  for (const item of items) {
+    for (const [cheapH, dearH] of [[111, 114], [114, 111]]) {
+      const cheap = latest[cheapH].get(item), dear = latest[dearH].get(item);
+      const r = trade(cheap, dear);
+      if (!r || r.profit <= 0) continue;
+      const hist = new Map();
+      for (const [ts, s] of series.get(item) ?? []) hist.set(ts, { cheap: s[cheapH], dear: s[dearH] });
+      const it = byId.get(item);
+      rows.push({
+        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, from: cheapH, to: dearH,
+        buy: r.buy, sell: r.sell, profit: r.profit, margin: r.margin, outlier: r.outlier, thin: r.thin,
+        cheapUnits: cheap.units, dearListings: dear.listings, dearUnits: dear.units,
+        oursPerDay: ours[dearH].get(item) ?? null, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
+        steady: steadiness(hist),
+      });
+    }
+  }
+  const snapsInWindow = d.prepare('SELECT count(*) n FROM snapshots WHERE t >= ?').get(from).n;
+  const value = { latest: Math.max(latestA, latestH), days: STEADY_DAYS, snapshots: snapsInWindow, rows };
+  factionCache = { key, value };
+  return value;
+}
+
 // ---- API ----
 const api = {
   '/api/status': () => {
@@ -154,6 +216,7 @@ const api = {
     return { id, from, to, snapshots: snaps, houses };
   },
   '/api/method-check': () => methodCheck(),
+  '/api/faction': () => faction(),
   '/api/item': (params) => {
     getItems();
     const id = Number(params.get('id'));

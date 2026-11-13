@@ -17,6 +17,7 @@ export function ensureDepartureTables(db) {
     -- units that left early between prev_t and t (only items with any)
     CREATE TABLE IF NOT EXISTS departures (item INTEGER NOT NULL, house INTEGER NOT NULL, t INTEGER NOT NULL,
       certain INTEGER, probable INTEGER, reposted INTEGER, unclear INTEGER, PRIMARY KEY (item, house, t)) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS departures_by_time ON departures (house, t);
   `);
 }
 

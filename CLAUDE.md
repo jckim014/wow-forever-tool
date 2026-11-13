@@ -199,7 +199,9 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   `collector/build_db.mjs` (backfill/catch-up from the summaries, skips stored snapshots) and by `sync.mjs` right after
   it stores each summary (a failure there notifies and is caught up by build_db). After storing snapshots the sync runs
   `fetch_names.mjs --limit 120` for new items (lock `items.json.lock`, one fetch at a time; it reads IDs from
-  `item_ids`). Size: 8 snapshots = 10.2 MB, ~11 GB/year. Names stay in items.json, not the DB.
+  `item_ids`). Indexes `prices_by_time (house, t)` and `departures_by_time` (for the Faction tab);
+  `journal_size_limit` 4 MB keeps the WAL file small. Size: prices ~1.3 MB per snapshot + index ~0.6 MB + estimate
+  ~0.2 MB, about 19 GB/year. Names stay in items.json, not the DB.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
@@ -211,7 +213,7 @@ A separate local app on Josh's PC for **price trends** (any AH item's history, c
 arbitrage** (Alliance vs Horde gaps after moving goods through Blackwater). Reads the price database and item names
 on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (done), 4 app shell + launcher (done),
 5 Trends charts (done), 5a TSM region sale data (done), 5b our own sale-rate estimate + Method check page (done), 6 Faction
-(filters on both sale figures), 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month). All revisable (Josh).
+(filters on both sale figures) (done), 7 pattern finder (needs ~2 weeks of data; weekly patterns ~1 month). All revisable (Josh).
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
@@ -263,6 +265,15 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
   snapshot = not checkable, never an earlier pair). v2 on 140 records: 88% of sales+buys detected (82/93), 0/15 cancels
   and 1/14 expiries counted as sales; the misses are mostly sales near the end of a listing (vanish with < 2 h left,
   indistinguishable from expiry: an hourly-snapshot limit). Tune only with ~100+ more records; record each version.
+- **Faction tab** (step 6, 2026-11-13; calculation `market/faction.mjs`, tested; `/api/faction`; `public/faction.js`).
+  Agreed with Josh: buy = cheap side's cheapest15; sell = dear side's lowest, unless it is under 80% of the dear side's
+  cheapest15 (lone outlier / bait: then cheapest15, row flagged "outlier ignored"); transfer listed on Blackwater at
+  the buy price (15% cut, Josh: just use the buy price, no Blackwater-price trick); final 5% AH cut; deposits left out.
+  Profit/unit = sell x 0.95 - buy x 1.15 (break-even: dear side > ~21% above buy). Rows: every item and direction with
+  profit > 0 at the latest snapshot; thin = cheap side <= 2 units or dear side <= 2 listings (hidden by default);
+  "Steady" = share of snapshots in the last 3 days where the trade was profitable (information + optional filter, it
+  doesn't change the profit); sells/day = dear side, our estimate and TSM region. Filters remembered per browser; a
+  row opens the item in Trends (both factions). First run: 2,716 profitable rows, ~0.9 s, cached per snapshot.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
 
 ## Model (must match the workbook)

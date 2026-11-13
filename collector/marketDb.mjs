@@ -12,6 +12,7 @@ export function openDb(file) {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
+    PRAGMA journal_size_limit = 4194304; -- shrink the write-ahead log back to 4 MB after use
     CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT) WITHOUT ROWID;
     -- t = the snapshot's data time (Unix seconds, from its id, e.g. 20261113T042242Z)
     CREATE TABLE IF NOT EXISTS snapshots (t INTEGER PRIMARY KEY, id TEXT NOT NULL, collected_at TEXT);
@@ -24,6 +25,8 @@ export function openDb(file) {
       PRIMARY KEY (item, house, t)) WITHOUT ROWID;
     -- every item ID ever seen, so naming new items doesn't need a scan of prices
     CREATE TABLE IF NOT EXISTS item_ids (item INTEGER PRIMARY KEY, first_t INTEGER);
+    -- all items of a house at given times (Forever Market Faction tab: latest snapshot, last 3 days)
+    CREATE INDEX IF NOT EXISTS prices_by_time ON prices (house, t);
   `);
   db.prepare('INSERT OR IGNORE INTO meta VALUES (?, ?)').run('schema', String(SCHEMA_VERSION));
   return db;
