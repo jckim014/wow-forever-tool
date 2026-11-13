@@ -156,7 +156,7 @@ alongside BavvbScan/imports, which stay for up-to-the-minute prices.
   Run workflow has a "test_failure" box: collects normally, then fails on purpose (checks the email and PC alert).
   In the API every regular auction has quantity 1; stacks are commodities (unit_price).
 - **PC side** (`collector/sync.mjs`, pure parts in `syncLib.mjs`): Windows task "Forever auction sync"
-  (`collector/install-task.ps1`; 2 min after logon and hourly at :40, priority 7, run via `sync-hidden.vbs` so no
+  (`collector/install-task.ps1`; 2 min after logon and hourly at :55 (moved from :40 on 2026-11-12 so it falls after the timer-started runs), priority 7, run via `sync-hidden.vbs` so no
   window; node from `C:\nvm4w\nodejs\node.exe`, re-run the installer if that changes). Downloads every `snapshot-*`
   artifact (GitHub token `data/private/github-token.txt`: fine-grained, this repo only, Actions read/write, made
   2026-11-12, ~1 year), checks sha256 against the manifest, writes `F:\ForeverAuctionData\raw\YYYY\MM\DD\<id>\`

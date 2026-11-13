@@ -1,5 +1,5 @@
 # Registers (or updates) the Windows scheduled task "Forever auction sync": runs collector\sync.mjs 2 minutes after
-# logon and every hour at :40 (the collector usually has the new snapshot by :25), below normal priority, no window.
+# logon and every hour at :55 (Blizzard refreshes at about :22 and the timer-started collector runs drift around the half hour), below normal priority, no window.
 # Run again after moving the repo or reinstalling Node. Remove with: Unregister-ScheduledTask "Forever auction sync"
 $ErrorActionPreference = 'Stop'
 $node = (Get-Command node).Source
@@ -11,7 +11,7 @@ $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$vbs`" `"$
 
 $logon = New-ScheduledTaskTrigger -AtLogOn -User $user
 $logon.Delay = 'PT2M'
-$first = (Get-Date).Date.AddHours((Get-Date).Hour).AddMinutes(40)
+$first = (Get-Date).Date.AddHours((Get-Date).Hour).AddMinutes(55)
 if ($first -lt (Get-Date)) { $first = $first.AddHours(1) }
 $hourly = New-ScheduledTaskTrigger -Once -At $first -RepetitionInterval (New-TimeSpan -Hours 1)
 
