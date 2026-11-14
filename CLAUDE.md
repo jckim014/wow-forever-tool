@@ -314,13 +314,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   item names in quality colours, item icons from Wowhead's image server (`iconHtml`; icon names from items.json, carried
   in the search, item, Faction and Cycles responses), Open Sans from Google Fonts, a grey bar under the selected tab or
   toggle (red looked "Horde"; red stays on the selected search row and buttons). All colours are tokens in style.css.
-  **Theme switch** (temporary, Josh's request): Light | Dark at the right of the toolbar, per browser
+  **Theme switch** (kept, Josh 2026-11-13): Light | Dark at the right of the toolbar, per browser
   (localStorage `forever-market:theme`, applied by a script in index.html's head before drawing; heat maps redraw).
   Light is the default; Dark = Wowhead's exact colours from its stylesheets (#101010 / #202020 / #303030, text #bbb,
-  links #ffd100, red #a71a19), the `:root` tokens. Josh first preferred light, then asked to try dark again; ask which
-  to keep before removing the switch.
-  The light coin colours (#a87b00 / #6c7079 / #a8561e) are a bit faint on white (Josh: "hard to see"); a darker set
-  (#8a6200 / #5b5f68 / #93461a, semibold money) was tried and reverted for now. Revisit if he raises it.
+  links #ffd100, red #a71a19), the `:root` tokens. New styles need values for both themes.
+  Light coin colours #a87b00 / #6c7079 / #a8561e: Josh first found them hard to see, tried a darker set (#8a6200 /
+  #5b5f68 / #93461a, semibold money), went back, and settled: "coin colors are fine now" (2026-11-13).
 
 ## Model (must match the workbook)
 
@@ -581,8 +580,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 Open items to raise when relevant:
 - Forever Market: weekday patterns in Cycles (not built; need ~3 weeks of data, ~2026-12-03). Sale-rate method:
   re-run the Method check and consider tuning only once ~100+ more of Josh's TSM records exist; record any new method
-  version in `market/method-history.json`. The realms behind house groups 110/113/116, 119/120/121 and 123/124/125 are
-  unconfirmed (collected anyway).
+  version in `market/method-history.json`. 110/113 are PvP (2026-11-13); the realms behind 119/120/121 and
+  123/124/125 are unconfirmed (collected anyway). Josh doesn't need them now and will ask (method: add the realms in
+  the TSM app and match its AppData.lua against the houses, as for PvP). These need no input from Josh: raise them
+  when due (Cycles results ~2026-11-14, firm ~11-20; weekday patterns ~12-03; method review at ~100+ more records).
 - Parked 2026-11-11 (Josh: not now): in-game companion in BavvbScan. The app would write
   `Interface\AddOns\BavvbScan\AppData.lua` (TSM-style; the AddOns folder is shared by all accounts) with per-recipe
   cost, exits, profit and the Shopping list; the addon would show a panel beside the profession window and create
