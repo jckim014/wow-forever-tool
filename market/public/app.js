@@ -48,6 +48,21 @@ async function status() {
 status();
 setInterval(status, 5 * 60 * 1000);
 
+// ---- theme switch (on trial): light, or dark = Wowhead's colours; remembered per browser ----
+function markTheme() {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  for (const b of document.querySelectorAll('[data-theme-set]')) b.classList.toggle('on', b.dataset.themeSet === t);
+}
+for (const b of document.querySelectorAll('[data-theme-set]')) {
+  b.addEventListener('click', () => {
+    document.documentElement.dataset.theme = b.dataset.themeSet;
+    try { localStorage.setItem('forever-market:theme', b.dataset.themeSet); } catch { /* per-browser convenience */ }
+    markTheme();
+    renderTrends(); // heat-map colours depend on the theme
+  });
+}
+markTheme();
+
 // ---- tabs ----
 function showView(v) {
   for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', b.dataset.view === v);
@@ -97,40 +112,50 @@ $('#results').addEventListener('click', (e) => {
   if (row) select(Number(row.dataset.id));
 });
 
-/** Our own sales estimate from the hourly snapshots, per faction (approximate: see the footnote and Method check). */
-function estimateBlock(e) {
-  if (!e) return '';
-  const n = (v) => (v === null ? '—' : v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
-  const hours = Math.min(...HOUSES.map((h) => e[h.id].hours));
-  const tip = 'Worked out by comparing each hour\'s listings with the next. Confirmed = part of a stack was bought (that can only be a '
-    + 'sale). The rest = listings that disappeared while they still had 2+ hours left, so they were bought or cancelled; likely '
-    + 'reposts are left out. The Method check tab tests this against your own TSM sales.';
-  return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">NA PvE · Sales (estimated*)</span>
-    ${HOUSES.map((h) => {
-      const x = e[h.id];
-      return `<span>${factionHtml(h.id)}: <strong>~${n(x.certain === null ? null : x.certain + x.probable)}</strong> sold per day*
-        ${x.certain > 0.05 ? `<span class="mest-sub">(${n(x.certain)} confirmed)</span>` : ''}</span>`;
-    }).join('')}
-    <span class="mtsm-when">last ${e.days} days · ${hours} h of data</span>
-    <span class="mfoot">* Estimated from hourly listings: includes some cancellations and misses items bought within the hour. See Method check.</span></div>`;
-}
+/**
+ * Sales tiles on the item page: our estimate per faction on Josh's realm (NA PvE), then TSM's region figures. The
+ * explanations live in the ⓘ hover tips. Approximate: see Method check.
+ */
+const EST_TIP = 'Estimated from the hourly listings on your realm (NA PvE), last 7 days. Confirmed = part of a stack was bought '
+  + '(that can only be a sale). The rest = listings that disappeared while they still had 2+ hours left, so they were bought or '
+  + 'cancelled; likely reposts are left out. Includes some cancellations and misses items bought within the hour. The Method '
+  + 'check tab tests this against your own TSM sales.';
+const TSM_TIP = 'Real sales recorded by TSM users across all Forever-US realms (pooled by TSM). Not everyone runs TSM, so actual '
+  + 'sales are higher. Updated about daily by the TSM desktop app.';
+const perDay = (v) => (v === null || v === undefined ? '—' : v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
+const info = (tip) => `<span class="minfo" title="${esc(tip)}">ⓘ</span>`;
 
-/** TSM's region sale figures (real sales by TSM users across all Forever-US realms), laid out like the NA PvE band. */
-function tsmBlock(t) {
-  const head = '<span class="mtsm-h">NA region · Sales (TSM**)</span>';
-  const foot = '<span class="mfoot">** Real sales recorded by TSM users across all Forever-US realms. Not everyone runs TSM, so actual sales are higher. Updated about daily by the TSM desktop app.</span>';
-  if (!t) return `<div class="mtsm">${head}<span class="blank">TSM data not found (the TSM desktop app writes it)</span>${foot}</div>`;
-  const when = t.downloadTime ? new Date(t.downloadTime * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '?';
-  if (t.soldPerDay === null && t.saleAvg === null) {
-    return `<div class="mtsm">${head}<span class="blank">No sales recorded for this item</span><span class="mtsm-when">data from ${esc(when)}</span>${foot}</div>`;
+function salesTiles(e, t) {
+  const tiles = [];
+  if (e) {
+    for (const h of HOUSES) {
+      const x = e[h.id];
+      const sold = x.certain === null ? null : x.certain + x.probable;
+      tiles.push(`<div class="msale">
+        <div class="msale-l">${factionHtml(h.id)} sold / day ${info(EST_TIP)}</div>
+        <div class="msale-v">~${perDay(sold)}</div>
+        <div class="msale-s">${x.certain > 0.05 ? `${perDay(x.certain)} confirmed sales` : 'none confirmed'} · estimated</div>
+        <div class="msale-s">last ${e.days} days</div>
+      </div>`);
+    }
   }
-  const sold = t.soldPerDay === null ? '—' : t.soldPerDay >= 100 ? Math.round(t.soldPerDay).toLocaleString() : t.soldPerDay.toFixed(1);
-  const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
-  return `<div class="mtsm">${head}
-    <span>All realms: <strong>~${sold}</strong> sold per day**
-      <span class="mest-sub">(${rate} of listings sell · average sale price ${t.saleAvg === null ? '—' : moneyHtml(t.saleAvg)})</span></span>
-    <span class="mtsm-when">data from ${esc(when)}</span>
-    ${foot}</div>`;
+  const tsmHead = `<div class="msale-l">All realms sold / day (TSM) ${info(TSM_TIP)}</div>`;
+  if (!t) {
+    tiles.push(`<div class="msale">${tsmHead}<div class="msale-v blank">—</div><div class="msale-s">TSM data not found (the TSM desktop app writes it)</div></div>`);
+  } else {
+    const when = t.downloadTime ? new Date(t.downloadTime * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '?';
+    if (t.soldPerDay === null && t.saleAvg === null) {
+      tiles.push(`<div class="msale">${tsmHead}<div class="msale-v blank">—</div><div class="msale-s">No sales recorded · data from ${esc(when)}</div></div>`);
+    } else {
+      const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
+      tiles.push(`<div class="msale">${tsmHead}
+        <div class="msale-v">~${perDay(t.soldPerDay)}</div>
+        <div class="msale-s">${rate} of listings sell · avg sale ${t.saleAvg === null ? '—' : moneyHtml(t.saleAvg)}</div>
+        <div class="msale-s">data from ${esc(when)}</div>
+      </div>`);
+    }
+  }
+  return `<div class="msales">${tiles.join('')}</div>`;
 }
 
 // ---- item detail (charts come in step 5) ----
@@ -152,8 +177,7 @@ async function select(id) {
             <td>${l ? l.units.toLocaleString() : '<span class="blank">not listed</span>'}</td><td>${l ? esc(ago(l.t)) : ''}</td></tr>`;
         }).join('')}
       </table>
-      ${estimateBlock(it.estimate)}
-      ${tsmBlock(it.tsm)}
+      ${salesTiles(it.estimate, it.tsm)}
       <div id="trends"></div>`;
     await loadTrends(id);
   } catch (e) {

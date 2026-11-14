@@ -249,8 +249,8 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua` (env FOREVER_TSM_FILE), re-read when it
   changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
   tooltip: Linen Cloth 15,998/day, 95.4%; Runecloth 1,846, 61.5%; Arcanite Bar 2.96, 22.8%). Shown on the item page as
-  "NA region · Sales (TSM**)", laid out like the NA PvE band (~sold/day, then sale rate and average sale price, download
-  date, footnote): pooled TSM users' sales,
+  the third sales tile, "All realms sold / day (TSM) ⓘ" (~sold/day; sale rate and average sale price; download date;
+  the explanation is the ⓘ hover tip): pooled TSM users' sales,
   region-wide, updated about daily. Josh's own TSM sale records are NOT a data source (too limited/biased); planned
   only as ground truth for checking our estimate (5b): TradeSkillMaster.lua csvSales/csvBuys/csvCancelled/csvExpired
   (account 1120039#2; 2026-11-13: 1,209 auction sales, 643 buys, 156 cancels, 432 expiries). Those rows hold other
@@ -263,10 +263,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   have expired). Stored in market.db `departures(item, house, t, certain, probable, reposted, unclear)` and
   `departure_pairs(house, t, prev_t, skipped, method)`; filled by `collector/build_departures.mjs` (after a method
   change: drop both tables and rerun, ~6 s per 10 h of data) and by the sync after each new snapshot
-  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13): "NA PvE · Sales
- (estimated*)", per faction "~N sold per day*" (= certain + probable over the last 7 days) and "(N confirmed)" (=
-  certain, shown only when > 0); footnote "* Estimated from hourly listings: includes some cancellations and misses
-  items bought within the hour. See Method check." In code and the Method check the rule names stay certain/probable. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
+  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13; tiles,
+  2026-11-13: the old text bands were "clunky"): three tiles under the price table (`salesTiles` in app.js), "Alliance
+  sold / day ⓘ" and "Horde sold / day ⓘ" with ~N (= certain + probable over the last 7 days, scaled to 24 h by the
+  hour pairs present), then "N confirmed sales · estimated" (certain; "none confirmed" when ~0) and "last 7 days". The
+  hours-of-data count was dropped (Josh knows when collection started). The ⓘ hover tip holds the explanation
+  (estimated from hourly listings, includes some cancellations, misses items bought within the hour). In code and the Method check the rule names stay certain/probable. First data: ranks items like TSM's region sold/day (Spearman 0.82 over 4,631
   items) at ~11x TSM's level (TSM only sees TSM users' sales).
 - **Method check** tab (`market/validate.mjs` pure + `methodCheck.mjs`, `/api/method-check`, `public/check.js`): Josh's
   TSM records (`TradeSkillMaster.lua`, account 1120039#2, env FOREVER_TSM_ACCOUNT_FILE) as ground truth, never as a data
@@ -310,10 +312,13 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Look** (Josh, 2026-11-13, "fine for now"): light theme with WoW touches. Money in coin colours (`moneyHtml` in
   shared.js: gold/silver/copper parts, padded `5g 04s 00c`), faction names in Alliance blue / Horde red (`factionHtml`),
   item names in quality colours, item icons from Wowhead's image server (`iconHtml`; icon names from items.json, carried
-  in the search, item, Faction and Cycles responses), Open Sans from Google Fonts, Wowhead's red bar under the selected
-  tab or toggle. All colours are tokens in style.css. Tried and set aside: a dark theme (Wowhead's exact colours, from
-  its stylesheets: #101010 / #202020 / #303030, text #bbb, links #ffd100, red #a71a19). Josh liked it less; its tokens
-  stay as the `:root` default and `index.html` sets `data-theme="light"`, so removing that attribute brings it back.
+  in the search, item, Faction and Cycles responses), Open Sans from Google Fonts, a grey bar under the selected tab or
+  toggle (red looked "Horde"; red stays on the selected search row and buttons). All colours are tokens in style.css.
+  **Theme switch** (temporary, Josh's request): Light | Dark at the right of the toolbar, per browser
+  (localStorage `forever-market:theme`, applied by a script in index.html's head before drawing; heat maps redraw).
+  Light is the default; Dark = Wowhead's exact colours from its stylesheets (#101010 / #202020 / #303030, text #bbb,
+  links #ffd100, red #a71a19), the `:root` tokens. Josh first preferred light, then asked to try dark again; ask which
+  to keep before removing the switch.
   The light coin colours (#a87b00 / #6c7079 / #a8561e) are a bit faint on white (Josh: "hard to see"); a darker set
   (#8a6200 / #5b5f68 / #93461a, semibold money) was tried and reverted for now. Revisit if he raises it.
 
