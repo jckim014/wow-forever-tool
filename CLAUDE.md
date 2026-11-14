@@ -289,7 +289,9 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   profit > 0 at the latest snapshot; thin = cheap side <= 2 units or dear side <= 2 listings (hidden by default);
   "Steady" = share of snapshots in the window where the trade was profitable (information + optional filter, it
   doesn't change the profit). Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
-  cached per window); it also sets the period of "Sales / day*" (dear side, our estimate) next to "TSM sales / day". Filters remembered per browser; a
+  cached per window); it also sets the period of "Sales / day*" (dear side = the faction sold on, our estimate) next to "TSM sales / day".
+  That header names the faction from the Direction filter (Josh, 2026-11-14): "Horde sales / day*" for Alliance -> Horde,
+  "Alliance sales / day*" for Horde -> Alliance, "Sales / day* (where sold)" for Both. Filters remembered per browser; a
   row opens the item in Trends (both factions). First run: 2,716 profitable rows, ~0.9 s, cached per snapshot.
 - **Cycles tab** (step 7, 2026-11-13; code name "timing" in files, ids and API; calculation `market/timing.mjs`, tested on synthetic series; `/api/timing?days=&width=`;
   `public/timing.js`). Named "Cycles" (Josh, after "Patterns" (sounds like crafting recipes), "Timing" and "Flips"). Per item and faction (111, 114),
@@ -524,6 +526,8 @@ checked it on the live site ("looks good").
   theme with coin / faction / quality colours, Wowhead item icons, Open Sans, a kept Light | Dark (Wowhead) switch,
   grey tab underline, sales as three tiles (f7bd332, b79dd57; see Forever Market > Look). Josh: "this looks perfect".
   All pushed except the final CLAUDE.md commits.
+2026-11-14 (short session): Faction tab's sales header now names the destination faction (see Faction tab). Josh had
+  asked for destination-side sales; it already was, the old "Sales / day*" header just didn't say so. Not pushed.
 
 Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
