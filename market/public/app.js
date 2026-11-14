@@ -1,5 +1,5 @@
 // Forever Market page: tabs, item search, item detail. Talks to the local server (server.mjs).
-import { formatMoney, formatMoneyAxis, QUALITY_NAMES, HOUSES } from './shared.js';
+import { formatMoney, formatMoneyAxis, moneyHtml, factionHtml, iconHtml, QUALITY_NAMES, HOUSES } from './shared.js';
 import { segments, weekdayHourGrid, daily } from './stats.js';
 import { lineChart, hourHeatmap, calendar, SERIES_COLORS } from './charts.js';
 import { showCheck } from './check.js';
@@ -8,7 +8,7 @@ import { initTiming, showTiming } from './timing.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const money = (v) => (v === null || v === undefined ? '<span class="blank">—</span>' : esc(formatMoney(v)));
+const money = (v) => (v === null || v === undefined ? '<span class="blank">—</span>' : moneyHtml(v));
 const when = (t) => new Date(t * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const ago = (t) => {
   const min = (Date.now() / 1000 - t) / 60;
@@ -73,7 +73,7 @@ function renderResults(list, q) {
   if (!list.length) { $('#results').innerHTML = '<p class="mempty">No item matches.</p>'; return; }
   $('#results').innerHTML = `<div class="mhead"><div>Item</div>${HOUSES.map((h) => `<div class="mnum">${h.short}</div>`).join('')}</div>`
     + list.map((it) => `<div class="mrow${it.id === selected ? ' on' : ''}" data-id="${it.id}">
-        <div class="mname"><span class="q${it.quality ?? 1}">${esc(it.name)}</span> <span class="mid">${it.id}</span></div>
+        <div class="mname">${iconHtml(it.icon)}<span class="q${it.quality ?? 1}">${esc(it.name)}</span> <span class="mid">${it.id}</span></div>
         ${HOUSES.map((h) => `<div class="mnum">${money(cheap(it.latest, h.id))}</div>`).join('')}
       </div>`).join('');
 }
@@ -108,7 +108,7 @@ function estimateBlock(e) {
   return `<div class="mtsm mest" title="${esc(tip)}"><span class="mtsm-h">NA PvE · Sales (estimated*)</span>
     ${HOUSES.map((h) => {
       const x = e[h.id];
-      return `<span>${h.label}: <strong>~${n(x.certain === null ? null : x.certain + x.probable)}</strong> sold per day*
+      return `<span>${factionHtml(h.id)}: <strong>~${n(x.certain === null ? null : x.certain + x.probable)}</strong> sold per day*
         ${x.certain > 0.05 ? `<span class="mest-sub">(${n(x.certain)} confirmed)</span>` : ''}</span>`;
     }).join('')}
     <span class="mtsm-when">last ${e.days} days · ${hours} h of data</span>
@@ -128,7 +128,7 @@ function tsmBlock(t) {
   const rate = t.saleRate === null ? '—' : `${(t.saleRate * 100).toFixed(1)}%`;
   return `<div class="mtsm">${head}
     <span>All realms: <strong>~${sold}</strong> sold per day**
-      <span class="mest-sub">(${rate} of listings sell · average sale price ${t.saleAvg === null ? '—' : esc(formatMoney(t.saleAvg))})</span></span>
+      <span class="mest-sub">(${rate} of listings sell · average sale price ${t.saleAvg === null ? '—' : moneyHtml(t.saleAvg)})</span></span>
     <span class="mtsm-when">data from ${esc(when)}</span>
     ${foot}</div>`;
 }
@@ -141,14 +141,14 @@ async function select(id) {
   try {
     const it = await get(`/api/item?id=${id}`);
     $('#detail').innerHTML = `
-      <h2 class="q${it.quality ?? 1}">${esc(it.name)}</h2>
+      <h2 class="mtitle">${iconHtml(it.icon, 'medium')}<span class="q${it.quality ?? 1}">${esc(it.name)}</span></h2>
       <div class="msub">${esc(QUALITY_NAMES[it.quality] ?? '')} · item ${it.id} ·
         <a href="https://www.wowhead.com/forever/item=${it.id}" target="_blank" rel="noopener">Wowhead</a></div>
       <table class="mtable">
         <tr><th>House</th><th>Cheapest 15%</th><th>Lowest</th><th>Units listed</th><th>As of</th></tr>
         ${HOUSES.map((h) => {
           const l = it.latest[h.id];
-          return `<tr><td>${h.label} (${h.id})</td><td>${money(l?.cheapest15)}</td><td>${money(l?.lowest)}</td>
+          return `<tr><td>${factionHtml(h.id)} (${h.id})</td><td>${money(l?.cheapest15)}</td><td>${money(l?.lowest)}</td>
             <td>${l ? l.units.toLocaleString() : '<span class="blank">not listed</span>'}</td><td>${l ? esc(ago(l.t)) : ''}</td></tr>`;
         }).join('')}
       </table>

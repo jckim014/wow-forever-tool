@@ -241,10 +241,10 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Lowest / Median) and units listed as two separate line charts (one y-axis each), Show Both / Alliance / Horde,
   ranges 24 h / 7 d / 30 d / All / Custom (from-to date-times; also drives the heat maps and table);
   weekday x hour and per-day heat maps (median, local time, quantile colour bins) for a chosen house; table view.
-  Plain SVG in `market/public/charts.js`, calculations in `stats.js` (tested). Per the dataviz guidance: houses use
-  categorical slots 1-3 of its reference palette (validated all-pairs; aqua < 3:1 contrast, so lines carry direct end
+  Plain SVG in `market/public/charts.js`, calculations in `stats.js` (tested). Per the dataviz guidance: lines are
+  Alliance blue #3d8af0 / Horde red #e0533f (validated on white and dark: CVD ΔE 26, >= 3:1; lines carry direct end
   labels and a table view exists), crosshair readout lists every house, a line breaks where a snapshot passed without
-  the item listed, money axes use whole-copper ticks and compact labels ("40g"). Light theme only, like the shuffle app.
+  the item listed, money axes use whole-copper ticks and compact labels ("40g"); heat maps use a gold ramp.
 - **TSM region sale data** (5a, 2026-11-13): `market/tsm.mjs` parses AUCTIONDB_REGION_SALE (Forever-US) from
   `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua` (env FOREVER_TSM_FILE), re-read when it
   changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
@@ -306,7 +306,16 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   14 d 3.6 s, 30 d 6.5 s, cached per snapshot; prices are read one item at a time (PK range) because the time index
   needs a table lookup per row (~7x slower). `FOREVER_TIMING_MIN_DAY_HOURS` lowers the 12-hour rule for trying it out.
   UI wording: "expensive", never "dear" (Josh didn't know the word; Faction tooltips and heat-map legends changed too).
-- CSS classes for its own views start with `m` (as the shuffle app's prefixes); look copied from app/src/App.css.
+- CSS classes for its own views start with `m` (as the shuffle app's prefixes).
+- **Look** (Josh, 2026-11-13, "fine for now"): light theme with WoW touches. Money in coin colours (`moneyHtml` in
+  shared.js: gold/silver/copper parts, padded `5g 04s 00c`), faction names in Alliance blue / Horde red (`factionHtml`),
+  item names in quality colours, item icons from Wowhead's image server (`iconHtml`; icon names from items.json, carried
+  in the search, item, Faction and Cycles responses), Open Sans from Google Fonts, Wowhead's red bar under the selected
+  tab or toggle. All colours are tokens in style.css. Tried and set aside: a dark theme (Wowhead's exact colours, from
+  its stylesheets: #101010 / #202020 / #303030, text #bbb, links #ffd100, red #a71a19). Josh liked it less; its tokens
+  stay as the `:root` default and `index.html` sets `data-theme="light"`, so removing that attribute brings it back.
+  The light coin colours (#a87b00 / #6c7079 / #a8561e) are a bit faint on white (Josh: "hard to see"); a darker set
+  (#8a6200 / #5b5f68 / #93461a, semibold money) was tried and reverted for now. Revisit if he raises it.
 
 ## Model (must match the workbook)
 

@@ -1,92 +1,193 @@
-/* Forever Market: same look as the shuffle app (app/src/App.css tokens). View-specific classes start with "m". */
+/* Forever Market. Wowhead's dark colour scheme, values taken from its own stylesheets (wow.zamimg.com/css/standard/
+   universal.css + global.css, 2026-11-13): page #101010, panels #202020, table headers #303030, inputs #282828, row hover
+   #181818, lines #444, text #bbb / white / #818181, links #ffd100, accent red #a71a19 (hover #da2020), Open Sans, the
+   in-game quality colours. Ours on top: coin colours for money (TSM's), Alliance blue / Horde red. Layout as before.
+   View-specific classes start with "m"; chart classes with "c". Colours live in the tokens below. */
 :root {
-  --bg: #f6f7f9;
-  --fg: #1d2330;
-  --muted: #5d6677;
-  --line: #d9dde5;
-  --accent: #2f5aa8;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+  --bg: #101010;          /* Wowhead body */
+  --panel: #202020;       /* Wowhead list/table panels; also the chart surface */
+  --panel-2: #303030;     /* Wowhead table header */
+  --input: #282828;       /* Wowhead inputs and inner boxes */
+  --hover: #181818;       /* Wowhead row hover */
+  --panel-on: #282828;    /* selected row (Wowhead "checked" row) */
+  --line: #303030;
+  --line-2: #444;         /* Wowhead hr / borders */
+  --fg: #bbb;             /* Wowhead body text */
+  --strong: #fff;         /* Wowhead headings, bold text */
+  --muted: #9e9e9e;       /* Wowhead secondary text (tabs) */
+  --faint: #818181;       /* Wowhead placeholders, sub-headings */
+  --link: #ffd100;        /* Wowhead links */
+  --accent: #a71a19;      /* Wowhead red: selected tab bar, buttons */
+  --accent-hover: #da2020;
+  --warn: #f0a640;
+  --warn-bg: #322c1c;     /* Wowhead "out of date" box */
+  --warn-line: #5a4a2a;
+  /* money: TSM's coin colours */
+  --coin-g: #ffd70a;
+  --coin-s: #c7c7cf;
+  --coin-c: #eda55f;
+  /* factions */
+  --alliance: #3d8af0;  /* same as the chart lines (charts.js SERIES_COLORS) */
+  --horde: #e0533f;
+  /* item quality (exactly Wowhead's = in-game) */
+  --q0: #9d9d9d; --q1: #fff; --q2: #1eff00; --q3: #0070dd; --q4: #a335ee; --q5: #ff8000;
+  --html: #000;
+  --box: #282828;          /* Wowhead inner box: sales bands, tiles */
+  --input-border: var(--input);
+  --focus: #626262;
+  --tip: #101010;
+  --tip-shadow: rgb(0 0 0 / 0.6);
+  --icon-frame: #000;
+  --icon-outline: #444;
+  --c-grid: #2c2c2c;
+  --c-base: #555;
+  --c-empty: #1a1a1a;
+  font-family: 'Open Sans', Arial, 'Helvetica Neue', Helvetica, sans-serif;
   font-size: 14px;
   color: var(--fg);
   background: var(--bg);
 }
-body { margin: 0; }
+/* Light theme (on trial, 2026-11-13): same WoW touches, colours darkened to read on white. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f2;
+  --panel: #fff;
+  --panel-2: #e9e9e9;
+  --input: #fff;
+  --input-border: #cfcfcf;
+  --hover: #f6f6f6;
+  --panel-on: #f1f1f1;
+  --line: #e4e4e4;
+  --line-2: #cfcfcf;
+  --fg: #2b2b2b;
+  --strong: #111;
+  --muted: #5c5c5c;
+  --faint: #8a8a8a;
+  --link: #9a6700;
+  --accent: #a71a19;
+  --accent-hover: #da2020;
+  --warn: #8a5a00;
+  --warn-bg: #fff8e6;
+  --warn-line: #e0c48a;
+  --coin-g: #a87b00;
+  --coin-s: #6c7079;
+  --coin-c: #a8561e;
+  --alliance: #2a6fc9;
+  --horde: #c93a26;
+  --q0: #7a7a7a; --q1: #2b2b2b; --q2: #138a00; --q3: #0062c4; --q4: #8a2bd1; --q5: #c45f00;
+  --html: #f2f2f2;
+  --box: #f5f5f5;
+  --focus: #9a9a9a;
+  --tip: #fff;
+  --tip-shadow: rgb(0 0 0 / 0.15);
+  --icon-frame: #000;
+  --icon-outline: #bdbdbd;
+  --c-grid: #ececec;
+  --c-base: #c4c4c4;
+  --c-empty: #f7f7f7;
+}
+html { background: var(--html); }
+body { margin: 0; background: var(--bg); }
+strong, b { color: var(--strong); }
 .app { display: flex; flex-direction: column; height: 100vh; padding: 0 12px 12px; box-sizing: border-box; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0 10px; }
-.toolbar h1 { font-size: 17px; margin: 0 8px 0 0; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: clip; }
-.seg button { border: none; background: #fff; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; color: var(--fg); }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button.on { background: var(--accent); color: #fff; }
-.search { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0; margin-bottom: 10px;
+  border-bottom: 1px solid var(--line-2); }
+.toolbar h1 { font-size: 19px; margin: 0 8px 0 0; color: var(--strong); font-weight: 600; }
+/* Segmented buttons and view tabs: Wowhead's tabs (grey text, white + red bar when selected) */
+.seg { display: inline-flex; border-radius: 2px; overflow: clip; }
+.seg button { border: none; background: var(--panel-2); padding: 5px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--bg); }
+.seg button:hover { background: var(--line-2); color: var(--fg); }
+.seg button.on { background: var(--line-2); color: var(--strong); box-shadow: inset 0 -3px 0 var(--accent); }
+input, select { color-scheme: dark; }
+.search { width: 100%; box-sizing: border-box; padding: 6px 10px; border: 2px solid var(--input-border); border-radius: 4px; font: inherit;
+  background: var(--input); color: var(--fg); }
+.search:hover { border-color: var(--line-2); }
+.search:focus, input:focus, select:focus { outline: none; border-color: var(--focus); }
+::placeholder { color: var(--faint); }
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--strong); }
 
 .mstatus { margin-left: auto; color: var(--muted); font-size: 13px; }
-.mstatus .warn { color: #8a5a00; }
-.mbanner { padding: 8px 12px; margin-bottom: 8px; border: 1px solid #e0c48a; background: #fff8e6; border-radius: 6px; color: #6b4a00; }
+.mstatus .warn { color: var(--warn); }
+.mbanner { padding: 8px 12px; margin-bottom: 8px; border: 1px solid var(--warn-line); background: var(--warn-bg); border-radius: 4px; color: var(--warn); }
 .mview { flex: 1; min-height: 0; display: flex; gap: 12px; }
 .mview[hidden] { display: none; }
 .mempty { color: var(--muted); padding: 16px; margin: 0; }
 
 .msearch { width: 440px; flex: none; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
-.mhint { font-size: 12px; color: var(--muted); }
-.mresults { flex: 1; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
-.mrow { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 76px); gap: 8px; align-items: center; padding: 7px 12px;
+.mhint { font-size: 12px; color: var(--faint); }
+.mresults { flex: 1; overflow: auto; background: var(--panel); border-radius: 2px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1fr) repeat(2, 92px); gap: 8px; align-items: center; padding: 7px 12px;
   border-top: 1px solid var(--line); cursor: pointer; }
 .mrow:first-child { border-top: none; }
-.mrow:hover { background: #f3f6fb; }
-.mrow.on { background: #e6eefb; }
+.mrow:hover { background: var(--hover); }
+.mrow.on { background: var(--panel-on); box-shadow: inset 3px 0 0 var(--accent); }
 .mrow .mname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mrow .mid { font-size: 12px; color: var(--muted); }
+.mrow .mid { font-size: 12px; color: var(--faint); }
 .mnum { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 .mnum small { color: var(--muted); }
-.mhead { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 76px); gap: 8px; padding: 6px 12px; font-size: 12px; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; }
-.blank { color: #a3a9b5; }
+.mhead { display: grid; grid-template-columns: minmax(0, 1fr) repeat(2, 92px); gap: 8px; padding: 6px 12px; font-size: 13px; color: var(--strong);
+  font-weight: 700; position: sticky; top: 0; background: var(--panel-2); }
+.blank { color: var(--faint); }
 
-.mdetail { flex: 1; min-width: 0; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
-.mdetail h2 { margin: 0 0 2px; font-size: 18px; }
+.mdetail { flex: 1; min-width: 0; overflow: auto; background: var(--panel); border-radius: 2px; padding: 14px 18px; }
+.mdetail h2 { margin: 0 0 2px; font-size: 22px; font-weight: 600; }
 .mdetail .msub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
-.mdetail .msub a { color: var(--accent); }
 .mtable { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .mtable th, .mtable td { padding: 6px 14px 6px 0; text-align: right; border-bottom: 1px solid var(--line); }
 .mtable th:first-child, .mtable td:first-child { text-align: left; }
-.mtable th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.mtable th { font-size: 13px; color: var(--strong); font-weight: 700; background: var(--panel-2); }
+.mtable th:first-child { padding-left: 6px; }
+.mtable td:first-child { padding-left: 6px; }
 .mnote { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
-/* Item quality colours, darkened to read on white */
-.q0 { color: #7a7a7a; }
-.q2 { color: #1d8a2a; }
-.q3 { color: #1f5fbf; }
-.q4 { color: #8b3fc7; }
-.q5 { color: #c26a00; }
+/* Money in coin colours (moneyHtml in shared.js) */
+.money { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cg { color: var(--coin-g); }
+.cs { color: var(--coin-s); }
+.cc { color: var(--coin-c); }
+
+/* Factions (factionHtml in shared.js); house IDs 111 Alliance, 114 Horde */
+.f111 { color: var(--alliance); }
+.f114 { color: var(--horde); }
+
+/* Item quality: exactly Wowhead's (= in-game) colours */
+.q0 { color: var(--q0); }
+.q1 { color: var(--q1); }
+.q2 { color: var(--q2); }
+.q3 { color: var(--q3); }
+.q4 { color: var(--q4); }
+.q5 { color: var(--q5); }
 
 /* Trends charts (charts.js). Grid and axes recessive; text in ink, never the series colour. */
-.mdetail h3 { font-size: 13px; margin: 16px 0 4px; color: var(--muted); font-weight: 600; }
+.mdetail h3 { font-size: 15px; margin: 18px 0 4px; color: var(--strong); font-weight: 600; }
 .mctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 14px 0 4px; }
 .mctl .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-.mcount { color: var(--muted); font-size: 12px; }
+.mcount { color: var(--faint); font-size: 12px; }
 .mlegend { display: inline-flex; gap: 16px; font-size: 13px; }
-.mrange input { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; }
-.mbtn { padding: 3px 10px; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); background: #fff; cursor: pointer; font: inherit; font-size: 13px; }
-.mbtn:hover { background: #eef3fc; }
+.mrange input { font: inherit; font-size: 13px; padding: 3px 6px; border: 2px solid var(--input-border); border-radius: 4px; background: var(--input); color: var(--fg); }
+.mbtn { padding: 4px 12px; border: none; border-radius: 2px; color: #fff; background: var(--accent); cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; }
+.mbtn:hover { background: var(--accent-hover); }
 .mlegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 .mheats { display: flex; flex-wrap: wrap; gap: 24px; }
 .mtablewrap { margin-top: 12px; }
-.mtablewrap summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.mtablewrap summary { cursor: pointer; color: var(--link); font-size: 13px; }
 .mtablewrap .mtable { margin-top: 8px; font-size: 13px; }
 .cwrap { position: relative; }
 .cline, .cheat { display: block; overflow: visible; }
-.cgrid { stroke: #eceef2; stroke-width: 1; }
-.cbase { stroke: #c9ced8; stroke-width: 1; }
+.cgrid { stroke: var(--c-grid); stroke-width: 1; }
+.cbase { stroke: var(--c-base); stroke-width: 1; }
 .caxis { font-size: 11px; fill: var(--muted); }
 .clabel { font-size: 12px; fill: var(--fg); }
 .cpath { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.chair { stroke: #9aa3b2; stroke-width: 1; }
-.cdot { stroke: #fff; stroke-width: 2; }
+.chair { stroke: var(--faint); stroke-width: 1; }
+.cdot { stroke: var(--panel); stroke-width: 2; }
 .ccell { stroke: none; }
-.cempty { fill: #f7f8fa; stroke: #e3e6ec; stroke-dasharray: 2 2; }
-.ctip { position: absolute; z-index: 5; pointer-events: none; background: #fff; border: 1px solid var(--line); border-radius: 6px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12); padding: 6px 9px; font-size: 12px; white-space: nowrap; }
+.cempty { fill: var(--c-empty); stroke: var(--line); stroke-dasharray: 2 2; }
+.ctip { position: absolute; z-index: 5; pointer-events: none; background: var(--tip); border: 1px solid var(--line-2); border-radius: 4px;
+  box-shadow: 0 4px 14px var(--tip-shadow); padding: 6px 9px; font-size: 12px; white-space: nowrap; color: var(--fg); }
 .ctip-title { color: var(--muted); margin-bottom: 3px; }
 .ctip-row { display: flex; align-items: center; gap: 6px; }
 .ctip-sw { width: 10px; height: 3px; border-radius: 2px; }
@@ -94,44 +195,58 @@ body { margin: 0; }
 .cramp i { width: 18px; height: 10px; border-radius: 2px; }
 .cramp span { margin: 0 6px; }
 
-/* TSM region sale figures on the item page */
-.mtsm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px; margin-top: 12px; padding: 8px 12px; background: #f6f8fb;
-  border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
-.mtsm-h { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-.mtsm-when { color: var(--muted); font-size: 12px; margin-left: auto; }
+/* Sales bands on the item page (Wowhead's inner box) */
+.mtsm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px; margin-top: 12px; padding: 8px 12px; background: var(--box);
+  border-radius: 3px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.mtsm-h { font-size: 13px; color: var(--strong); font-weight: 700; }
+.mtsm-when { color: var(--faint); font-size: 12px; margin-left: auto; }
 
 .mest { margin-top: 12px; }
 .mest + .mtsm { margin-top: 6px; }
-.mest-sub { color: var(--muted); font-size: 12px; }
+.mest-sub { color: var(--faint); font-size: 12px; }
 
 /* Method check page (check.js) */
-.mscroll { overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: block; }
+.mscroll { overflow: auto; background: var(--panel); border-radius: 2px; padding: 14px 18px; display: block; }
 .mcheck { max-width: 1100px; }
-.mcheck h3 { font-size: 13px; margin: 22px 0 6px; color: var(--muted); font-weight: 600; }
+.mcheck h3 { font-size: 15px; margin: 22px 0 6px; color: var(--strong); font-weight: 600; }
 .mlead { margin: 0 0 14px; color: var(--muted); }
 .mtiles { display: flex; flex-wrap: wrap; gap: 12px; }
-.mtile { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 190px; }
-.mtile-v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mtile { background: var(--box); border-radius: 3px; padding: 10px 14px; min-width: 190px; }
+.mtile-v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--strong); }
 .mtile-l { color: var(--muted); font-size: 13px; }
 .mtile-l span { font-size: 12px; }
 .mtable td.mleft, .mtable th.mleft { text-align: left; }
 
-/* Faction tab (faction.js) */
+/* Faction and Cycles tables */
 .mfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .mfilters .search { width: 260px; }
 .mfilters .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-.mfilters input[type=number] { width: 70px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 13px; }
-.mfilters select { font: inherit; font-size: 13px; padding: 2px 4px; }
+.mfilters input[type=number] { width: 70px; padding: 3px 6px; border: 2px solid var(--input-border); border-radius: 4px; font: inherit; font-size: 13px;
+  background: var(--input); color: var(--fg); }
+.mfilters input[type=number]:hover, .mfilters select:hover { border-color: var(--line-2); }
+.mfilters select { font: inherit; font-size: 13px; padding: 2px 4px; background: var(--input); color: var(--fg); border: 2px solid var(--input-border); border-radius: 4px; }
 .mfilters .count { color: var(--muted); font-size: 13px; }
-.mhint2 { color: var(--muted); font-size: 12px; margin: 8px 0 10px; }
+.mhint2 { color: var(--faint); font-size: 12px; margin: 8px 0 10px; }
 .mft { width: 100%; font-size: 13px; }
-.mft th button { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+.mft th { position: sticky; top: -14px; z-index: 1; padding-top: 7px; padding-bottom: 7px; }
+.mft th button { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.mft th button:hover { color: var(--link); }
 .mfrow { cursor: pointer; }
-.mfrow:hover td { background: #f3f6fb; }
-.mflag { font-size: 11px; color: #8a5a00; border: 1px solid #e0c48a; background: #fff8e6; border-radius: 3px; padding: 0 4px; margin-left: 4px; }
+.mfrow:hover td { background: var(--hover); }
+.mflag { font-size: 11px; color: var(--warn); border: 1px solid var(--warn-line); background: var(--warn-bg); border-radius: 2px; padding: 0 4px; margin-left: 4px; }
 
-.mfoot { flex-basis: 100%; color: var(--muted); font-size: 11px; }
+.mfoot { flex-basis: 100%; color: var(--faint); font-size: 11px; }
 #f-custom input { width: 56px; }
-/* Timing tab */
-.mearly { font-size: 13px; color: #8a5a00; background: #fff8e6; border: 1px solid #e0c48a; border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
-.mft td.mwarn { color: #8a5a00; font-weight: 600; }
+/* Cycles tab */
+.mearly { font-size: 13px; color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 3px; padding: 6px 10px; margin: 8px 0; }
+.mft td.mwarn { color: var(--warn); font-weight: 600; }
+
+/* Item icons (iconHtml in shared.js), framed like Wowhead's: black border, grey outline */
+.micon { display: inline-block; vertical-align: middle; border: 1px solid var(--icon-frame); outline: 1px solid var(--icon-outline); border-radius: 2px; background: var(--icon-frame); }
+.micon-small { width: 18px; height: 18px; margin-right: 7px; position: relative; top: -1px; }
+.micon-medium { width: 36px; height: 36px; margin-right: 12px; border-radius: 3px; }
+.micon-none { display: inline-block; width: 20px; margin-right: 7px; }
+.mtitle { display: flex; align-items: center; }
+
+:root[data-theme="light"] .seg button.on, :root[data-theme="light"] .seg button:hover { background: #d9d9d9; }
+:root[data-theme="light"] .seg button + button { border-left-color: #fff; }

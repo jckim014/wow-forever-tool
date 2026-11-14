@@ -1,5 +1,5 @@
 // Method check page: how our sale-rate estimate does against Josh's own TSM records (no names shown or kept).
-import { formatMoney } from './shared.js';
+import { moneyHtml } from './shared.js';
 import { scatterLog } from './charts.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -73,7 +73,7 @@ function render(box, r) {
       ${wrongList.length ? `<table class="mtable">
         <tr><th>When</th><th class="mleft">Record</th><th class="mleft">Item</th><th>Size</th><th title="As TSM recorded it: for sales, what you received after the 5% AH cut">Price (TSM)</th><th class="mleft">Why</th></tr>
         ${wrongList.map((x) => `<tr><td>${esc(when(x.time))}</td><td class="mleft">${esc(KIND_ONE[x.kind])}</td>
-          <td class="mleft">${esc(x.name)}</td><td>${x.stack}${x.count > 1 ? ` ×${x.count}` : ''}</td><td>${x.price === null ? '' : esc(formatMoney(x.price))}</td>
+          <td class="mleft">${esc(x.name)}</td><td>${x.stack}${x.count > 1 ? ` ×${x.count}` : ''}</td><td>${x.price === null ? '' : moneyHtml(x.price)}</td>
           <td class="mleft">${esc(WHY_WRONG[x.kind]?.[x.outcome] ?? OUTCOME[x.outcome] ?? x.outcome)}</td></tr>`).join('')}
       </table>` : '<p class="mempty">Nothing wrong among the checkable records.</p>'}
 

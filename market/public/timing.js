@@ -1,10 +1,9 @@
 // Cycles tab (code name "timing"): items whose price follows the time of day (cheap hours vs expensive hours), per faction.
 // Calculation in market/timing.mjs (server); this is the table, its filters and sorting.
-import { formatMoney } from './shared.js';
+import { moneyHtml, factionHtml, iconHtml } from './shared.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const HOUSE = { 111: 'Alliance', 114: 'Horde' };
 const PREFS_KEY = 'forever-market:timing';
 const WINDOWS = [7, 14, 30];
 const WIDTHS = [2, 3, 4, 6];
@@ -129,15 +128,15 @@ function render() {
       <table class="mtable mft">
         <tr>${COLS.map(([k, label, , cls, title]) => `<th class="${cls}" ${title ? `title="${esc(title)}"` : ''}><button data-sort="${k}">${label}${f.sort === k ? (f.sortDir < 0 ? ' ▾' : ' ▴') : ''}</button></th>`).join('')}</tr>
         ${shown.map((r) => `<tr data-item="${r.item}" data-house="${r.house}" class="mfrow">
-          <td class="mleft"><span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.units <= 2 ? ' <span class="mflag">thin</span>' : ''}</td>
-          <td class="mleft">${HOUSE[r.house]}</td>
-          <td class="mleft">${hoursLabel(r.cheapStart, r.width)}</td><td>${esc(formatMoney(r.cheapPrice))}</td>
-          <td class="mleft">${hoursLabel(r.expStart, r.width)}</td><td>${esc(formatMoney(r.expPrice))}</td>
-          <td>${Math.round(r.swing * 100)}%</td><td><strong>${esc(formatMoney(r.profit))}</strong></td>
+          <td class="mleft">${iconHtml(r.icon)}<span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.units <= 2 ? ' <span class="mflag">thin</span>' : ''}</td>
+          <td class="mleft">${factionHtml(r.house)}</td>
+          <td class="mleft">${hoursLabel(r.cheapStart, r.width)}</td><td>${moneyHtml(r.cheapPrice)}</td>
+          <td class="mleft">${hoursLabel(r.expStart, r.width)}</td><td>${moneyHtml(r.expPrice)}</td>
+          <td>${Math.round(r.swing * 100)}%</td><td><strong>${moneyHtml(r.profit)}</strong></td>
           <td>${r.tested ? `${Math.round(heldShare(r) * 100)}% <span class="mest-sub">(${r.held}/${r.tested})</span>` : '<span class="blank">—</span>'}</td>
           <td class="${r.days < EARLY_DAYS ? 'mwarn' : ''}">${r.days}</td>
           <td>${Math.round(r.units).toLocaleString()}</td><td>${n(r.oursPerDay)}</td><td>${n(r.tsmPerDay)}</td>
-          <td>${r.goldPerDay === null ? '<span class="blank">—</span>' : esc(formatMoney(r.goldPerDay))}</td>
+          <td>${r.goldPerDay === null ? '<span class="blank">—</span>' : moneyHtml(r.goldPerDay)}</td>
         </tr>`).join('')}
       </table>
     </div>` : ''}`;

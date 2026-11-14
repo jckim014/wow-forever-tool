@@ -3,10 +3,15 @@
 // every series, per-cell tooltips on heat maps, sequential = one hue light->dark. Text never wears series colour.
 import { niceTicks, nearest } from './stats.js';
 
-/** Categorical slots 1-3 of the validated reference palette (light), one per house, in fixed order. */
-export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a'];
-/** Sequential blue ramp (steps 100-700) for heat maps. */
-const RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+/** One colour per house in HOUSES order: Alliance blue, Horde red (WoW's faction colours, stepped for the dark chart
+ *  surface #202020 (Wowhead panel); validated with the dataviz palette checker: CVD ΔE 26, contrast >= 3:1). */
+export const SERIES_COLORS = ['#3d8af0', '#e0533f'];
+/** Sequential gold ramps for heat maps, cheaper -> more expensive: dark theme dim to bright, light theme pale to deep. */
+const RAMPS = {
+  dark: ['#3a2f14', '#584418', '#7a5c1c', '#9f7820', '#c49526', '#e3b43c', '#f8d87a'],
+  light: ['#fbf0c8', '#f5dc8c', '#e9c25a', '#d4a332', '#b5851f', '#8f6714', '#66490c'],
+};
+const ramp = () => RAMPS[document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'];
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, parent) => {
@@ -137,16 +142,16 @@ function rampFor(values) {
   const sorted = values.filter((v) => v !== null).sort((a, b) => a - b);
   return (v) => {
     if (v === null || !sorted.length) return null;
-    if (sorted[0] === sorted.at(-1)) return RAMP[3];
+    if (sorted[0] === sorted.at(-1)) return ramp()[3];
     let below = 0; while (below < sorted.length && sorted[below] < v) below++;
-    return RAMP[Math.min(RAMP.length - 1, Math.floor((below / sorted.length) * RAMP.length))];
+    return ramp()[Math.min(6, Math.floor((below / sorted.length) * 7))];
   };
 }
 
 function legendRamp(wrap, lowText, highText) {
   const l = document.createElement('div'); l.className = 'cramp';
   const a = document.createElement('span'); a.textContent = lowText; l.appendChild(a);
-  for (const c of RAMP) { const s = document.createElement('i'); s.style.background = c; l.appendChild(s); }
+  for (const c of ramp()) { const s = document.createElement('i'); s.style.background = c; l.appendChild(s); }
   const b = document.createElement('span'); b.textContent = highText; l.appendChild(b);
   wrap.appendChild(l);
 }
@@ -229,8 +234,8 @@ export function scatterLog(wrap, { points, xLabel, yLabel, format = (v) => (v >=
   for (let k = x0; k <= x1; k++) { el('line', { x1: X(10 ** k), x2: X(10 ** k), y1: m.t, y2: H - m.b, class: 'cgrid' }, svg); text(svg, X(10 ** k), H - m.b + 16, pow(k), { class: 'caxis', 'text-anchor': 'middle' }); }
   text(svg, (m.l + W - m.r) / 2, H - 4, xLabel, { class: 'caxis', 'text-anchor': 'middle' });
   text(svg, 12, (m.t + H - m.b) / 2, yLabel, { class: 'caxis', 'text-anchor': 'middle', transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})` });
-  for (const p of pts) el('circle', { cx: X(p.x), cy: Y(p.y), r: 2.5, fill: SERIES_COLORS[0], 'fill-opacity': 0.45 }, svg);
-  const ring = el('circle', { r: 5, fill: SERIES_COLORS[0], class: 'cdot', visibility: 'hidden' }, svg);
+  for (const p of pts) el('circle', { cx: X(p.x), cy: Y(p.y), r: 2.5, style: 'fill: var(--link); fill-opacity: 0.45' }, svg);
+  const ring = el('circle', { r: 5, style: 'fill: var(--link)', class: 'cdot', visibility: 'hidden' }, svg);
   const tip = tooltip(wrap);
   const scr = pts.map((p) => [X(p.x), Y(p.y)]);
   const hit = el('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent' }, svg);

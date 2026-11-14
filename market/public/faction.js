@@ -1,10 +1,9 @@
 // Faction tab: items cheaper on one faction's AH than the other's, after moving them through Blackwater.
 // Calculation in market/faction.mjs (server); this is the table, its filters and sorting.
-import { formatMoney } from './shared.js';
+import { moneyHtml, factionHtml, iconHtml } from './shared.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const HOUSE = { 111: 'Alliance', 114: 'Horde' };
 const PREFS_KEY = 'forever-market:faction';
 
 const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); } catch { return {}; } })();
@@ -108,10 +107,10 @@ function render() {
           return `<th class="${cls === 'mleft' ? 'mleft' : ''}" ${title ? `title="${esc(title)}"` : ''}><button data-sort="${k}">${label}${f.sort === k ? (f.sortDir < 0 ? ' ▾' : ' ▴') : ''}</button></th>`;
         }).join('')}</tr>
         ${shown.map((r) => `<tr data-item="${r.item}" class="mfrow">
-          <td class="mleft"><span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.outlier ? ' <span class="mflag" title="The expensive side\'s lowest listing was far below the rest (bait?), so its cheapest-15% average is used">outlier ignored</span>' : ''}${r.thin ? ' <span class="mflag">thin</span>' : ''}</td>
-          <td class="mleft">${HOUSE[r.from]} → ${HOUSE[r.to]}</td>
-          <td>${esc(formatMoney(r.buy))}</td><td>${esc(formatMoney(r.sell))}</td>
-          <td><strong>${esc(formatMoney(r.profit))}</strong></td><td>${Math.round(r.margin * 100)}%</td>
+          <td class="mleft">${iconHtml(r.icon)}<span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.outlier ? ' <span class="mflag" title="The expensive side\'s lowest listing was far below the rest (bait?), so its cheapest-15% average is used">outlier ignored</span>' : ''}${r.thin ? ' <span class="mflag">thin</span>' : ''}</td>
+          <td class="mleft">${factionHtml(r.from)} → ${factionHtml(r.to)}</td>
+          <td>${moneyHtml(r.buy)}</td><td>${moneyHtml(r.sell)}</td>
+          <td><strong>${moneyHtml(r.profit)}</strong></td><td>${Math.round(r.margin * 100)}%</td>
           <td>${r.cheapUnits.toLocaleString()}</td><td>${n(r.oursPerDay)}</td><td>${n(r.tsmPerDay)}</td>
           <td>${r.steady.seen ? `${Math.round(steadyShare(r) * 100)}% <span class="mest-sub">(${r.steady.profitable}/${r.steady.seen})</span>` : '<span class="blank">—</span>'}</td>
         </tr>`).join('')}

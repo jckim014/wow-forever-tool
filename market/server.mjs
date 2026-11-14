@@ -166,7 +166,7 @@ function timing(daysParam, widthParam) {
       const it = byId.get(item);
       const perDay = ours[h].get(item) ?? null;
       rows.push({
-        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, house: h,
+        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, icon: it?.icon ?? null, house: h,
         days: a.days, cheapStart: a.cheapStart, expStart: a.expStart, width,
         cheapPrice: a.cheapPrice, expPrice: a.expPrice, swing: a.swing, profit: a.profit, held: a.held, tested: a.tested,
         units: median(s.units), oursPerDay: perDay, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
@@ -222,7 +222,7 @@ function faction(daysParam) {
       for (const [ts, s] of series.get(item) ?? []) hist.set(ts, { cheap: s[cheapH], dear: s[dearH] });
       const it = byId.get(item);
       rows.push({
-        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, from: cheapH, to: dearH,
+        item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, icon: it?.icon ?? null, from: cheapH, to: dearH,
         buy: r.buy, sell: r.sell, profit: r.profit, margin: r.margin, outlier: r.outlier, thin: r.thin,
         cheapUnits: cheap.units, dearListings: dear.listings, dearUnits: dear.units,
         oursPerDay: ours[dearH].get(item) ?? null, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
