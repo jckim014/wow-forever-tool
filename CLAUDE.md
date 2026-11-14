@@ -519,15 +519,22 @@ and BavvbScan replaced it (see Prices; 40e29a5, c1323de, live). "Sign off" phras
 Same evening: Shopping view (Auctionator shopping-list import for chosen recipes; see UI), f82eec8, live; Josh
 checked it on the live site ("looks good").
 
-Where we left off (2026-11-13, signed off): Forever Market steps 1-7 are done, committed and pushed (last: b5802db,
-the Cycles tab, tabs renamed Price history / Faction / Cycles / Method check, "expensive" wording; Josh checked it:
-"looks good"). Josh's summary of the state: apps tentatively working as expected, data being collected; Cycles waits
-for data (shows "Still collecting" until items have 2 days with 12+ priced hours that share hours: first rough results
-around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20); Faction works now (profit from the latest
-snapshot) but Steady and Sales/day firm up with more data. Not recorded whether Josh checked b07cd9a ("NA PvE") and
-428747b (TSM band layout) from before the morning's outage; ask if relevant. Next: Josh uses Price history, Faction and
+2026-11-13 (evening session): NA PvP houses identified (110/113, see Collector > Houses; background data only, Josh's
+  apps stay on PvE). Method check reads only the "r@Normal@" TSM section (a116e34). Forever Market redesign: light
+  theme with coin / faction / quality colours, Wowhead item icons, Open Sans, a kept Light | Dark (Wowhead) switch,
+  grey tab underline, sales as three tiles (f7bd332, b79dd57; see Forever Market > Look). Josh: "this looks perfect".
+  All pushed except the final CLAUDE.md commits.
+
+Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
+done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
+hours that share hours: first rough results around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20);
+Faction works now, with Steady and Sales/day firming up as data grows. Next: Josh uses Price history, Faction and
 Cycles on live data and comes back with iterations; he wants to discuss adjusting the Cycles conditions (window,
 stretch length, 12-hour day rule, 2-day minimum, a held-on threshold above break-even) once he has seen results.
+Josh asks ad-hoc price questions about any house (e.g. Swiftthistle 2452 on PvP 2026-11-13: ~9s 40c Alliance 110,
+~8s 30c Horde 113 vs ~2s 50c-3s on his PvE); answer from market.db (`prices`, cheapest15 per hour, local days).
+The sales estimate's confidence was explained to him (Method check: ~96% of his buys, ~half of his sales caught,
+misses = sales near listing end; leans low); rules change only with his yes after ~100+ more records.
 Collection check 2026-11-13: every hourly snapshot stored since the Google timer took over (2026-11-12 17:40 PT);
 one hour lost before it (2026-11-12 15:22 PT, manual-run period); the one failed run was the deliberate test; Google
 skipped one timer start (09:40 PT) at no cost. The collector and PC sync run unattended (scheduled sync + name fetch
@@ -565,7 +572,8 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   desktop app writes `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua`
   about hourly. Blocks `LoadData("<kind>","<realm>",[[return {downloadTime=..., fields={...}, data={{id,v,...}}}]])`,
   numbers in base 32 (0-9A-V). Josh's realm is "Normal-Alliance" (its min buyouts match his scans); region
-  "Forever-US". Kinds: NON_COMMODITY_DATA (minBuyout, numAuctions, marketValueRecent), NON_COMMODITY_SCAN_STAT
+  "Forever-US". Since 2026-11-13 the TSM app also downloads "Normal-Horde", "PvP-Alliance" and "PvP-Horde" (Josh added
+  them; nothing reads those blocks). Kinds: NON_COMMODITY_DATA (minBuyout, numAuctions, marketValueRecent), NON_COMMODITY_SCAN_STAT
   (marketValue = DBMarket), NON_COMMODITY_HISTORICAL (historical), REGION_STAT (regionMarketValue), REGION_HISTORICAL,
   REGION_SALE (regionSale, regionSoldPerDay, regionSalePercent: the last two are x1000, confirmed by Josh against
   TSM's tooltip 2026-11-13; Forever Market reads them, see there). A trial CSV is `data/private/tsm-prices-2026-11-06.csv` (p1 minBuyout,
