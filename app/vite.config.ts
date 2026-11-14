@@ -6,4 +6,6 @@ export default defineConfig({
   plugins: [react()],
   // data/config/*.json lives outside app/ and is imported directly
   server: { fs: { allow: ['..'] } },
+  // Two pages: the shuffle app and the cross-faction trade tracker (trades.html)
+  build: { rollupOptions: { input: { main: 'index.html', trades: 'trades.html' } } },
 })

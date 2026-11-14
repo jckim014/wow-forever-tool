@@ -1,0 +1,102 @@
+/* Trade tracker page. Its own stylesheet (the shuffle app's App.css is not loaded here); classes start with t-. */
+:root {
+  --t-bg: #f6f7f9; --t-panel: #fff; --t-line: #dfe2e7; --t-text: #1d2128; --t-muted: #6b717c;
+  --t-accent: #2f6fd1; --t-accent-text: #fff;
+  --t-gold: #a87b00; --t-silver: #6c7079; --t-copper: #a8561e;
+  --t-ally: #2f6fd1; --t-horde: #c8402d; --t-pos: #1f8a4c; --t-neg: #c8402d;
+  --t-warn-bg: #fff4dc; --t-warn: #8a5a00; --t-adj: #fff8e8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --t-bg: #141518; --t-panel: #1f2125; --t-line: #33363c; --t-text: #e4e6ea; --t-muted: #9aa0aa;
+    --t-accent: #4d8ef0; --t-gold: #e0b43a; --t-silver: #b9bec6; --t-copper: #d98a52;
+    --t-ally: #6aa5ff; --t-horde: #ff7a66; --t-pos: #4cc27f; --t-neg: #ff7a66;
+    --t-warn-bg: #3a2e14; --t-warn: #f0c060; --t-adj: #2a2416;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--t-bg); color: var(--t-text); font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+button, input { font: inherit; color: inherit; }
+button { background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--t-muted); }
+button:disabled { opacity: 0.5; cursor: default; }
+.t-primary { background: var(--t-accent); border-color: var(--t-accent); color: var(--t-accent-text); }
+.t-primary:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--t-accent); }
+.t-link { background: none; border: none; padding: 0; color: var(--t-muted); }
+.t-link:hover { color: var(--t-text); text-decoration: underline; }
+.t-del { color: var(--t-neg); }
+
+.t-page { max-width: 980px; margin: 0 auto; padding: 16px 20px 60px; }
+.t-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 20px; margin: 4px 0; }
+h2 { font-size: 15px; margin: 26px 0 10px; }
+h2 .t-link { font-size: 15px; font-weight: 600; color: var(--t-text); }
+.t-status { display: flex; align-items: center; gap: 10px; color: var(--t-muted); font-size: 13px; }
+.t-err { color: var(--t-neg); } .t-warn { color: var(--t-warn); }
+.t-menuwrap { position: relative; }
+.t-menu { position: absolute; right: 0; top: calc(100% + 4px); background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); display: flex; flex-direction: column; padding: 4px; z-index: 5; min-width: 200px; }
+.t-menu button { border: none; text-align: left; }
+.t-menu button:hover { background: var(--t-bg); }
+
+.t-setup { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--t-warn-bg); color: var(--t-warn);
+  border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
+
+.t-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 14px 0; }
+.t-tile { background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.t-tile > span { font-size: 12px; color: var(--t-muted); font-weight: 600; }
+.t-tile > span.t-ally, .t-tile > span.t-horde { color: inherit; }
+.t-tile b { font-size: 17px; }
+.t-tile small { font-size: 12px; color: var(--t-muted); cursor: default; }
+.t-total { border-color: var(--t-accent); border-width: 2px; padding: 9px 13px; }
+@media (max-width: 760px) { .t-tiles { grid-template-columns: repeat(2, 1fr); } }
+
+.t-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.t-bar .t-link { margin-left: auto; font-size: 13px; }
+
+.t-money { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.t-g { color: var(--t-gold); } .t-s { color: var(--t-silver); } .t-c { color: var(--t-copper); }
+.t-ally { color: var(--t-ally); font-weight: 600; } .t-horde { color: var(--t-horde); font-weight: 600; }
+.t-pos { color: var(--t-pos); } .t-neg { color: var(--t-neg); }
+.t-pos .t-money span, .t-neg .t-money span { color: inherit; }
+.t-muted { color: var(--t-muted); }
+
+.t-card { background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+.t-done { opacity: 0.85; }
+.t-cardhead { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.t-cardhead strong { font-size: 15px; }
+.t-steps { margin: 6px 0 8px; display: flex; flex-direction: column; gap: 2px; }
+.t-cardbtns { display: flex; gap: 8px; }
+
+.t-hist { width: 100%; border-collapse: collapse; background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 10px; overflow: hidden; }
+.t-hist th { text-align: left; font-size: 12px; color: var(--t-muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--t-line); }
+.t-hist td { padding: 7px 10px; border-bottom: 1px solid var(--t-line); vertical-align: middle; }
+.t-hist tr:last-child td { border-bottom: none; }
+.t-hist .t-r { text-align: right; }
+.t-nowrap { white-space: nowrap; color: var(--t-muted); }
+.t-adjrow td { background: var(--t-adj); }
+.t-rowbtns { white-space: nowrap; text-align: right; }
+.t-rowbtns button { padding: 2px 8px; font-size: 12px; margin-left: 4px; }
+.t-tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 10px; background: var(--t-bg); border: 1px solid var(--t-line); white-space: nowrap; }
+.t-tag-sale { color: var(--t-pos); } .t-tag-purchase { color: var(--t-accent); }
+.t-tag-adjustment { color: var(--t-warn); background: var(--t-warn-bg); border-color: transparent; }
+
+.t-overlay { position: fixed; inset: 0; background: rgb(0 0 0 / 0.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; z-index: 10; }
+.t-dialog { background: var(--t-panel); border-radius: 12px; padding: 18px 20px; width: min(440px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgb(0 0 0 / 0.25);
+  display: flex; flex-direction: column; gap: 10px; }
+.t-dialog h2 { margin: 0 0 4px; font-size: 16px; }
+.t-field { display: flex; flex-direction: column; gap: 3px; }
+.t-field > span { font-size: 12px; font-weight: 600; color: var(--t-muted); }
+.t-field input { border: 1px solid var(--t-line); border-radius: 6px; padding: 6px 9px; background: var(--t-bg); }
+.t-field input.t-bad { border-color: var(--t-neg); }
+.t-field small { font-size: 12px; color: var(--t-muted); min-height: 1.2em; }
+.t-seg { display: flex; }
+.t-seg button { border-radius: 0; flex: 1; }
+.t-seg button:first-child { border-radius: 6px 0 0 6px; } .t-seg button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.t-seg button.on { background: var(--t-text); color: var(--t-panel); border-color: var(--t-text); }
+.t-seg button.t-ally-on { background: var(--t-ally); border-color: var(--t-ally); color: #fff; }
+.t-seg button.t-horde-on { background: var(--t-horde); border-color: var(--t-horde); color: #fff; }
+.t-hint { margin: 0; color: var(--t-muted); font-size: 13px; }
+.t-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }

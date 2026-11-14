@@ -332,6 +332,24 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Light coin colours #a87b00 / #6c7079 / #a8561e: Josh first found them hard to see, tried a darker set (#8a6200 /
   #5b5f68 / #93461a, semibold money), went back, and settled: "coin colors are fine now" (2026-11-13).
 
+## Trade tracker (cross-faction trades; built 2026-11-14)
+
+A small separate page on the same site: `app/trades.html` -> https://jckim014.github.io/wow-forever-tool/trades.html
+(second Vite entry in `vite.config.ts`; code in `app/src/trades/`, classes `t-*`, own stylesheet; shares no data with
+the shuffle app). Josh wanted it **extremely simple** ("you are overengineering this"): he types every figure; no
+market prices, predictions or TSM links. Purpose: how much gold is in the arbitrage and whether it profits.
+- Records (model.ts, tested with the agreed example): starting gold per faction (editable); batches = one purchase
+  (faction, item, qty, gold spent); its transfer (price defaults to the purchase price, editable; the buying side gets
+  price - 15%, the other side pays price); sales on the receiving side (qty, gold received in the mailbox, several per
+  batch); adjustments (faction, +/- amount, required note; amber in the history, never trading profit). Date/time
+  stamped automatically. Everything editable/deletable.
+- Figures: balances per faction and total gold = liquid gold only; tied up = unsold share of the purchase price (not in
+  the total; Josh confirmed); trading profit = received - cost of the units sold - transfer loss (= total + tied up -
+  starting gold - adjustments).
+- Storage like the shuffle app's edits but separate keys: file picked once (File > Create/Open trades file;
+  Josh's planned file `data/private/trades.json`), IndexedDB key `tradesFile`, browser copy in localStorage
+  `wow-forever-shuffle:trades:v1`; newer savedAt wins; format `forever-trades` v1. File > Download a copy.
+
 ## Model (must match the workbook)
 
 All money is in copper (1g = 10000). "Blank" means unknown/unpriced, never zero.
