@@ -2,11 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseTsmRecords, candidates, summarize, spearman, ownPricesByItem, pairWindow } from './validate.mjs';
 
-// Shape of TradeSkillMaster.lua's csv strings (names here are made up and must not come out of the parser).
+// Shape of TradeSkillMaster.lua's csv strings, one section per realm (names here are made up and must not come out
+// of the parser).
 const lua = [
-  '["f@Alliance - Realm@internalData@csvSales"] = "itemString,stackSize,quantity,price,otherPlayer,player,time,source\\n'
+  '["r@Normal@internalData@csvSales"] = "itemString,stackSize,quantity,price,otherPlayer,player,time,source\\n'
     + 'i:4238,1,2,285,Someone,MyChar,1794520000,Auction\\ni:4865,4,4,5,Merchant,MyChar,1794520001,Vendor\\n",',
-  '["f@Alliance - Realm@internalData@csvCancelled"] = "itemString,stackSize,quantity,player,time\\ni:2589,20,20,MyChar,1794520500\\n",',
+  '["r@Normal@internalData@csvCancelled"] = "itemString,stackSize,quantity,player,time\\ni:2589,20,20,MyChar,1794520500\\n",',
+  '["r@PvP@internalData@csvSales"] = "itemString,stackSize,quantity,price,otherPlayer,player,time,source\\n'
+    + 'i:4238,1,1,999,Someone,PvpChar,1794520100,Auction\\n",',
+  '["r@PvP@internalData@csvExpired"] = "itemString,stackSize,quantity,player,time\\ni:2589,20,20,PvpChar,1794520600\\n",',
 ].join('\n');
 
 test('TSM records: auction rows only, counts from merged rows, no names', () => {
@@ -16,6 +20,12 @@ test('TSM records: auction rows only, counts from merged rows, no names', () => 
     { kind: 'cancel', item: 2589, stack: 20, count: 1, price: null, time: 1794520500 },
   ]);
   assert.ok(!JSON.stringify(r).includes('MyChar') && !JSON.stringify(r).includes('Someone'));
+});
+
+test('TSM records: only the chosen realm (other realms trade on other auction houses)', () => {
+  assert.ok(!parseTsmRecords(lua).some((x) => x.price === 999 || x.kind === 'expiry'));
+  assert.deepEqual(parseTsmRecords(lua, 'PvP').map((x) => x.kind), ['sale', 'expiry']);
+  assert.deepEqual(parseTsmRecords(lua, 'Nowhere'), []);
 });
 
 test('candidate listings', () => {

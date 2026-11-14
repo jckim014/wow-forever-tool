@@ -265,7 +265,9 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   items) at ~11x TSM's level (TSM only sees TSM users' sales).
 - **Method check** tab (`market/validate.mjs` pure + `methodCheck.mjs`, `/api/method-check`, `public/check.js`): Josh's
   TSM records (`TradeSkillMaster.lua`, account 1120039#2, env FOREVER_TSM_ACCOUNT_FILE) as ground truth, never as a data
-  source; names dropped on parsing. Matching rules learned the hard way: TSM records a sale at the money received
+  source; names dropped on parsing. Only the "r@Normal@..." section is read (TSM keeps records per realm, Alliance
+  and Horde together; Josh's account also has an empty "r@PvP@" section since 2026-11-13, which would be matched
+  against the wrong houses; `TSM_REALM` in validate.mjs). Matching rules learned the hard way: TSM records a sale at the money received
   (listed price x 0.95); a commodity buy takes units from several stacks (any listing at or below the price);
   cancels/expiries have no price (narrowed to Josh's own listing prices from his sales within 2 days); sales are
   searched up to 2 h before the record (mail delay), other records only in the pair around their time (a missing

@@ -5,11 +5,17 @@
 
 const KINDS = { csvSales: 'sale', csvBuys: 'buy', csvCancelled: 'cancel', csvExpired: 'expiry' };
 
-/** TSM's TradeSkillMaster.lua -> [{ kind, item, stack, count, price, time }] for auction-house records; no names. */
-export function parseTsmRecords(text) {
+/** Josh's realm in TSM's naming: TradeSkillMaster.lua keeps records per realm ("r@Normal@internalData@csvSales",
+ *  Alliance and Horde together). Other realms' sections (e.g. "r@PvP@...") are left out: the Method check compares
+ *  records with the snapshots of Josh's houses only, so their records would count as misses or false matches. */
+export const TSM_REALM = 'Normal';
+
+/** TSM's TradeSkillMaster.lua -> [{ kind, item, stack, count, price, time }] for one realm's auction-house records; no names. */
+export function parseTsmRecords(text, realm = TSM_REALM) {
   const out = [];
+  const realmRe = realm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const [key, kind] of Object.entries(KINDS)) {
-    const re = new RegExp(`\\["[^"]*${key}"\\] = "((?:[^"\\\\]|\\\\.)*)"`, 'g');
+    const re = new RegExp(`\\["r@${realmRe}@internalData@${key}"\\] = "((?:[^"\\\\]|\\\\.)*)"`, 'g');
     for (const m of text.matchAll(re)) {
       const lines = m[1].split('\\n');
       const cols = lines[0].split(',');
