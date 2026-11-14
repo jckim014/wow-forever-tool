@@ -602,6 +602,9 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Wall cutoff (2026-11-14): Josh hasn't yet looked at the new figures in the apps (check steps given: Mud Snapper Horde
+  ~10c, Stonescale Eel Horde ~1s 64c). If a price looks wrong, print the item's listing ladder from the raw snapshot
+  first (that is how the wall was found). A cheap cluster holding over 5% of units would still set the anchor low.
 - Forever Market: weekday patterns in Cycles (not built; need ~3 weeks of data, ~2026-12-03). Sale-rate method:
   re-run the Method check and consider tuning only once ~100+ more of Josh's TSM records exist; record any new method
   version in `market/method-history.json`. 110/113 are PvP (2026-11-13); the realms behind 119/120/121 and
