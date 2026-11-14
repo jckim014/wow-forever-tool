@@ -1,8 +1,8 @@
-// The trade tracker page (trades.html): balances, open batches, finished batches, history. Figures from model.ts.
+// The trade tracker page (trades.html): balances, items in stock, history. Figures from model.ts.
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  SIDE_NAME, batchProfit, history, isFinished, newId, other, parseMoney, received, soldQty, tiedUp, totals, transferLoss,
-  unsoldQty, type Adjustment, type Batch, type HistoryEvent, type Sale, type Side, type TradesDoc,
+  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transferOf,
+  type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc,
 } from './model'
 import { useTradesStore, type TradesStatus } from './store'
 
@@ -23,9 +23,10 @@ function Money({ v, sign = false }: { v: number; sign?: boolean }) {
 const Fac = ({ s }: { s: Side }) => <span className={s === 'A' ? 't-ally' : 't-horde'}>{SIDE_NAME[s]}</span>
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`
+const Profit = ({ v }: { v: number }) => <span className={v >= 0 ? 't-pos' : 't-neg'}><Money v={v} sign /></span>
 
-function MoneyInput({ label, value, onChange, allowNegative = false, autoFocus = false }: {
-  label: string; value: string; onChange: (v: string) => void; allowNegative?: boolean; autoFocus?: boolean
+function MoneyInput({ label, value, onChange, allowNegative = false, autoFocus = false, extra }: {
+  label: string; value: string; onChange: (v: string) => void; allowNegative?: boolean; autoFocus?: boolean; extra?: ReactNode
 }) {
   const v = parseMoney(value)
   const bad = value.trim() !== '' && (v === null || (!allowNegative && v < 0))
@@ -33,7 +34,7 @@ function MoneyInput({ label, value, onChange, allowNegative = false, autoFocus =
     <label className="t-field">
       <span>{label}</span>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g. 12g 40s, or 12.4" autoFocus={autoFocus} className={bad ? 't-bad' : ''} />
-      <small>{bad ? 'Type gold like 12g 40s 5c, or a number of gold' : v !== null ? <Money v={v} /> : ' '}</small>
+      <small>{bad ? 'Type gold like 12g 40s 5c, or a number of gold' : v !== null ? <Money v={v} /> : ' '}{extra}</small>
     </label>
   )
 }
@@ -73,17 +74,23 @@ const moneyText = (c: number) => {
   return [g && `${g}g`, s && `${s}s`, cc && `${cc}c`].filter(Boolean).join(' ') || '0'
 }
 
+/** ISO time <-> the value of a datetime-local input (local time, to the minute). */
+const toLocalInput = (iso: string) => {
+  const d = new Date(iso)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
 // ---- dialogs ----
 
 type Open =
   | { kind: 'start' }
-  | { kind: 'purchase'; batch?: Batch }
-  | { kind: 'transfer'; batch: Batch }
-  | { kind: 'sale'; batch: Batch; sale?: Sale }
+  | { kind: 'purchase'; entry?: Purchase; item?: string }
+  | { kind: 'cardTransfer'; purchase: Purchase }
+  | { kind: 'item'; key: string }
+  | { kind: 'transfer' | 'sale'; entry?: Entry; item?: string; side?: Side }
   | { kind: 'adjust'; adj?: Adjustment }
 
 type Update = (fn: (d: TradesDoc) => TradesDoc) => void
-const mapBatch = (d: TradesDoc, id: string, fn: (b: Batch) => Batch): TradesDoc => ({ ...d, batches: d.batches.map((b) => (b.id === id ? fn(b) : b)) })
 
 function StartDialog({ doc, update, close }: { doc: TradesDoc; update: Update; close: () => void }) {
   const [a, setA] = useState(doc.start.at ? moneyText(doc.start.A) : '')
@@ -102,75 +109,147 @@ function StartDialog({ doc, update, close }: { doc: TradesDoc; update: Update; c
   )
 }
 
-function PurchaseDialog({ doc, batch, update, close }: { doc: TradesDoc; batch?: Batch; update: Update; close: () => void }) {
-  const [side, setSide] = useState<Side>(batch?.side ?? 'A')
-  const [item, setItem] = useState(batch?.item ?? '')
-  const [qty, setQty] = useState(batch ? String(batch.qty) : '')
-  const [cost, setCost] = useState(batch ? moneyText(batch.cost) : '')
-  const items = useMemo(() => [...new Set(doc.batches.map((b) => b.item))].sort(), [doc.batches])
+function PurchaseDialog({ doc, entry, item: item0, update, close }: { doc: TradesDoc; entry?: Purchase; item?: string; update: Update; close: () => void }) {
+  const last = [...doc.entries].reverse().find((e): e is Purchase => e.kind === 'purchase')
+  const [side, setSide] = useState<Side>(entry?.side ?? last?.side ?? 'A')
+  const [item, setItem] = useState(entry?.item ?? item0 ?? '')
+  const [qty, setQty] = useState(entry ? String(entry.qty) : '')
+  const [cost, setCost] = useState(entry ? moneyText(entry.cost) : '')
+  const names = useMemo(() => [...new Map(doc.entries.map((e) => [itemKey(e.item), e.item.trim()])).values()].sort(), [doc.entries])
   const q = Number(qty), c = parseMoney(cost)
-  const minQty = batch ? soldQty(batch) : 1
-  const ok = item.trim() !== '' && Number.isInteger(q) && q >= Math.max(1, minQty) && c !== null && c > 0
+  const ok = item.trim() !== '' && Number.isInteger(q) && q >= 1 && c !== null && c > 0
   return (
-    <Dialog title={batch ? 'Edit purchase' : 'Purchase'} onClose={close} canSave={ok} onSave={() => {
-      if (batch) update((d) => mapBatch(d, batch.id, (b) => ({ ...b, side, item: item.trim(), qty: q, cost: c! })))
-      else update((d) => ({ ...d, batches: [...d.batches, { id: newId(), item: item.trim(), qty: q, side, cost: c!, at: new Date().toISOString(), transfer: null, sales: [] }] }))
+    <Dialog title={entry ? 'Edit purchase' : 'Purchase'} onClose={close} canSave={ok} onSave={() => {
+      const p: Purchase = { kind: 'purchase', id: entry?.id ?? newId(), at: entry?.at ?? new Date().toISOString(), side, item: item.trim(), qty: q, cost: c! }
+      update((d) => ({
+        ...d,
+        entries: entry
+          // Its transfer (made from the card) moves the same units, so it follows the purchase.
+          ? d.entries.map((x) => (x.id === entry.id ? p : x.kind === 'transfer' && x.purchase === entry.id ? { ...x, item: p.item, qty: p.qty, from: p.side } : x))
+          : [...d.entries, p],
+      }))
       close()
     }}>
       <SidePick label="Bought on" value={side} onChange={setSide} />
       <label className="t-field"><span>Item</span>
-        <input value={item} onChange={(e) => setItem(e.target.value)} list="t-items" autoFocus />
-        <datalist id="t-items">{items.map((i) => <option key={i} value={i} />)}</datalist>
+        <input value={item} onChange={(e) => setItem(e.target.value)} list="t-items" autoFocus={!item0} />
+        <datalist id="t-items">{names.map((i) => <option key={i} value={i} />)}</datalist>
       </label>
       <label className="t-field"><span>Quantity</span>
-        <input type="number" min={Math.max(1, minQty)} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
-        <small>{batch && minQty > 0 ? `At least ${minQty} (already sold)` : ' '}</small>
+        <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} autoFocus={!!item0} />
       </label>
       <MoneyInput label="Gold spent (total)" value={cost} onChange={setCost} />
     </Dialog>
   )
 }
 
-function TransferDialog({ batch, update, close }: { batch: Batch; update: Update; close: () => void }) {
-  const [price, setPrice] = useState(moneyText(batch.transfer?.price ?? batch.cost))
+/** The transfer of one purchase (all its units), from its card. */
+function CardTransferDialog({ doc, purchase, update, close }: { doc: TradesDoc; purchase: Purchase; update: Update; close: () => void }) {
+  const existing = transferOf(doc, purchase)
+  const [price, setPrice] = useState(moneyText(existing?.price ?? purchase.cost))
   const p = parseMoney(price)
   const ok = p !== null && p > 0
-  const to = other(batch.side)
+  const to = other(purchase.side)
   return (
-    <Dialog title={`Transfer ${batch.item} to ${SIDE_NAME[to]}`} onClose={close} canSave={ok} saveLabel={batch.transfer ? 'Save' : 'Record transfer'} onSave={() => {
-      update((d) => mapBatch(d, batch.id, (b) => ({ ...b, transfer: { price: p!, at: b.transfer?.at ?? new Date().toISOString() } })))
+    <Dialog title={`Transfer ${purchase.item} to ${SIDE_NAME[to]}`} onClose={close} canSave={ok} saveLabel={existing ? 'Save' : 'Record transfer'} onSave={() => {
+      update((d) => ({
+        ...d,
+        entries: existing
+          ? d.entries.map((x) => (x.id === existing.id ? { ...existing, price: p! } : x))
+          : [...d.entries, { kind: 'transfer', id: newId(), at: new Date().toISOString(), item: purchase.item, qty: purchase.qty, from: purchase.side, price: p!, purchase: purchase.id }],
+      }))
       close()
     }}>
       <MoneyInput label="Listed on Blackwater for" value={price} onChange={setPrice} autoFocus />
       {ok && (
         <p className="t-hint">
-          <Fac s={to} /> pays <Money v={p!} />. Blackwater keeps 15% (<Money v={transferLoss(p!)} />), so <Fac s={batch.side} /> gets back <Money v={p! - transferLoss(p!)} />.
+          <Fac s={to} /> pays <Money v={p!} />. Blackwater keeps 15% (<Money v={transferLoss(p!)} />), so <Fac s={purchase.side} /> gets back <Money v={p! - transferLoss(p!)} />.
         </p>
       )}
     </Dialog>
   )
 }
 
-function SaleDialog({ batch, sale, update, close }: { batch: Batch; sale?: Sale; update: Update; close: () => void }) {
-  const left = unsoldQty(batch) + (sale?.qty ?? 0)
-  const [qty, setQty] = useState(String(sale?.qty ?? left))
-  const [rec, setRec] = useState(sale ? moneyText(sale.received) : '')
-  const q = Number(qty), r = parseMoney(rec)
-  const ok = Number.isInteger(q) && q >= 1 && q <= left && r !== null && r >= 0
-  const side = other(batch.side)
+function PurchaseCard({ p, open, onDelete }: { p: Purchase; open: (o: Open) => void; onDelete: () => void }) {
+  const to = other(p.side)
   return (
-    <Dialog title={`${sale ? 'Edit sale' : 'Sale'}: ${batch.item} on ${SIDE_NAME[side]}`} onClose={close} canSave={ok} onSave={() => {
-      update((d) => mapBatch(d, batch.id, (b) => ({
-        ...b,
-        sales: sale ? b.sales.map((s) => (s.id === sale.id ? { ...s, qty: q, received: r! } : s)) : [...b.sales, { id: newId(), qty: q, received: r!, at: new Date().toISOString() }],
-      })))
-      close()
-    }}>
-      <label className="t-field"><span>Quantity sold</span>
-        <input type="number" min={1} max={left} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
-        <small>{left.toLocaleString()} not yet sold</small>
+    <div className="t-card">
+      <div className="t-cardhead">
+        <strong>{p.item}</strong>
+        <span className="t-muted">{plural(p.qty, 'unit')} · bought on <Fac s={p.side} /> for <Money v={p.cost} /> · {when(p.at)}</span>
+      </div>
+      <div className="t-cardbtns">
+        <button className="t-primary" onClick={() => open({ kind: 'cardTransfer', purchase: p })}>Transfer to {SIDE_NAME[to]}</button>
+        <button onClick={() => open({ kind: 'purchase', entry: p })}>Edit</button>
+        <button className="t-del" onClick={onDelete}>Delete</button>
+      </div>
+    </div>
+  )
+}
+
+const ENTRY_TEXT: Record<EntryKind, { title: string; side: string; money: string }> = {
+  purchase: { title: 'Purchase', side: 'Bought on', money: 'Gold spent (total)' },
+  transfer: { title: 'Transfer', side: 'From', money: 'Listed on Blackwater for (total)' },
+  sale: { title: 'Sale', side: 'Sold on', money: 'Gold received in the mailbox (total)' },
+}
+const entrySide = (e: Entry): Side => (e.kind === 'transfer' ? e.from : e.side)
+const entryMoney = (e: Entry) => (e.kind === 'purchase' ? e.cost : e.kind === 'transfer' ? e.price : e.received)
+
+/** Purchase, transfer or sale: faction, item, quantity, gold, time. */
+function EntryDialog({ kind, entry, item: item0, side: side0, doc, update, close }: {
+  kind: 'transfer' | 'sale'; entry?: Entry; item?: string; side?: Side; doc: TradesDoc; update: Update; close: () => void
+}) {
+  const t = ENTRY_TEXT[kind]
+  const last = [...doc.entries].reverse().find((e) => e.kind === kind)
+  const [side, setSide] = useState<Side>(entry ? entrySide(entry) : side0 ?? (last ? entrySide(last) : kind === 'sale' ? 'H' : 'A'))
+  const [item, setItem] = useState(entry?.item ?? item0 ?? '')
+  const [qty, setQty] = useState(entry ? String(entry.qty) : '')
+  const [money, setMoney] = useState(entry ? moneyText(entryMoney(entry)) : '')
+  const initialWhen = useMemo(() => toLocalInput(entry?.at ?? new Date().toISOString()), [entry])
+  const [whenText, setWhen] = useState(initialWhen)
+
+  const names = useMemo(() => [...new Map(doc.entries.map((e) => [itemKey(e.item), e.item.trim()])).values()].sort(), [doc.entries])
+  // What the faction holds now, leaving out the entry being edited.
+  const without = useMemo(() => (entry ? { ...doc, entries: doc.entries.filter((e) => e.id !== entry.id) } : doc), [doc, entry])
+  const held = item.trim() ? onHand(without, item, side) : null
+  const q = Number(qty), m = parseMoney(money)
+  const whenOk = whenText !== '' && !Number.isNaN(new Date(whenText).getTime())
+  const ok = item.trim() !== '' && Number.isInteger(q) && q >= 1 && m !== null && (kind === 'sale' ? m >= 0 : m > 0) && whenOk
+  const avgCost = held && held.units > 0 && Number.isInteger(q) && q >= 1 ? Math.round((held.cost * Math.min(q, held.units)) / held.units) : null
+
+  const save = () => {
+    const at = whenText === initialWhen ? entry?.at ?? new Date().toISOString() : new Date(whenText).toISOString()
+    const base = { id: entry?.id ?? newId(), at, item: item.trim(), qty: q }
+    const e: Entry =
+      kind === 'transfer' ? { ...base, kind, from: side, price: m!, ...(entry?.kind === 'transfer' && entry.purchase ? { purchase: entry.purchase } : {}) }
+      : { ...base, kind, side, received: m! }
+    update((d) => ({ ...d, entries: entry ? d.entries.map((x) => (x.id === entry.id ? e : x)) : [...d.entries, e] }))
+    close()
+  }
+
+  return (
+    <Dialog title={`${entry ? 'Edit ' + t.title.toLowerCase() : t.title}${kind === 'transfer' ? ` to ${SIDE_NAME[other(side)]}` : ''}`} onClose={close} canSave={ok} onSave={save}>
+      <SidePick label={t.side} value={side} onChange={setSide} />
+      <label className="t-field"><span>Item</span>
+        <input value={item} onChange={(e) => setItem(e.target.value)} list="t-items" autoFocus={!item0} />
+        <datalist id="t-items">{names.map((i) => <option key={i} value={i} />)}</datalist>
+        <small>{held && <>{SIDE_NAME[side]} holds {plural(held.units, 'unit')}{held.units > 0 && <> · <button type="button" className="t-link t-inline" onClick={() => setQty(String(held.units))}>use all</button></>}</>}</small>
       </label>
-      <MoneyInput label="Gold received in the mailbox" value={rec} onChange={setRec} autoFocus />
+      <label className="t-field"><span>Quantity</span>
+        <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} autoFocus={!!item0} />
+        <small className={held && q > held.units ? 't-warn' : ''}>{held && q > held.units ? `More than ${SIDE_NAME[side]} holds; the extra ${plural(q - held.units, 'unit')} will count at no cost` : ' '}</small>
+      </label>
+      <MoneyInput label={t.money} value={money} onChange={setMoney} extra={kind === 'transfer' && avgCost !== null && <> · <button type="button" className="t-link t-inline" onClick={() => setMoney(moneyText(avgCost))}>use what they cost ({moneyText(avgCost)})</button></>} />
+      {kind === 'transfer' && m !== null && m > 0 && (
+        <p className="t-hint"><Fac s={other(side)} /> pays <Money v={m} />. Blackwater keeps 15% (<Money v={transferLoss(m)} />), so <Fac s={side} /> gets back <Money v={m - transferLoss(m)} />.</p>
+      )}
+      {kind === 'sale' && m !== null && avgCost !== null && (
+        <p className="t-hint">These units cost <Money v={avgCost} /> on average, so this sale makes <Profit v={m - avgCost} />.</p>
+      )}
+      <label className="t-field"><span>When</span>
+        <input type="datetime-local" value={whenText} onChange={(e) => setWhen(e.target.value)} />
+        <small>Entries count in time order, so a sale can be typed before its purchase.</small>
+      </label>
     </Dialog>
   )
 }
@@ -238,71 +317,159 @@ function StatusLine({ status, s }: { status: TradesStatus; s: ReturnType<typeof 
   )
 }
 
-function BatchCard({ b, open, onDelete }: { b: Batch; open: (o: Open) => void; onDelete: () => void }) {
-  const sold = soldQty(b), done = isFinished(b), to = other(b.side)
+function StockCell({ units, cost }: { units: number; cost: number }) {
+  if (units <= 0) return <span className="t-muted">–</span>
+  return <>{units.toLocaleString()} <span className="t-muted t-each">· <Money v={Math.round(cost / units)} /> each</span></>
+}
+
+function ItemsTable({ items, open }: { items: ItemSummary[]; open: (o: Open) => void }) {
   return (
-    <div className={`t-card${done ? ' t-done' : ''}`}>
-      <div className="t-cardhead">
-        <strong>{b.item}</strong>
-        <span className="t-muted">{plural(b.qty, 'unit')} · bought on <Fac s={b.side} /> for <Money v={b.cost} /> · {when(b.at)}</span>
-      </div>
-      <div className="t-steps">
-        {b.transfer
-          ? <div>✓ Transferred to <Fac s={to} /> at <Money v={b.transfer.price} /> <span className="t-muted">(lost <Money v={transferLoss(b.transfer.price)} />) · {when(b.transfer.at)}</span></div>
-          : <div className="t-muted">Not transferred yet</div>}
-        {b.sales.length > 0 && (
-          <div>Sold {sold.toLocaleString()} of {b.qty.toLocaleString()}: <Money v={received(b)} /> received
-            {!done && <span className="t-muted"> · <Money v={tiedUp(b)} /> still in items</span>}</div>
-        )}
-        {(done || b.sales.length > 0) && (
-          <div className={batchProfit(b) >= 0 ? 't-pos' : 't-neg'}>{done ? 'Profit' : 'Profit so far'}: <Money v={batchProfit(b)} sign /></div>
-        )}
-      </div>
-      <div className="t-cardbtns">
-        {!b.transfer && <button className="t-primary" onClick={() => open({ kind: 'transfer', batch: b })}>Transfer to {SIDE_NAME[to]}</button>}
-        {b.transfer && !done && <button className="t-primary" onClick={() => open({ kind: 'sale', batch: b })}>Record sale</button>}
-        <button onClick={() => open({ kind: 'purchase', batch: b })}>Edit</button>
-        <button className="t-del" onClick={onDelete}>Delete</button>
-      </div>
-    </div>
+    <table className="t-hist t-items">
+      <thead><tr><th>Item</th><th className="t-r">Alliance holds</th><th className="t-r">Horde holds</th><th className="t-r">Tied up</th><th className="t-r">Sold</th><th className="t-r">Received</th><th className="t-r">Profit</th><th /></tr></thead>
+      <tbody>
+        {items.map((it) => {
+          const { A, H } = it.stock
+          const has = A.units > 0 || H.units > 0
+          return (
+            <tr key={it.key}>
+              <td><strong>{it.name}</strong></td>
+              <td className="t-r"><StockCell {...A} /></td>
+              <td className="t-r"><StockCell {...H} /></td>
+              <td className="t-r">{has ? <Money v={A.cost + H.cost} /> : ''}</td>
+              <td className="t-r">{it.soldUnits ? it.soldUnits.toLocaleString() : ''}</td>
+              <td className="t-r">{it.received ? <Money v={it.received} /> : ''}</td>
+              <td className="t-r" title={`Received, minus what the sold units cost, minus Blackwater's cut (${moneyText(it.transferLoss)})`}>{it.soldUnits || it.transferLoss ? <Profit v={it.profit} /> : ''}</td>
+              <td className="t-rowbtns">
+                <button onClick={() => open({ kind: 'item', key: it.key })}>Edit</button>
+                <button onClick={() => open({ kind: 'purchase', item: it.name })}>Buy</button>
+                {has && <button onClick={() => open({ kind: 'transfer', item: it.name, side: A.units > 0 || H.units <= 0 ? 'A' : 'H' })}>Transfer</button>}
+                {has && <button onClick={() => open({ kind: 'sale', item: it.name, side: H.units > 0 || A.units <= 0 ? 'H' : 'A' })}>Sell</button>}
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
 const KIND_LABEL: Record<HistoryEvent['kind'], string> = { start: 'Start', purchase: 'Purchase', transfer: 'Transfer', sale: 'Sale', adjustment: 'Adjustment' }
 
-function HistoryTable({ doc, open, update }: { doc: TradesDoc; open: (o: Open) => void; update: Update }) {
+/** Delete one entry (a purchase takes its card transfer with it; a card transfer is "undone"). */
+function deleteEntry(doc: TradesDoc, update: Update, e: Entry) {
+  const linked = e.kind === 'purchase' ? doc.entries.find((x) => x.kind === 'transfer' && x.purchase === e.id) : undefined
+  const q = e.kind === 'transfer' && e.purchase ? 'Undo this transfer? The purchase goes back to waiting for transfer.' : linked ? 'Delete this purchase, with its transfer?' : `Delete this ${e.kind}?`
+  if (confirm(q)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== e.id && x.id !== linked?.id) }))
+}
+/** Open the dialog an entry was made with. */
+function editEntry(doc: TradesDoc, open: (o: Open) => void, e: Entry) {
+  if (e.kind === 'purchase') open({ kind: 'purchase', entry: e })
+  else if (e.kind === 'transfer' && e.purchase) {
+    const p = doc.entries.find((x): x is Purchase => x.kind === 'purchase' && x.id === e.purchase)
+    open(p ? { kind: 'cardTransfer', purchase: p } : { kind: 'transfer', entry: e })
+  } else open({ kind: e.kind, entry: e })
+}
+
+/** Fix typos for one item: rename it everywhere, edit or delete its entries, or delete it with all its entries. */
+function ItemDialog({ itemKey: key, doc, l, update, open, close }: {
+  itemKey: string; doc: TradesDoc; l: Ledger; update: Update; open: (o: Open) => void; close: () => void
+}) {
+  const it = l.items.find((x) => x.key === key)
+  const [name, setName] = useState(it?.name ?? '')
+  if (!it) return null
+  const entries = ordered(doc.entries).filter((e) => itemKey(e.item) === key).reverse()
+  const newKey = itemKey(name)
+  const mergeInto = newKey !== key ? l.items.find((x) => x.key === newKey) : undefined
+  const canRename = name.trim() !== '' && name.trim() !== it.name
+  const rename = () => {
+    if (mergeInto && !confirm(`${mergeInto.name} already exists. Merge ${it.name} into it?`)) return
+    const to = mergeInto?.name ?? name.trim()
+    update((d) => ({ ...d, entries: d.entries.map((e) => (itemKey(e.item) === key ? { ...e, item: to } : e)) }))
+    close()
+  }
+  const deleteItem = () => {
+    const change: Record<Side, number> = { A: 0, H: 0 }
+    for (const e of entries) for (const [s, v] of Object.entries(entryDelta(e)) as [Side, number][]) change[s] -= v
+    const fmt = (v: number) => (v === 0 ? 'no change' : `${v < 0 ? '−' : '+'}${moneyText(Math.abs(v))}`)
+    if (!confirm(`Delete ${it.name} and ${entries.length === 1 ? 'its entry' : `all ${entries.length} of its entries`}?\n\nBalances change: Alliance ${fmt(change.A)}, Horde ${fmt(change.H)}.`)) return
+    update((d) => ({ ...d, entries: d.entries.filter((e) => itemKey(e.item) !== key) }))
+    close()
+  }
+  const goEdit = (e: Entry) => { close(); editEntry(doc, open, e) }
+  return (
+    <div className="t-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close() }}>
+      <div className="t-dialog t-wide" onKeyDown={(e) => { if (e.key === 'Escape') close() }}>
+        <h2>Edit {it.name}</h2>
+        <form className="t-rename" onSubmit={(e) => { e.preventDefault(); if (canRename) rename() }}>
+          <label className="t-field"><span>Name (changes it on every entry)</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <small>{mergeInto ? `Matches ${mergeInto.name}: saving merges the two items` : ' '}</small>
+          </label>
+          <button type="submit" className="t-primary" disabled={!canRename}>{mergeInto ? 'Merge' : 'Rename'}</button>
+        </form>
+        <div className="t-field"><span>Entries (fix a wrong quantity or amount here)</span></div>
+        <table className="t-hist t-mini">
+          <tbody>
+            {entries.map((e) => (
+              <tr key={e.id}>
+                <td className="t-nowrap">{when(e.at)}</td>
+                <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
+                <td>{e.kind === 'transfer' ? <><Fac s={e.from} /> → <Fac s={other(e.from)} /></> : <Fac s={e.side} />}</td>
+                <td className="t-r">{plural(e.qty, 'unit')}</td>
+                <td className="t-r"><Money v={entryMoney(e)} /></td>
+                <td className="t-rowbtns">
+                  <button onClick={() => goEdit(e)}>Edit</button>
+                  <button className="t-del" onClick={() => deleteEntry(doc, update, e)}>{e.kind === 'transfer' && e.purchase ? 'Undo' : 'Delete'}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="t-actions">
+          <button type="button" className="t-del t-left" onClick={deleteItem}>Delete item and all its entries</button>
+          <button type="button" onClick={close}>Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; open: (o: Open) => void; update: Update }) {
   const ev = history(doc)
   if (!ev.length) return <p className="t-muted">Nothing recorded yet.</p>
-  const del = (e: HistoryEvent) => {
-    if (e.kind === 'sale' && confirm('Delete this sale?')) update((d) => mapBatch(d, e.batch!.id, (b) => ({ ...b, sales: b.sales.filter((s) => s.id !== e.sale!.id) })))
-    if (e.kind === 'transfer' && confirm(e.batch!.sales.length ? 'Undo this transfer? Its sales are deleted too.' : 'Undo this transfer?')) update((d) => mapBatch(d, e.batch!.id, (b) => ({ ...b, transfer: null, sales: [] })))
-    if (e.kind === 'adjustment' && confirm('Delete this adjustment?')) update((d) => ({ ...d, adjustments: d.adjustments.filter((a) => a.id !== e.adjustment!.id) }))
+  const delEntry = (e: Entry) => deleteEntry(doc, update, e)
+  const edit = (e: Entry) => editEntry(doc, open, e)
+  const delAdj = (a: Adjustment) => {
+    if (confirm('Delete this adjustment?')) update((d) => ({ ...d, adjustments: d.adjustments.filter((x) => x.id !== a.id) }))
   }
   return (
     <table className="t-hist">
       <thead><tr><th>When</th><th>What</th><th>Details</th><th className="t-r">Alliance</th><th className="t-r">Horde</th><th /></tr></thead>
       <tbody>
-        {ev.map((e, i) => (
-          <tr key={i} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
-            <td className="t-nowrap">{when(e.at)}</td>
-            <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
-            <td>
-              {e.kind === 'start' && 'Starting gold'}
-              {e.kind === 'purchase' && <>{e.batch!.item} · {plural(e.batch!.qty, 'unit')}</>}
-              {e.kind === 'transfer' && <>{e.batch!.item} to <Fac s={other(e.batch!.side)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(e.batch!.transfer!.price)} />)</span></>}
-              {e.kind === 'sale' && <>{e.batch!.item} · {plural(e.sale!.qty, 'unit')}</>}
-              {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
-            </td>
-            {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{e.delta[s] !== undefined ? <Money v={e.delta[s]!} sign={e.kind !== 'start'} /> : ''}</td>)}
-            <td className="t-rowbtns">
-              {e.kind === 'start' && <button onClick={() => open({ kind: 'start' })}>Edit</button>}
-              {e.kind === 'purchase' && <button onClick={() => open({ kind: 'purchase', batch: e.batch })}>Edit</button>}
-              {e.kind === 'transfer' && <><button onClick={() => open({ kind: 'transfer', batch: e.batch! })}>Edit</button><button className="t-del" onClick={() => del(e)}>Undo</button></>}
-              {e.kind === 'sale' && <><button onClick={() => open({ kind: 'sale', batch: e.batch!, sale: e.sale })}>Edit</button><button className="t-del" onClick={() => del(e)}>Delete</button></>}
-              {e.kind === 'adjustment' && <><button onClick={() => open({ kind: 'adjust', adj: e.adjustment })}>Edit</button><button className="t-del" onClick={() => del(e)}>Delete</button></>}
-            </td>
-          </tr>
-        ))}
+        {ev.map((e, i) => {
+          const en = e.entry
+          const short = en ? l.short[en.id] : undefined
+          return (
+            <tr key={en?.id ?? e.adjustment?.id ?? `s${i}`} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
+              <td className="t-nowrap">{when(e.at)}</td>
+              <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
+              <td>
+                {e.kind === 'start' && 'Starting gold'}
+                {en && <>{en.item} · {plural(en.qty, 'unit')}</>}
+                {en?.kind === 'transfer' && <> to <Fac s={other(en.from)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(en.price)} />)</span></>}
+                {en?.kind === 'sale' && l.saleProfit[en.id] !== undefined && <span className="t-muted"> · profit <Profit v={l.saleProfit[en.id]} /></span>}
+                {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
+                {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
+              </td>
+              {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{e.delta[s] !== undefined ? <Money v={e.delta[s]!} sign={e.kind !== 'start'} /> : ''}</td>)}
+              <td className="t-rowbtns">
+                {e.kind === 'start' && <button onClick={() => open({ kind: 'start' })}>Edit</button>}
+                {en && <><button onClick={() => edit(en)}>Edit</button><button className="t-del" onClick={() => delEntry(en)}>{en.kind === 'transfer' && en.purchase ? 'Undo' : 'Delete'}</button></>}
+                {e.adjustment && <><button onClick={() => open({ kind: 'adjust', adj: e.adjustment })}>Edit</button><button className="t-del" onClick={() => delAdj(e.adjustment!)}>Delete</button></>}
+              </td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
@@ -312,13 +479,17 @@ export function Trades() {
   const s = useTradesStore()
   const { doc, update } = s
   const [dlg, setDlg] = useState<Open | null>(null)
-  const [showDone, setShowDone] = useState(false)
-  const t = totals(doc)
-  const openB = doc.batches.filter((b) => !isFinished(b)).reverse()
-  const doneB = doc.batches.filter(isFinished).reverse()
+  const [showSoldOut, setShowSoldOut] = useState(false)
+  const l = useMemo(() => ledger(doc), [doc])
+  const t = totals(doc, l)
+  const newestFirst = [...l.items].sort((a, b) => (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0))
+  const inStock = newestFirst.filter((it) => it.stock.A.units > 0 || it.stock.H.units > 0)
+  const soldOut = newestFirst.filter((it) => !(it.stock.A.units > 0 || it.stock.H.units > 0))
   const close = () => setDlg(null)
-  const deleteBatch = (b: Batch) => {
-    if (confirm(`Delete the ${b.item} purchase${b.transfer || b.sales.length ? ', with its transfer and sales' : ''}?`)) update((d) => ({ ...d, batches: d.batches.filter((x) => x.id !== b.id) }))
+  const waiting = awaitingTransfer(doc, l).reverse()
+  const deletePurchase = (p: Purchase) => {
+    const t = transferOf(doc, p)
+    if (confirm(`Delete the ${p.item} purchase${t ? ', with its transfer' : ''}?`)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== p.id && x.id !== t?.id) }))
   }
 
   return (
@@ -339,34 +510,41 @@ export function Trades() {
         <div className="t-tile"><span className="t-ally">Alliance</span><b><Money v={t.balance.A} /></b></div>
         <div className="t-tile"><span className="t-horde">Horde</span><b><Money v={t.balance.H} /></b></div>
         <div className="t-tile t-total"><span>Total gold</span><b><Money v={t.total} /></b></div>
-        <div className="t-tile"><span>Tied up in items</span><b><Money v={t.tiedUp} /></b><small>{t.openBatches} open batch{t.openBatches === 1 ? '' : 'es'}, not in the total</small></div>
+        <div className="t-tile"><span>Tied up in items</span><b><Money v={t.tiedUp} /></b><small>{plural(t.itemsInStock, 'item')} in stock, not in the total</small></div>
         <div className="t-tile"><span>Trading profit</span><b className={t.profit >= 0 ? 't-pos' : 't-neg'}><Money v={t.profit} sign /></b>
-          <small title="Gold received, minus what the sold units cost, minus Blackwater's cut. Unsold items count at what you paid. Adjustments are left out.">sold units only ⓘ</small></div>
+          <small title="Gold received, minus what the sold units cost (at the item's average cost), minus Blackwater's cut. Unsold items count at what you paid. Adjustments are left out.">sold units only ⓘ</small></div>
       </section>
 
       <div className="t-bar">
         <button className="t-primary" onClick={() => setDlg({ kind: 'purchase' })}>+ Purchase</button>
+        <button className="t-primary" onClick={() => setDlg({ kind: 'sale' })}>+ Sale</button>
         <button onClick={() => setDlg({ kind: 'adjust' })}>Adjust balance</button>
         {doc.start.at && <button className="t-link" onClick={() => setDlg({ kind: 'start' })}>Starting gold: <Money v={doc.start.A} /> / <Money v={doc.start.H} /></button>}
       </div>
 
-      <h2>Open batches</h2>
-      {openB.length ? openB.map((b) => <BatchCard key={b.id} b={b} open={setDlg} onDelete={() => deleteBatch(b)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
+      <h2>Waiting for transfer</h2>
+      {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
 
-      {doneB.length > 0 && (
+      <h2>Items in stock</h2>
+      {inStock.length ? <ItemsTable items={inStock} open={setDlg} /> : <p className="t-muted">None yet.</p>}
+
+      {soldOut.length > 0 && (
         <>
-          <h2><button className="t-link" onClick={() => setShowDone(!showDone)}>{showDone ? '▾' : '▸'} Finished batches ({doneB.length})</button></h2>
-          {showDone && doneB.map((b) => <BatchCard key={b.id} b={b} open={setDlg} onDelete={() => deleteBatch(b)} />)}
+          <h2><button className="t-link" onClick={() => setShowSoldOut(!showSoldOut)}>{showSoldOut ? '▾' : '▸'} Sold out ({soldOut.length})</button></h2>
+          {showSoldOut && <ItemsTable items={soldOut} open={setDlg} />}
         </>
       )}
 
       <h2>History</h2>
-      <HistoryTable doc={doc} open={setDlg} update={update} />
+      <HistoryTable doc={doc} l={l} open={setDlg} update={update} />
 
       {dlg?.kind === 'start' && <StartDialog doc={doc} update={update} close={close} />}
-      {dlg?.kind === 'purchase' && <PurchaseDialog doc={doc} batch={dlg.batch} update={update} close={close} />}
-      {dlg?.kind === 'transfer' && <TransferDialog batch={dlg.batch} update={update} close={close} />}
-      {dlg?.kind === 'sale' && <SaleDialog batch={dlg.batch} sale={dlg.sale} update={update} close={close} />}
+      {dlg?.kind === 'purchase' && <PurchaseDialog doc={doc} entry={dlg.entry} item={dlg.item} update={update} close={close} />}
+      {dlg?.kind === 'item' && <ItemDialog itemKey={dlg.key} doc={doc} l={l} update={update} open={setDlg} close={close} />}
+      {dlg?.kind === 'cardTransfer' && <CardTransferDialog doc={doc} purchase={dlg.purchase} update={update} close={close} />}
+      {dlg && (dlg.kind === 'transfer' || dlg.kind === 'sale') && (
+        <EntryDialog kind={dlg.kind} entry={dlg.entry} item={dlg.item} side={dlg.side} doc={doc} update={update} close={close} />
+      )}
       {dlg?.kind === 'adjust' && <AdjustDialog adj={dlg.adj} update={update} close={close} />}
     </div>
   )

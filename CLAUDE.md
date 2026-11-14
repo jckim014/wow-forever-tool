@@ -338,17 +338,30 @@ A small separate page on the same site: `app/trades.html` -> https://jckim014.gi
 (second Vite entry in `vite.config.ts`; code in `app/src/trades/`, classes `t-*`, own stylesheet; shares no data with
 the shuffle app). Josh wanted it **extremely simple** ("you are overengineering this"): he types every figure; no
 market prices, predictions or TSM links. Purpose: how much gold is in the arbitrage and whether it profits.
-- Records (model.ts, tested with the agreed example): starting gold per faction (editable); batches = one purchase
-  (faction, item, qty, gold spent); its transfer (price defaults to the purchase price, editable; the buying side gets
-  price - 15%, the other side pays price); sales on the receiving side (qty, gold received in the mailbox, several per
-  batch); adjustments (faction, +/- amount, required note; amber in the history, never trading profit). Date/time
-  stamped automatically. Everything editable/deletable.
-- Figures: balances per faction and total gold = liquid gold only; tied up = unsold share of the purchase price (not in
-  the total; Josh confirmed); trading profit = received - cost of the units sold - transfer loss (= total + tied up -
-  starting gold - adjustments).
+- Records (model.ts, tested with the agreed example): starting gold per faction (editable); three kinds of entry,
+  each with faction, item (matched by name, ignoring case/extra spaces), qty, total gold and an editable time:
+  purchase (gold spent), transfer (from a faction; price = the Blackwater listing; sending side gets price - 15%, the
+  other pays price), sale (gold received in the mailbox; one entry can
+  lump many AH sales). Adjustments (faction, +/- amount, required note; amber in the history, never trading profit).
+  **No batches** (Josh, 2026-11-14: matching scattered sales to overlapping purchases was unwieldy; the batch version
+  4a2c5ab is read as version 1 and converted). Inventory: one stock pool per item and faction with a running average
+  cost, entries applied in time order: purchase adds units + gold; transfer moves units with their share of cost;
+  sale takes units out at the average (its profit is shown). Taking more than a pool holds is allowed, flagged
+  amber, extra units cost nothing. Purchase and transfer keep the original UI (Josh, 2026-11-14: they won't change and
+  it's convenient): Purchase dialog has no time field; each purchase shows as a card under "Waiting for transfer" with
+  "Transfer to Horde/Alliance" (price only, defaults to the purchase price; the transfer stores `purchase` = its id,
+  moves all units and follows edits to the purchase; Undo in the history puts the card back). A card also drops out
+  once its faction holds none of the item. Sales (and a free Transfer from the item table) use the item dialog with
+  the time field. Page: Items in stock table (holdings per faction with cost each, tied up, sold,
+  received, profit; Buy / Transfer / Sell buttons prefill; Edit opens the item's panel for typos (Josh, 2026-11-14):
+  rename on every entry (a name matching another item merges them), its entries with Edit/Delete, and Delete item
+  with all its entries (the confirm shows each balance's change)), Sold out (collapsed), History (every entry editable).
+- Figures: balances per faction and total gold = liquid gold only; tied up = cost of units held (not in the total;
+  Josh confirmed); trading profit = received - cost of units sold - transfer loss, per item and overall (= total +
+  tied up - starting gold - adjustments, tested).
 - Storage like the shuffle app's edits but separate keys: file picked once (File > Create/Open trades file;
   Josh's planned file `data/private/trades.json`), IndexedDB key `tradesFile`, browser copy in localStorage
-  `wow-forever-shuffle:trades:v1`; newer savedAt wins; format `forever-trades` v1. File > Download a copy.
+  `wow-forever-shuffle:trades:v1`; newer savedAt wins; format `forever-trades` v2 (v1 read and converted). File > Download a copy.
 
 ## Model (must match the workbook)
 

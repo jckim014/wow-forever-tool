@@ -1,42 +1,64 @@
 // Cross-faction trade tracker: the data (one JSON document) and every figure the page shows. Money in copper.
 //
-// A batch is one purchase. Its transfer moves it to the other faction through Blackwater: the buying side lists it at
-// the transfer price and receives that minus 15%; the other side pays the transfer price. Sales are recorded on the
-// selling side with the gold that arrived in the mailbox (already after the AH cut). Adjustments change a balance for
-// anything outside the trades and never count as trading profit.
+// No batches (Josh, 2026-11-14: matching sales to purchases was unwieldy). Purchases, transfers and sales are separate
+// entries, each naming an item and a quantity. The page keeps one stock pool per item and faction, with a running
+// average cost:
+// - a purchase adds its units and gold to the pool of the faction it was bought on;
+// - a transfer moves units, with their share of the pool's cost, to the other faction's pool. The sending side lists
+//   them on Blackwater at the transfer price and receives that minus 15%; the other side pays the transfer price. The
+//   15% counts as a cost of the item at once;
+// - a sale takes units out at the pool's average cost; its profit = gold received (in the mailbox, after the AH cut)
+//   - that cost.
+// Entries are applied in time order. Taking more units than a pool holds is allowed but flagged (the extra units cost
+// nothing). Adjustments change a balance for anything outside the trades and never count as trading profit.
 
 export type Side = 'A' | 'H'
 export const other = (s: Side): Side => (s === 'A' ? 'H' : 'A')
 export const SIDE_NAME: Record<Side, string> = { A: 'Alliance', H: 'Horde' }
 export const BLACKWATER_CUT = 0.15
 
-export interface Sale { id: string; qty: number; received: number; at: string }
-export interface Batch {
-  id: string
-  item: string
-  qty: number
-  side: Side // where it was bought
-  cost: number
-  at: string
-  transfer: { price: number; at: string } | null
-  sales: Sale[]
-}
+interface EntryBase { id: string; at: string; item: string; qty: number }
+export interface Purchase extends EntryBase { kind: 'purchase'; side: Side; cost: number }
+/** `purchase`: the purchase this transfer moved (made from its card); a free transfer has none. */
+export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; price: number; purchase?: string }
+export interface Sale extends EntryBase { kind: 'sale'; side: Side; received: number }
+export type Entry = Purchase | Transfer | Sale
+export type EntryKind = Entry['kind']
+
 export interface Adjustment { id: string; side: Side; amount: number; note: string; at: string }
 export interface TradesDoc {
   format: 'forever-trades'
-  version: 1
+  version: 2
   savedAt?: string
   start: { A: number; H: number; at: string | null }
-  batches: Batch[]
+  entries: Entry[]
   adjustments: Adjustment[]
 }
 
-export const emptyDoc = (): TradesDoc => ({ format: 'forever-trades', version: 1, start: { A: 0, H: 0, at: null }, batches: [], adjustments: [] })
+export const emptyDoc = (): TradesDoc => ({ format: 'forever-trades', version: 2, start: { A: 0, H: 0, at: null }, entries: [], adjustments: [] })
+
+/** Version 1 (batches): each batch becomes its purchase, its transfer (all units) and its sales. */
+interface V1Batch {
+  id: string; item: string; qty: number; side: Side; cost: number; at: string
+  transfer: { price: number; at: string } | null
+  sales: { id: string; qty: number; received: number; at: string }[]
+}
+function fromV1(batches: V1Batch[]): Entry[] {
+  const out: Entry[] = []
+  for (const b of batches) {
+    out.push({ kind: 'purchase', id: b.id, at: b.at, item: b.item, qty: b.qty, side: b.side, cost: b.cost })
+    if (b.transfer) out.push({ kind: 'transfer', id: `${b.id}-t`, at: b.transfer.at, item: b.item, qty: b.qty, from: b.side, price: b.transfer.price, purchase: b.id })
+    const sellSide = b.transfer ? other(b.side) : b.side
+    for (const s of b.sales) out.push({ kind: 'sale', id: s.id, at: s.at, item: b.item, qty: s.qty, side: sellSide, received: s.received })
+  }
+  return out
+}
 
 export function parseTradesDoc(text: string): TradesDoc {
   const d = JSON.parse(text)
-  if (d?.format !== 'forever-trades' || d.version !== 1) throw new Error('not a trades file')
-  return { ...emptyDoc(), ...d, start: { ...emptyDoc().start, ...d.start }, batches: d.batches ?? [], adjustments: d.adjustments ?? [] }
+  if (d?.format !== 'forever-trades' || (d.version !== 1 && d.version !== 2)) throw new Error('not a trades file')
+  const entries: Entry[] = d.version === 1 ? fromV1(d.batches ?? []) : d.entries ?? []
+  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [] }
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -44,54 +66,133 @@ export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().
 /** What Blackwater keeps from a transfer. */
 export const transferLoss = (price: number) => Math.round(price * BLACKWATER_CUT)
 
-export const soldQty = (b: Batch) => b.sales.reduce((s, x) => s + x.qty, 0)
-export const received = (b: Batch) => b.sales.reduce((s, x) => s + x.received, 0)
-export const unsoldQty = (b: Batch) => Math.max(0, b.qty - soldQty(b))
-export const isFinished = (b: Batch) => b.qty > 0 && unsoldQty(b) === 0
+/** Items are matched by name, ignoring case and extra spaces. */
+export const itemKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
 
-/** Gold still in unsold items: the unsold share of the purchase price. */
-export const tiedUp = (b: Batch) => (b.qty > 0 ? Math.round((b.cost * unsoldQty(b)) / b.qty) : 0)
+export interface Stock { units: number; cost: number }
+export interface ItemSummary {
+  key: string
+  name: string
+  stock: Record<Side, Stock>
+  soldUnits: number
+  received: number
+  /** Purchase cost of the units sold (at the average when sold). */
+  costOfSold: number
+  transferLoss: number
+  /** received - costOfSold - transferLoss */
+  profit: number
+  lastAt: string
+}
+export interface Ledger {
+  items: ItemSummary[]
+  /** Entry id -> units it took beyond what the pool held at the time. */
+  short: Record<string, number>
+  /** Sale id -> its profit (received - cost of its units). */
+  saleProfit: Record<string, number>
+}
 
-/** Received - purchase cost of the units sold - transfer loss. For a finished batch: its profit. */
-export function batchProfit(b: Batch): number {
-  const loss = b.transfer ? transferLoss(b.transfer.price) : 0
-  return received(b) - (b.cost - tiedUp(b)) - loss
+/** Entries in the order they are applied: by time, then as recorded. */
+export const ordered = (entries: Entry[]) =>
+  entries.map((e, i) => ({ e, i })).sort((x, y) => (x.e.at < y.e.at ? -1 : x.e.at > y.e.at ? 1 : x.i - y.i)).map((x) => x.e)
+
+/** Takes qty units out of a pool at its average cost; returns that cost and the units it was short. */
+function take(p: Stock, qty: number): { cost: number; short: number } {
+  const n = Math.min(qty, p.units)
+  const cost = n <= 0 ? 0 : n === p.units ? p.cost : Math.round((p.cost * n) / p.units)
+  p.units -= Math.max(0, n)
+  p.cost -= cost
+  return { cost, short: qty - Math.max(0, n) }
+}
+
+export function ledger(d: TradesDoc): Ledger {
+  const items = new Map<string, ItemSummary>()
+  const short: Record<string, number> = {}
+  const saleProfit: Record<string, number> = {}
+  for (const e of ordered(d.entries)) {
+    const key = itemKey(e.item)
+    let it = items.get(key)
+    if (!it) {
+      it = { key, name: e.item.trim(), stock: { A: { units: 0, cost: 0 }, H: { units: 0, cost: 0 } }, soldUnits: 0, received: 0, costOfSold: 0, transferLoss: 0, profit: 0, lastAt: e.at }
+      items.set(key, it)
+    }
+    it.lastAt = e.at
+    if (e.kind === 'purchase') {
+      it.stock[e.side].units += e.qty
+      it.stock[e.side].cost += e.cost
+    } else if (e.kind === 'transfer') {
+      const t = take(it.stock[e.from], e.qty)
+      if (t.short) short[e.id] = t.short
+      it.stock[other(e.from)].units += e.qty
+      it.stock[other(e.from)].cost += t.cost
+      it.transferLoss += transferLoss(e.price)
+    } else {
+      const t = take(it.stock[e.side], e.qty)
+      if (t.short) short[e.id] = t.short
+      it.soldUnits += e.qty
+      it.received += e.received
+      it.costOfSold += t.cost
+      saleProfit[e.id] = e.received - t.cost
+    }
+  }
+  for (const it of items.values()) it.profit = it.received - it.costOfSold - it.transferLoss
+  return { items: [...items.values()], short, saleProfit }
+}
+
+/** Units of an item a faction holds now (all entries applied). */
+export function onHand(d: TradesDoc, item: string, side: Side): Stock {
+  const it = ledger(d).items.find((x) => x.key === itemKey(item))
+  return it ? it.stock[side] : { units: 0, cost: 0 }
+}
+
+/**
+ * Purchases still waiting for their transfer, oldest first: no transfer made from them, and the faction they were
+ * bought on still holds some of the item (so a purchase moved or sold some other way drops out by itself).
+ */
+export function awaitingTransfer(d: TradesDoc, l: Ledger = ledger(d)): Purchase[] {
+  const moved = new Set(d.entries.flatMap((e) => (e.kind === 'transfer' && e.purchase ? [e.purchase] : [])))
+  const held = new Map(l.items.map((it) => [it.key, it.stock]))
+  return ordered(d.entries).filter((e): e is Purchase => e.kind === 'purchase' && !moved.has(e.id) && (held.get(itemKey(e.item))?.[e.side].units ?? 0) > 0)
+}
+
+/** The transfer made from a purchase's card, if any. */
+export const transferOf = (d: TradesDoc, p: Purchase) =>
+  d.entries.find((e): e is Transfer => e.kind === 'transfer' && e.purchase === p.id)
+
+/** Change to each side's balance from one entry. */
+export function entryDelta(e: Entry): Partial<Record<Side, number>> {
+  if (e.kind === 'purchase') return { [e.side]: -e.cost }
+  if (e.kind === 'transfer') return { [e.from]: e.price - transferLoss(e.price), [other(e.from)]: -e.price }
+  return { [e.side]: e.received }
 }
 
 export interface Totals {
   balance: Record<Side, number>
   total: number
+  /** Purchase cost of the units still held. */
   tiedUp: number
-  /** Total gold + tied up - starting gold - adjustments = the sum of batchProfit. */
+  /** Total gold + tied up - starting gold - adjustments = the sum of the items' profit. */
   profit: number
-  openBatches: number
+  itemsInStock: number
 }
 
-export function totals(d: TradesDoc): Totals {
+export function totals(d: TradesDoc, l: Ledger = ledger(d)): Totals {
   const balance: Record<Side, number> = { A: d.start.A, H: d.start.H }
   for (const a of d.adjustments) balance[a.side] += a.amount
-  let tied = 0, profit = 0, open = 0
-  for (const b of d.batches) {
-    balance[b.side] -= b.cost
-    if (b.transfer) {
-      balance[b.side] += b.transfer.price - transferLoss(b.transfer.price)
-      balance[other(b.side)] -= b.transfer.price
-    }
-    const sellSide = b.transfer ? other(b.side) : b.side
-    balance[sellSide] += received(b)
-    tied += tiedUp(b)
-    profit += batchProfit(b)
-    if (!isFinished(b)) open++
+  for (const e of d.entries) for (const [s, v] of Object.entries(entryDelta(e)) as [Side, number][]) balance[s] += v
+  let tied = 0, profit = 0, inStock = 0
+  for (const it of l.items) {
+    tied += it.stock.A.cost + it.stock.H.cost
+    profit += it.profit
+    if (it.stock.A.units > 0 || it.stock.H.units > 0) inStock++
   }
-  return { balance, total: balance.A + balance.H, tiedUp: tied, profit, openBatches: open }
+  return { balance, total: balance.A + balance.H, tiedUp: tied, profit, itemsInStock: inStock }
 }
 
-export type EventKind = 'start' | 'purchase' | 'transfer' | 'sale' | 'adjustment'
+export type EventKind = 'start' | EntryKind | 'adjustment'
 export interface HistoryEvent {
   kind: EventKind
   at: string
-  batch?: Batch
-  sale?: Sale
+  entry?: Entry
   adjustment?: Adjustment
   /** Change to each side's balance. */
   delta: Partial<Record<Side, number>>
@@ -102,16 +203,9 @@ export function history(d: TradesDoc): HistoryEvent[] {
   const ev: HistoryEvent[] = []
   if (d.start.at) ev.push({ kind: 'start', at: d.start.at, delta: { A: d.start.A, H: d.start.H } })
   for (const a of d.adjustments) ev.push({ kind: 'adjustment', at: a.at, adjustment: a, delta: { [a.side]: a.amount } })
-  for (const b of d.batches) {
-    ev.push({ kind: 'purchase', at: b.at, batch: b, delta: { [b.side]: -b.cost } })
-    if (b.transfer) {
-      const p = b.transfer.price
-      ev.push({ kind: 'transfer', at: b.transfer.at, batch: b, delta: { [b.side]: p - transferLoss(p), [other(b.side)]: -p } })
-    }
-    const sellSide = b.transfer ? other(b.side) : b.side
-    for (const s of b.sales) ev.push({ kind: 'sale', at: s.at, batch: b, sale: s, delta: { [sellSide]: s.received } })
-  }
-  return ev.sort((x, y) => (x.at < y.at ? 1 : x.at > y.at ? -1 : 0))
+  ordered(d.entries).forEach((e) => ev.push({ kind: e.kind, at: e.at, entry: e, delta: entryDelta(e) }))
+  // Newest first; equal times keep the reverse of the applied order.
+  return ev.map((x, i) => ({ x, i })).sort((a, b) => (a.x.at < b.x.at ? 1 : a.x.at > b.x.at ? -1 : b.i - a.i)).map((a) => a.x)
 }
 
 /**
