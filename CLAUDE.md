@@ -82,6 +82,13 @@ app/                            the web app (to be built: Vite + React + TypeScr
   the last full scan per realm/faction (`app/src/prices/auctioneer.ts`; listing fields from Auc-Advanced
   `CoreConst.lua`: COUNT 11, BUYOUT 17 = whole stack, ITEMID 23). Per item ID, over listings with a buyout, per unit:
   p1 = lowest buyout, p2 = median weighted by units, p3 = average of the cheapest 15% of units (at least one unit).
+  **Wall cutoff for p3** (Josh, 2026-11-14, chose 5x after seeing 3x / 5x / 10x on live data): units priced over 5x
+  the *anchor* are left out first, and p3 is the cheapest 15% of the units kept. Anchor = the price reached by the
+  cheapest 5% of all units (not the lowest listing: Stonescale Eel had 1 bait unit at 21c under ~1,900 at 1s 64c).
+  Why: Raw Longjaw Mud Snapper on Horde had 8,616 of 10,280 units at 22s, so 15% of all units reached past the 555
+  units at 10c and p3 read 2s 18c; with the cutoff 10c. Changes ~35-42 items per faction by >10%. p1, p2, units and
+  listings are unchanged. Same code in `auctioneer.ts` (`ANCHOR_SHARE`, `WALL_CUTOFF`) and `collector/syncLib.mjs`
+  (`collectorSummary.test.ts` keeps them equal), so it applies to every scan reader, API summaries and Forever Market.
   Bid-only listings are left out. Only the latest scan is kept (no history yet; Auctioneer's Stat modules were empty
   after the first scan). Josh's file: `F:\World of Warcraft\_forever_\WTF\Account\1120039#2\SavedVariables\Auc-ScanData.lua`
   (account folder 1120039#2, not THOROCKTHEBOLD); first scan copied to `data/private/auctioneer-2026-11-06/`, which
@@ -202,7 +209,9 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   `--disable-warning=ExperimentalWarning`). Tables: `snapshots(t, id, collected_at)` (t = data time, Unix s),
   `snapshot_houses(house, t, listings, bid_only, items)`, `prices(item, house, t, lowest, median, cheapest15, units,
   listings)` (PK item, house, t; WITHOUT ROWID), `item_ids(item, first_t)`; WAL mode. Filled by
-  `collector/build_db.mjs` (backfill/catch-up from the summaries, skips stored snapshots) and by `sync.mjs` right after
+  `collector/build_db.mjs` (backfill/catch-up from the summaries, skips stored snapshots), by
+  `collector/rebuild_summaries.mjs` (after a change to the summary calculation: recomputes every summary from raw and
+  rewrites market.db's rows; takes the sync's lock; 37 snapshots in 87 s on 2026-11-14) and by `sync.mjs` right after
   it stores each summary (a failure there notifies and is caught up by build_db). After storing snapshots the sync runs
   `fetch_names.mjs --limit 120` for new items (lock `items.json.lock`, one fetch at a time; it reads IDs from
   `item_ids`). Indexes `prices_by_time (house, t)` and `departures_by_time` (for the Faction tab);
@@ -527,7 +536,10 @@ checked it on the live site ("looks good").
   grey tab underline, sales as three tiles (f7bd332, b79dd57; see Forever Market > Look). Josh: "this looks perfect".
   All pushed except the final CLAUDE.md commits.
 2026-11-14 (short session): Faction tab's sales header now names the destination faction (see Faction tab). Josh had
-  asked for destination-side sales; it already was, the old "Sales / day*" header just didn't say so. Not pushed.
+  asked for destination-side sales; it already was, the old "Sales / day*" header just didn't say so.
+  Then the p3 / cheapest15 wall cutoff (see Prices > Auctioneer); all summaries on F: and market.db recomputed. Not
+  pushed: until it is, the live shuffle app computes BavvbScan imports the old way, while its API prices (read from
+  F:) already use the new figures. Older files in data/private/price-history/ keep the old p3 (archive only).
 
 Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced

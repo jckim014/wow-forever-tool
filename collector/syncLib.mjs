@@ -46,6 +46,11 @@ export function readZip(buf) {
 
 export const SUMMARY_COLUMNS = ['lowest', 'median', 'cheapest15', 'units', 'listings'];
 const CHEAPEST_SHARE = 0.15;
+// Before the cheapest-15% average, units priced over WALL_CUTOFF x the anchor are left out, so one huge overpriced
+// listing can't inflate the unit count (Josh, 2026-11-14). Anchor = the price reached by the cheapest ANCHOR_SHARE of
+// units (not the single lowest listing, which may be one bait unit).
+const ANCHOR_SHARE = 0.05;
+const WALL_CUTOFF = 5;
 
 export function roundHalfEven(x) {
   const r = Math.round(x);
@@ -64,9 +69,17 @@ export function summarizeUnits(byItem) {
       acc += n;
       if (acc >= units / 2) { med = pr; break; }
     }
-    const need = Math.max(1, CHEAPEST_SHARE * units);
-    let took = 0, sum = 0;
+    const atShare = Math.max(1, ANCHOR_SHARE * units);
+    acc = 0;
+    let anchor = xs[xs.length - 1][0];
     for (const [pr, n] of xs) {
+      acc += n;
+      if (acc >= atShare) { anchor = pr; break; }
+    }
+    const kept = xs.filter((x) => x[0] <= WALL_CUTOFF * anchor);
+    const need = Math.max(1, CHEAPEST_SHARE * kept.reduce((s, x) => s + x[1], 0));
+    let took = 0, sum = 0;
+    for (const [pr, n] of kept) {
       const take = Math.min(n, need - took);
       sum += pr * take;
       took += take;

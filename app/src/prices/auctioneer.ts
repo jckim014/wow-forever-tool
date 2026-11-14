@@ -4,7 +4,8 @@
 // with a buyout, and the price per unit (stack buyout / stack size):
 //   p1 = lowest buyout per unit
 //   p2 = median per unit, weighted by units (the price at which half of all listed units are as cheap or cheaper)
-//   p3 = average price of the cheapest 15% of listed units (at least one unit)
+//   p3 = average price of the cheapest 15% of listed units (at least one unit), after leaving out units priced over
+//        5x the price reached by the cheapest 5% of units (overpriced walls; 2026-11-14)
 //
 // File layout (Auc-ScanData, image "rope"): AucScanData = { Version, scans = { [serverKey] = { scanstats, image =
 // "rope", ropes = { "return {{...},{...},...}", ... } } } }. Each rope is Lua source for a list of listings; the
@@ -16,6 +17,11 @@ import { luaString } from './auctionator'
 
 /** Share of listed units averaged for p3. */
 export const CHEAPEST_SHARE = 0.15
+/** Before p3, units priced over WALL_CUTOFF x the anchor are left out (one huge overpriced listing would otherwise
+ *  inflate the unit count; Josh, 2026-11-14). Anchor = the price reached by the cheapest ANCHOR_SHARE of units, not the
+ *  single lowest listing, which may be one bait unit. */
+export const ANCHOR_SHARE = 0.05
+export const WALL_CUTOFF = 5
 
 const COUNT = 10, BUYOUT = 16, ITEMID = 22 // 0-based
 
@@ -233,9 +239,17 @@ export function pricesFromUnits(byItem: UnitsByItem, listings: number, noBuyout:
       acc += n
       if (acc >= units / 2) { med = p; break }
     }
-    const need = Math.max(1, CHEAPEST_SHARE * units)
-    let took = 0, sum = 0
+    const atShare = Math.max(1, ANCHOR_SHARE * units)
+    acc = 0
+    let anchor = xs[xs.length - 1][0]
     for (const [p, n] of xs) {
+      acc += n
+      if (acc >= atShare) { anchor = p; break }
+    }
+    const kept = xs.filter((x) => x[0] <= WALL_CUTOFF * anchor)
+    const need = Math.max(1, CHEAPEST_SHARE * kept.reduce((s, x) => s + x[1], 0))
+    let took = 0, sum = 0
+    for (const [p, n] of kept) {
       const take = Math.min(n, need - took)
       sum += p * take
       took += take

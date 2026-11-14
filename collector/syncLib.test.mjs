@@ -49,6 +49,23 @@ test('summary: lowest, unit-weighted median, cheapest 15%, units, listings', () 
   assert.deepEqual(summarizeUnits(new Map([[7, [[2.5, 1]]]])), { 7: [2, 2, 2, 1, 1] });
 });
 
+test('summary: an overpriced wall is left out of the cheapest 15%', () => {
+  // Raw Longjaw Mud Snapper on Horde, 2026-11-14 (shortened): 100 at 10c, 50 at 15c, 900 at 22s.
+  // Without the cutoff: 15% of 1,050 = 157.5 units, reaching into the wall (~5s 36c). Anchor = price at 5% of units
+  // (52.5 units -> 10c), cutoff 5x = 50c, so only the 150 cheap units count: 15% = 22.5 units, all at 10c.
+  const m = new Map([[1, [[10, 100], [15, 50], [2200, 900]]]]);
+  assert.deepEqual(summarizeUnits(m)[1], [10, 2200, 10, 1050, 3]);
+});
+
+test('summary: one cheap bait unit does not set the cutoff', () => {
+  // Stonescale Eel on Horde, 2026-11-14 (shortened): 1 at 21c, then 300 at 1s 64c and 100 at 2s.
+  // Anchored on the lowest (21c x 5 = 1s 05c) everything real would go; the 5% anchor (1s 64c) keeps it all.
+  const m = new Map([[1, [[21, 1], [164, 300], [200, 100]]]]);
+  const [low, , c15] = summarizeUnits(m)[1];
+  assert.equal(low, 21);
+  assert.equal(c15, Math.round((21 + 59.15 * 164) / 60.15)); // 15% of 401 units
+});
+
 test('summary of a house: stack buyouts, unit prices, bid-only left out', () => {
   const s = summarizeHouse(
     { auctions: [
