@@ -573,6 +573,9 @@ checked it on the live site ("looks good").
   data/private/price-history/ keep the old p3 (archive only).
   Then the Trade tracker (see its section): discussed Google Sheet vs Market tab vs claude.ai page vs GitHub; Josh
   chose a separate GitHub page saving to a file. Built, demoed locally, pushed and live.
+  Later the same day (after real use): batches dropped for per-item stock pools with average cost (sales were too
+  scattered to match to purchases), purchase cards + "Transfer to ..." kept at Josh's request, item Edit panel for
+  typos (8948234, pushed and live).
 
 Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
@@ -635,8 +638,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Trade tracker (live 2026-11-14, 4a2c5ab): Josh tried the local demo ("looks great") but hasn't yet created his
-  trades file on the live page or entered real starting gold. Iterations come from his real use; keep it simple.
+- Trade tracker (stock-pool version live 2026-11-14, 8948234): Josh has a real trades file in batch format (v1); the
+  live page converts it on first load and saves v2 on his next change (suggested: File > Download a copy first). Not
+  yet confirmed that his real data converted as expected; if figures look off, compare total gold / trading profit
+  with the old page's (the conversion keeps both identical, tested). Iterations come from real use; keep it simple.
 - Wall cutoff (2026-11-14): Josh hasn't yet looked at the new figures in the apps (check steps given: Mud Snapper Horde
   ~10c, Stonescale Eel Horde ~1s 64c). If a price looks wrong, print the item's listing ladder from the raw snapshot
   first (that is how the wall was found). A cheap cluster holding over 5% of units would still set the anchor low.
