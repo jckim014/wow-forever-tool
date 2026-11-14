@@ -558,6 +558,8 @@ checked it on the live site ("looks good").
   Then the p3 / cheapest15 wall cutoff (see Prices > Auctioneer; 9772f07, pushed and live); all summaries on F: and
   market.db recomputed. Josh's saved imports keep the old p3 until his next Refresh / import. Older files in
   data/private/price-history/ keep the old p3 (archive only).
+  Then the Trade tracker (see its section): discussed Google Sheet vs Market tab vs claude.ai page vs GitHub; Josh
+  chose a separate GitHub page saving to a file. Built, demoed locally, pushed and live.
 
 Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
@@ -620,6 +622,8 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Trade tracker (live 2026-11-14, 4a2c5ab): Josh tried the local demo ("looks great") but hasn't yet created his
+  trades file on the live page or entered real starting gold. Iterations come from his real use; keep it simple.
 - Wall cutoff (2026-11-14): Josh hasn't yet looked at the new figures in the apps (check steps given: Mud Snapper Horde
   ~10c, Stonescale Eel Horde ~1s 64c). If a price looks wrong, print the item's listing ladder from the raw snapshot
   first (that is how the wall was found). A cheap cluster holding over 5% of units would still set the anchor low.
