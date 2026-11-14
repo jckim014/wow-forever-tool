@@ -537,9 +537,9 @@ checked it on the live site ("looks good").
   All pushed except the final CLAUDE.md commits.
 2026-11-14 (short session): Faction tab's sales header now names the destination faction (see Faction tab). Josh had
   asked for destination-side sales; it already was, the old "Sales / day*" header just didn't say so.
-  Then the p3 / cheapest15 wall cutoff (see Prices > Auctioneer); all summaries on F: and market.db recomputed. Not
-  pushed: until it is, the live shuffle app computes BavvbScan imports the old way, while its API prices (read from
-  F:) already use the new figures. Older files in data/private/price-history/ keep the old p3 (archive only).
+  Then the p3 / cheapest15 wall cutoff (see Prices > Auctioneer; 9772f07, pushed and live); all summaries on F: and
+  market.db recomputed. Josh's saved imports keep the old p3 until his next Refresh / import. Older files in
+  data/private/price-history/ keep the old p3 (archive only).
 
 Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
