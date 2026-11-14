@@ -1,8 +1,8 @@
 // The trade tracker page (trades.html): balances, items in stock, history. Figures from model.ts.
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transferOf,
-  type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc,
+  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transfersOf, leftToTransfer,
+  type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc, type Transfer,
 } from './model'
 import { useTradesStore, type TradesStatus } from './store'
 
@@ -85,7 +85,7 @@ const toLocalInput = (iso: string) => {
 type Open =
   | { kind: 'start' }
   | { kind: 'purchase'; entry?: Purchase; item?: string }
-  | { kind: 'cardTransfer'; purchase: Purchase }
+  | { kind: 'cardTransfer'; purchase: Purchase; entry?: Transfer }
   | { kind: 'item'; key: string }
   | { kind: 'transfer' | 'sale'; entry?: Entry; item?: string; side?: Side }
   | { kind: 'adjust'; adj?: Adjustment }
@@ -124,8 +124,14 @@ function PurchaseDialog({ doc, entry, item: item0, update, close }: { doc: Trade
       update((d) => ({
         ...d,
         entries: entry
-          // Its transfer (made from the card) moves the same units, so it follows the purchase.
-          ? d.entries.map((x) => (x.id === entry.id ? p : x.kind === 'transfer' && x.purchase === entry.id ? { ...x, item: p.item, qty: p.qty, from: p.side } : x))
+          // Its card transfers move its units, so they follow its item and faction; a single transfer that moved all
+          // of it also follows its quantity.
+          ? d.entries.map((x) => {
+              if (x.id === entry.id) return p
+              if (x.kind !== 'transfer' || x.purchase !== entry.id) return x
+              const whole = transfersOf(d, entry).length === 1 && x.qty === entry.qty
+              return { ...x, item: p.item, from: p.side, qty: whole ? p.qty : x.qty }
+            })
           : [...d.entries, p],
       }))
       close()
@@ -143,40 +149,56 @@ function PurchaseDialog({ doc, entry, item: item0, update, close }: { doc: Trade
   )
 }
 
-/** The transfer of one purchase (all its units), from its card. */
-function CardTransferDialog({ doc, purchase, update, close }: { doc: TradesDoc; purchase: Purchase; update: Update; close: () => void }) {
-  const existing = transferOf(doc, purchase)
-  const [price, setPrice] = useState(moneyText(existing?.price ?? purchase.cost))
-  const p = parseMoney(price)
-  const ok = p !== null && p > 0
+/** A transfer of some or all of a purchase's remaining units, from its card (or editing one made there). */
+function CardTransferDialog({ doc, purchase, entry: existing, update, close }: { doc: TradesDoc; purchase: Purchase; entry?: Transfer; update: Update; close: () => void }) {
+  // Units this transfer can move: what is left on the card, plus its own units when editing.
+  const max = leftToTransfer(doc, purchase) + (existing?.qty ?? 0)
+  const qty0 = existing?.qty ?? max
+  const [qty, setQty] = useState(String(qty0))
+  const q = Number(qty)
+  const qtyOk = Number.isInteger(q) && q >= 1 && q <= max
+  // Price typed per unit; stored as the total. Left untouched with the same quantity, the original total is kept
+  // exactly (no rounding).
+  const total0 = existing?.price ?? (qty0 === purchase.qty ? purchase.cost : Math.round((purchase.cost * qty0) / purchase.qty))
+  const text0 = moneyText(Math.round(total0 / Math.max(1, qty0)))
+  const [price, setPrice] = useState(text0)
+  const each = parseMoney(price)
+  const p = each === null || !qtyOk ? null : price === text0 && q === qty0 ? total0 : each * q
+  const ok = qtyOk && each !== null && each > 0 && p !== null && p > 0
   const to = other(purchase.side)
   return (
     <Dialog title={`Transfer ${purchase.item} to ${SIDE_NAME[to]}`} onClose={close} canSave={ok} saveLabel={existing ? 'Save' : 'Record transfer'} onSave={() => {
       update((d) => ({
         ...d,
         entries: existing
-          ? d.entries.map((x) => (x.id === existing.id ? { ...existing, price: p! } : x))
-          : [...d.entries, { kind: 'transfer', id: newId(), at: new Date().toISOString(), item: purchase.item, qty: purchase.qty, from: purchase.side, price: p!, purchase: purchase.id }],
+          ? d.entries.map((x) => (x.id === existing.id ? { ...existing, qty: q, price: p! } : x))
+          : [...d.entries, { kind: 'transfer', id: newId(), at: new Date().toISOString(), item: purchase.item, qty: q, from: purchase.side, price: p!, purchase: purchase.id }],
       }))
       close()
     }}>
-      <MoneyInput label="Listed on Blackwater for" value={price} onChange={setPrice} autoFocus />
+      <label className="t-field"><span>Quantity</span>
+        <input type="number" min={1} max={max} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
+        <small className={qty !== '' && !qtyOk ? 't-warn' : ''}>
+          {qty !== '' && !qtyOk ? `Between 1 and ${max}` : qtyOk && q < max ? `${plural(max - q, 'unit')} stay waiting for transfer` : `All ${plural(max, 'unit')}`}
+        </small>
+      </label>
+      <MoneyInput label="Listed on Blackwater for (per unit)" value={price} onChange={setPrice} autoFocus />
       {ok && (
         <p className="t-hint">
-          <Fac s={to} /> pays <Money v={p!} />. Blackwater keeps 15% (<Money v={transferLoss(p!)} />), so <Fac s={purchase.side} /> gets back <Money v={p! - transferLoss(p!)} />.
+          {q > 1 && <>{plural(q, 'unit')}, <Money v={p!} /> in all. </>}<Fac s={to} /> pays <Money v={p!} />. Blackwater keeps 15% (<Money v={transferLoss(p!)} />), so <Fac s={purchase.side} /> gets back <Money v={p! - transferLoss(p!)} />.
         </p>
       )}
     </Dialog>
   )
 }
 
-function PurchaseCard({ p, open, onDelete }: { p: Purchase; open: (o: Open) => void; onDelete: () => void }) {
+function PurchaseCard({ p, left, open, onDelete }: { p: Purchase; left: number; open: (o: Open) => void; onDelete: () => void }) {
   const to = other(p.side)
   return (
     <div className="t-card">
       <div className="t-cardhead">
         <strong>{p.item}</strong>
-        <span className="t-muted">{plural(p.qty, 'unit')} · bought on <Fac s={p.side} /> for <Money v={p.cost} /> · {when(p.at)}</span>
+        <span className="t-muted">{left < p.qty ? `${left} of ${p.qty} units left to transfer` : plural(p.qty, 'unit')} · bought on <Fac s={p.side} /> for <Money v={p.cost} /> · {when(p.at)}</span>
       </div>
       <div className="t-cardbtns">
         <button className="t-primary" onClick={() => open({ kind: 'cardTransfer', purchase: p })}>Transfer to {SIDE_NAME[to]}</button>
@@ -189,7 +211,7 @@ function PurchaseCard({ p, open, onDelete }: { p: Purchase; open: (o: Open) => v
 
 const ENTRY_TEXT: Record<EntryKind, { title: string; side: string; money: string }> = {
   purchase: { title: 'Purchase', side: 'Bought on', money: 'Gold spent (total)' },
-  transfer: { title: 'Transfer', side: 'From', money: 'Listed on Blackwater for (total)' },
+  transfer: { title: 'Transfer', side: 'From', money: 'Listed on Blackwater for (per unit)' },
   sale: { title: 'Sale', side: 'Sold on', money: 'Gold received in the mailbox (total)' },
 }
 const entrySide = (e: Entry): Side => (e.kind === 'transfer' ? e.from : e.side)
@@ -204,7 +226,10 @@ function EntryDialog({ kind, entry, item: item0, side: side0, doc, update, close
   const [side, setSide] = useState<Side>(entry ? entrySide(entry) : side0 ?? (last ? entrySide(last) : kind === 'sale' ? 'H' : 'A'))
   const [item, setItem] = useState(entry?.item ?? item0 ?? '')
   const [qty, setQty] = useState(entry ? String(entry.qty) : '')
-  const [money, setMoney] = useState(entry ? moneyText(entryMoney(entry)) : '')
+  // A transfer's price is typed per unit and stored as the total; left untouched (with the same quantity), the
+  // original total is kept exactly.
+  const money0 = entry ? moneyText(kind === 'transfer' ? Math.round(entryMoney(entry) / entry.qty) : entryMoney(entry)) : ''
+  const [money, setMoney] = useState(money0)
   const initialWhen = useMemo(() => toLocalInput(entry?.at ?? new Date().toISOString()), [entry])
   const [whenText, setWhen] = useState(initialWhen)
 
@@ -212,10 +237,14 @@ function EntryDialog({ kind, entry, item: item0, side: side0, doc, update, close
   // What the faction holds now, leaving out the entry being edited.
   const without = useMemo(() => (entry ? { ...doc, entries: doc.entries.filter((e) => e.id !== entry.id) } : doc), [doc, entry])
   const held = item.trim() ? onHand(without, item, side) : null
-  const q = Number(qty), m = parseMoney(money)
+  const q = Number(qty), typed = parseMoney(money)
+  const m = kind !== 'transfer' || typed === null ? typed
+    : entry && money === money0 && q === entry.qty ? entryMoney(entry)
+    : Number.isInteger(q) && q >= 1 ? typed * q : null
   const whenOk = whenText !== '' && !Number.isNaN(new Date(whenText).getTime())
   const ok = item.trim() !== '' && Number.isInteger(q) && q >= 1 && m !== null && (kind === 'sale' ? m >= 0 : m > 0) && whenOk
   const avgCost = held && held.units > 0 && Number.isInteger(q) && q >= 1 ? Math.round((held.cost * Math.min(q, held.units)) / held.units) : null
+  const avgEach = held && held.units > 0 ? Math.round(held.cost / held.units) : null
 
   const save = () => {
     const at = whenText === initialWhen ? entry?.at ?? new Date().toISOString() : new Date(whenText).toISOString()
@@ -239,9 +268,9 @@ function EntryDialog({ kind, entry, item: item0, side: side0, doc, update, close
         <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} autoFocus={!!item0} />
         <small className={held && q > held.units ? 't-warn' : ''}>{held && q > held.units ? `More than ${SIDE_NAME[side]} holds; the extra ${plural(q - held.units, 'unit')} will count at no cost` : ' '}</small>
       </label>
-      <MoneyInput label={t.money} value={money} onChange={setMoney} extra={kind === 'transfer' && avgCost !== null && <> · <button type="button" className="t-link t-inline" onClick={() => setMoney(moneyText(avgCost))}>use what they cost ({moneyText(avgCost)})</button></>} />
+      <MoneyInput label={t.money} value={money} onChange={setMoney} extra={kind === 'transfer' && avgEach !== null && <> · <button type="button" className="t-link t-inline" onClick={() => setMoney(moneyText(avgEach))}>use what they cost ({moneyText(avgEach)} each)</button></>} />
       {kind === 'transfer' && m !== null && m > 0 && (
-        <p className="t-hint"><Fac s={other(side)} /> pays <Money v={m} />. Blackwater keeps 15% (<Money v={transferLoss(m)} />), so <Fac s={side} /> gets back <Money v={m - transferLoss(m)} />.</p>
+        <p className="t-hint">{q > 1 && <>{plural(q, 'unit')}, <Money v={m} /> in all. </>}<Fac s={other(side)} /> pays <Money v={m} />. Blackwater keeps 15% (<Money v={transferLoss(m)} />), so <Fac s={side} /> gets back <Money v={m - transferLoss(m)} />.</p>
       )}
       {kind === 'sale' && m !== null && avgCost !== null && (
         <p className="t-hint">These units cost <Money v={avgCost} /> on average, so this sale makes <Profit v={m - avgCost} />.</p>
@@ -357,16 +386,17 @@ const KIND_LABEL: Record<HistoryEvent['kind'], string> = { start: 'Start', purch
 
 /** Delete one entry (a purchase takes its card transfer with it; a card transfer is "undone"). */
 function deleteEntry(doc: TradesDoc, update: Update, e: Entry) {
-  const linked = e.kind === 'purchase' ? doc.entries.find((x) => x.kind === 'transfer' && x.purchase === e.id) : undefined
-  const q = e.kind === 'transfer' && e.purchase ? 'Undo this transfer? The purchase goes back to waiting for transfer.' : linked ? 'Delete this purchase, with its transfer?' : `Delete this ${e.kind}?`
-  if (confirm(q)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== e.id && x.id !== linked?.id) }))
+  const linked = new Set(e.kind === 'purchase' ? transfersOf(doc, e).map((x) => x.id) : [])
+  const q = e.kind === 'transfer' && e.purchase ? 'Undo this transfer? Its units go back to waiting for transfer.'
+    : linked.size ? `Delete this purchase, with its ${linked.size === 1 ? 'transfer' : `${linked.size} transfers`}?` : `Delete this ${e.kind}?`
+  if (confirm(q)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== e.id && !linked.has(x.id)) }))
 }
 /** Open the dialog an entry was made with. */
 function editEntry(doc: TradesDoc, open: (o: Open) => void, e: Entry) {
   if (e.kind === 'purchase') open({ kind: 'purchase', entry: e })
   else if (e.kind === 'transfer' && e.purchase) {
     const p = doc.entries.find((x): x is Purchase => x.kind === 'purchase' && x.id === e.purchase)
-    open(p ? { kind: 'cardTransfer', purchase: p } : { kind: 'transfer', entry: e })
+    open(p ? { kind: 'cardTransfer', purchase: p, entry: e } : { kind: 'transfer', entry: e })
   } else open({ kind: e.kind, entry: e })
 }
 
@@ -488,8 +518,9 @@ export function Trades() {
   const close = () => setDlg(null)
   const waiting = awaitingTransfer(doc, l).reverse()
   const deletePurchase = (p: Purchase) => {
-    const t = transferOf(doc, p)
-    if (confirm(`Delete the ${p.item} purchase${t ? ', with its transfer' : ''}?`)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== p.id && x.id !== t?.id) }))
+    const ts = new Set(transfersOf(doc, p).map((x) => x.id))
+    const withT = ts.size === 0 ? '' : ts.size === 1 ? ', with its transfer' : `, with its ${ts.size} transfers`
+    if (confirm(`Delete the ${p.item} purchase${withT}?`)) update((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== p.id && !ts.has(x.id)) }))
   }
 
   return (
@@ -523,7 +554,7 @@ export function Trades() {
       </div>
 
       <h2>Waiting for transfer</h2>
-      {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
+      {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} left={leftToTransfer(doc, p)} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
 
       <h2>Items in stock</h2>
       {inStock.length ? <ItemsTable items={inStock} open={setDlg} /> : <p className="t-muted">None yet.</p>}
@@ -541,7 +572,7 @@ export function Trades() {
       {dlg?.kind === 'start' && <StartDialog doc={doc} update={update} close={close} />}
       {dlg?.kind === 'purchase' && <PurchaseDialog doc={doc} entry={dlg.entry} item={dlg.item} update={update} close={close} />}
       {dlg?.kind === 'item' && <ItemDialog itemKey={dlg.key} doc={doc} l={l} update={update} open={setDlg} close={close} />}
-      {dlg?.kind === 'cardTransfer' && <CardTransferDialog doc={doc} purchase={dlg.purchase} update={update} close={close} />}
+      {dlg?.kind === 'cardTransfer' && <CardTransferDialog doc={doc} purchase={dlg.purchase} entry={dlg.entry} update={update} close={close} />}
       {dlg && (dlg.kind === 'transfer' || dlg.kind === 'sale') && (
         <EntryDialog kind={dlg.kind} entry={dlg.entry} item={dlg.item} side={dlg.side} doc={doc} update={update} close={close} />
       )}

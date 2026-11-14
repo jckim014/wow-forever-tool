@@ -349,8 +349,11 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   sale takes units out at the average (its profit is shown). Taking more than a pool holds is allowed, flagged
   amber, extra units cost nothing. Purchase and transfer keep the original UI (Josh, 2026-11-14: they won't change and
   it's convenient): Purchase dialog has no time field; each purchase shows as a card under "Waiting for transfer" with
-  "Transfer to Horde/Alliance" (price only, defaults to the purchase price; the transfer stores `purchase` = its id,
-  moves all units and follows edits to the purchase; Undo in the history puts the card back). A card also drops out
+  "Transfer to Horde/Alliance" (quantity, defaulting to the units left, and price; the transfer stores `purchase` =
+  its id. Josh, 2026-11-14: a smaller quantity keeps the rest on the card ("12 of 20 units left to transfer"), so a
+  purchase can move in several parts; transfers follow the purchase's item and faction, and its quantity only when a
+  single transfer moved all of it; Undo in the history puts its units back on the card). Transfer prices are typed
+  per unit in both dialogs (stored as the total = per unit x qty; an untouched edit keeps the exact old total). A card also drops out
   once its faction holds none of the item. Sales (and a free Transfer from the item table) use the item dialog with
   the time field. Page: Items in stock table (holdings per faction with cost each, tied up, sold,
   received, profit; Buy / Transfer / Sell buttons prefill; Edit opens the item's panel for typos (Josh, 2026-11-14):

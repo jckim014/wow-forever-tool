@@ -19,7 +19,8 @@ export const BLACKWATER_CUT = 0.15
 
 interface EntryBase { id: string; at: string; item: string; qty: number }
 export interface Purchase extends EntryBase { kind: 'purchase'; side: Side; cost: number }
-/** `purchase`: the purchase this transfer moved (made from its card); a free transfer has none. */
+/** `purchase`: the purchase this transfer moved units of (made from its card; a purchase can be moved in several
+ *  parts); a free transfer has none. */
 export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; price: number; purchase?: string }
 export interface Sale extends EntryBase { kind: 'sale'; side: Side; received: number }
 export type Entry = Purchase | Transfer | Sale
@@ -144,19 +145,21 @@ export function onHand(d: TradesDoc, item: string, side: Side): Stock {
   return it ? it.stock[side] : { units: 0, cost: 0 }
 }
 
+/** The transfers made from a purchase's card (each moves part or all of its units). */
+export const transfersOf = (d: TradesDoc, p: Purchase) =>
+  d.entries.filter((e): e is Transfer => e.kind === 'transfer' && e.purchase === p.id)
+
+/** Units of a purchase not yet moved by its card transfers. */
+export const leftToTransfer = (d: TradesDoc, p: Purchase) => p.qty - transfersOf(d, p).reduce((n, t) => n + t.qty, 0)
+
 /**
- * Purchases still waiting for their transfer, oldest first: no transfer made from them, and the faction they were
- * bought on still holds some of the item (so a purchase moved or sold some other way drops out by itself).
+ * Purchases still waiting for transfer, oldest first: some of their units not yet moved from the card, and the faction
+ * they were bought on still holds some of the item (so a purchase moved or sold some other way drops out by itself).
  */
 export function awaitingTransfer(d: TradesDoc, l: Ledger = ledger(d)): Purchase[] {
-  const moved = new Set(d.entries.flatMap((e) => (e.kind === 'transfer' && e.purchase ? [e.purchase] : [])))
   const held = new Map(l.items.map((it) => [it.key, it.stock]))
-  return ordered(d.entries).filter((e): e is Purchase => e.kind === 'purchase' && !moved.has(e.id) && (held.get(itemKey(e.item))?.[e.side].units ?? 0) > 0)
+  return ordered(d.entries).filter((e): e is Purchase => e.kind === 'purchase' && leftToTransfer(d, e) > 0 && (held.get(itemKey(e.item))?.[e.side].units ?? 0) > 0)
 }
-
-/** The transfer made from a purchase's card, if any. */
-export const transferOf = (d: TradesDoc, p: Purchase) =>
-  d.entries.find((e): e is Transfer => e.kind === 'transfer' && e.purchase === p.id)
 
 /** Change to each side's balance from one entry. */
 export function entryDelta(e: Entry): Partial<Record<Side, number>> {

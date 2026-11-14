@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { awaitingTransfer, emptyDoc, history, ledger, parseMoney, parseTradesDoc, totals, type Entry, type TradesDoc } from './model'
+import { awaitingTransfer, leftToTransfer, emptyDoc, history, ledger, parseMoney, parseTradesDoc, totals, type Entry, type TradesDoc } from './model'
 
 const g = 10000
 const at = (h: number) => `2026-11-14T${String(h).padStart(2, '0')}:00:00.000Z`
@@ -122,6 +122,20 @@ describe('trade tracker figures', () => {
     expect(awaitingTransfer(doc(buy, p2)).map((e) => e.id)).toEqual(['p', 'p2'])
     // p: moved from its card; p3: moved by a free transfer (Alliance holds none left).
     expect(awaitingTransfer(doc(buy, { ...move, purchase: 'p' } as Entry, p2, p3, free)).map((e) => e.id)).toEqual(['p2'])
+  })
+
+  it('keep a purchase waiting until all its units are moved from its card', () => {
+    const p2 = { kind: 'purchase', id: 'p2', at: at(4), item: 'Runecloth', qty: 20, side: 'A', cost: 10 * g } as const
+    const part1: Entry = { kind: 'transfer', id: 'x1', at: at(5), item: 'Runecloth', qty: 8, from: 'A', price: 4 * g, purchase: 'p2' }
+    const part2: Entry = { kind: 'transfer', id: 'x2', at: at(6), item: 'Runecloth', qty: 12, from: 'A', price: 6 * g, purchase: 'p2' }
+    const d1 = doc(p2, part1)
+    expect(leftToTransfer(d1, p2)).toBe(12)
+    expect(awaitingTransfer(d1).map((e) => e.id)).toEqual(['p2'])
+    expect(ledger(d1).items[0].stock).toEqual({ A: { units: 12, cost: 6 * g }, H: { units: 8, cost: 4 * g } })
+    const d2 = doc(p2, part1, part2)
+    expect(leftToTransfer(d2, p2)).toBe(0)
+    expect(awaitingTransfer(d2)).toEqual([])
+    identity(d2)
   })
 
   it('read money as typed', () => {
