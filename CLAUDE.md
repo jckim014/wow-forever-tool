@@ -140,8 +140,13 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   confirmed by matching an in-game BavvbScan listing by listing: 111 91.6% identical (2026-11-12, other houses
   <= 22%), 114 90.0% (Horde scan 2026-11-13 04:41 UTC, next best 18.5%), 117 87.9% (neutral scan 05:01 UTC, next best
   6.4%). Josh scanned Horde and Blackwater with a Horde character on account folder 1120039#2. The ID pattern holds:
-  groups of Alliance/Horde/Blackwater 110/113/116, 111/114/117, 112/115/118 (empty), 119/120/121, 123/124/125; the
-  other groups' realms are unconfirmed (the other big group is probably PvP). Josh wants all 15 collected.
+  groups of Alliance/Horde/Blackwater 110/113/116, 111/114/117, 112/115/118 (empty), 119/120/121, 123/124/125.
+  **NA PvP = 110 Alliance, 113 Horde** (2026-11-13: TSM realm data "PvP-Alliance"/"PvP-Horde" in AppData.lua, lowest
+  buyouts 64% identical with those houses vs <= 7% with any other; "Normal-Horde" matched 114 at 66%, re-confirming it);
+  116 is PvP Blackwater by the ID pattern only (TSM has no neutral data). 119-121 and 123-125 are unconfirmed (the
+  same TSM match works if Josh adds those realms in the TSM app). Josh wants all 15 collected, but only as background
+  data for questions or later looks: his apps stay on his PvE realm (Alliance default, Horde for faction arbitrage);
+  no PvP views or labels wanted (2026-11-13).
 - **Cloud side** (`collector/collect.mjs`, pure checks in `lib.mjs` with `node --test collector/*.test.mjs`):
   **started by a Google Apps Script timer every 30 min** (Josh chose 30 over 15: two chances per hourly refresh is enough) (`collector/apps-script-timer.gs`, project "Forever auction
   timer" in Josh's Google account, trigger "Minutes timer, every 30 minutes", failure email immediately; script
