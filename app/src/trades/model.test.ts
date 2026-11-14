@@ -57,6 +57,8 @@ describe('trade tracker figures', () => {
     expect(it[0].costOfSold).toBe(120 * g)
     expect(it[0].transferLoss).toBe(36 * g)
     expect(it[0].profit).toBe(200 * g - 120 * g - 36 * g)
+    // Average buy: 240g over 300 units bought, whatever has moved or sold since.
+    expect([it[0].boughtUnits, it[0].boughtCost]).toEqual([300, 240 * g])
     identity(d)
   })
 

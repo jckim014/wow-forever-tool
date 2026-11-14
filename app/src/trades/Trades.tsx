@@ -354,7 +354,9 @@ function StockCell({ units, cost }: { units: number; cost: number }) {
 function ItemsTable({ items, open }: { items: ItemSummary[]; open: (o: Open) => void }) {
   return (
     <table className="t-hist t-items">
-      <thead><tr><th>Item</th><th className="t-r">Alliance holds</th><th className="t-r">Horde holds</th><th className="t-r">Tied up</th><th className="t-r">Sold</th><th className="t-r">Received</th><th className="t-r">Profit</th><th /></tr></thead>
+      <thead><tr><th>Item</th><th className="t-r">Alliance holds</th><th className="t-r">Horde holds</th><th className="t-r">Tied up</th><th className="t-r">Sold</th><th className="t-r">Received</th><th className="t-r">Profit</th>
+        <th className="t-r" title="Gold spent on all purchases of the item ÷ units bought (Blackwater's cut not included)">Avg buy ⓘ</th>
+        <th className="t-r" title="Gold received from sales, as recorded ÷ units sold">Avg sell ⓘ</th><th /></tr></thead>
       <tbody>
         {items.map((it) => {
           const { A, H } = it.stock
@@ -368,6 +370,8 @@ function ItemsTable({ items, open }: { items: ItemSummary[]; open: (o: Open) => 
               <td className="t-r">{it.soldUnits ? it.soldUnits.toLocaleString() : ''}</td>
               <td className="t-r">{it.received ? <Money v={it.received} /> : ''}</td>
               <td className="t-r" title={`Received, minus what the sold units cost, minus Blackwater's cut (${moneyText(it.transferLoss)})`}>{it.soldUnits || it.transferLoss ? <Profit v={it.profit} /> : ''}</td>
+              <td className="t-r">{it.boughtUnits ? <Money v={Math.round(it.boughtCost / it.boughtUnits)} /> : ''}</td>
+              <td className="t-r">{it.soldUnits ? <Money v={Math.round(it.received / it.soldUnits)} /> : ''}</td>
               <td className="t-rowbtns">
                 <button onClick={() => open({ kind: 'item', key: it.key })}>Edit</button>
                 <button onClick={() => open({ kind: 'purchase', item: it.name })}>Buy</button>

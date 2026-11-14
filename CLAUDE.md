@@ -359,6 +359,8 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   received, profit; Buy / Transfer / Sell buttons prefill; Edit opens the item's panel for typos (Josh, 2026-11-14):
   rename on every entry (a name matching another item merges them), its entries with Edit/Delete, and Delete item
   with all its entries (the confirm shows each balance's change)), Sold out (collapsed), History (every entry editable).
+  Both item tables show Avg buy (gold spent on all purchases / units bought, Blackwater's cut not included) and Avg sell
+  (received as recorded, i.e. after the AH cut, / units sold; Josh, 2026-11-14: "show as is"), for restock prices.
 - Figures: balances per faction and total gold = liquid gold only; tied up = cost of units held (not in the total;
   Josh confirmed); trading profit = received - cost of units sold - transfer loss, per item and overall (= total +
   tied up - starting gold - adjustments, tested).

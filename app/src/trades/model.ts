@@ -75,6 +75,9 @@ export interface ItemSummary {
   key: string
   name: string
   stock: Record<Side, Stock>
+  /** All purchases of the item: units and gold spent (for the average buy price). */
+  boughtUnits: number
+  boughtCost: number
   soldUnits: number
   received: number
   /** Purchase cost of the units sold (at the average when sold). */
@@ -113,13 +116,15 @@ export function ledger(d: TradesDoc): Ledger {
     const key = itemKey(e.item)
     let it = items.get(key)
     if (!it) {
-      it = { key, name: e.item.trim(), stock: { A: { units: 0, cost: 0 }, H: { units: 0, cost: 0 } }, soldUnits: 0, received: 0, costOfSold: 0, transferLoss: 0, profit: 0, lastAt: e.at }
+      it = { key, name: e.item.trim(), stock: { A: { units: 0, cost: 0 }, H: { units: 0, cost: 0 } }, boughtUnits: 0, boughtCost: 0, soldUnits: 0, received: 0, costOfSold: 0, transferLoss: 0, profit: 0, lastAt: e.at }
       items.set(key, it)
     }
     it.lastAt = e.at
     if (e.kind === 'purchase') {
       it.stock[e.side].units += e.qty
       it.stock[e.side].cost += e.cost
+      it.boughtUnits += e.qty
+      it.boughtCost += e.cost
     } else if (e.kind === 'transfer') {
       const t = take(it.stock[e.from], e.qty)
       if (t.short) short[e.id] = t.short
