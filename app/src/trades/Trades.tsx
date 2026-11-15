@@ -198,7 +198,7 @@ function PurchaseCard({ p, left, open, onDelete }: { p: Purchase; left: number; 
     <div className="t-card">
       <div className="t-cardhead">
         <strong>{p.item}</strong>
-        <span className="t-muted">{left < p.qty ? `${left} of ${p.qty} units left to transfer` : plural(p.qty, 'unit')} · bought on <Fac s={p.side} /> for <Money v={p.cost} /> · {when(p.at)}</span>
+        <span className="t-muted">{left < p.qty ? `${left} of ${p.qty} units left to transfer` : plural(p.qty, 'unit')} · bought on <Fac s={p.side} /> for <Money v={p.cost} />{p.qty > 0 && <> (<Money v={Math.round(p.cost / p.qty)} /> each)</>} · {when(p.at)}</span>
       </div>
       <div className="t-cardbtns">
         <button className="t-primary" onClick={() => open({ kind: 'cardTransfer', purchase: p })}>Transfer to {SIDE_NAME[to]}</button>
