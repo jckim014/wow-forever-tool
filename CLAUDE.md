@@ -681,11 +681,19 @@ checked it on the live site ("looks good").
   Pristine Leather transfer (Jeder's won mail -> transfer on the card, instant). Josh: "leave alone" the ~25c price
   differences on his three hand-typed transfers of earlier that day.
 
-Where we left off (2026-11-14 evening, signed off): the trade tracker's mailbox log is done and in daily use: Josh
-plays as normal on his four characters, logs off (or /reloads) and opens or Refreshes the trades page; only "Needs a
-look" and "Blackwater listings sold, no transfer yet" need him. Next: iterations from real use. Not yet seen for real:
-a seller's Blackwater gold being matched later (Horde Xria hasn't collected the Pristine Leather gold yet: expect
-nothing to show), a wrong-cut flag, and a won mail emptied across two visits (flagged noitem by design).
+2026-11-14/15 (late session): BavvbScan's mailbox popup dropped, chat line kept (6a5543d; Josh logs off instead of
+  /reload; copied to the WoW AddOns folder). Josh struggled to find Horde -> Alliance return trades, so: Forever Market
+  Faction tab switch "Send the gold back to Alliance" (ab4c32b) and "Gold sent" with a Skinning Knife in the trade
+  tracker, both directions (e0776ac). All pushed; the trades page is live.
+
+Where we left off (2026-11-15, signed off): the trade tracker's mailbox log is in daily use (Josh plays, logs off,
+Refreshes the trades page; only "Needs a look" and "Blackwater listings sold, no transfer yet" need him). Josh is
+short of gold on Horde and will send gold Alliance -> Horde with a Skinning Knife (Horde Xria lists, Jeder buys).
+Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on Refresh, a "Gold sent" History row, no
+knife in stock, and the seller's gold matched later (nothing left under "Blackwater listings sold, no transfer yet").
+Also unconfirmed: the Faction tab switch (Market needs a restart to load it: close tabs, wait 10 min, reopen), the
+popup-less chat line, a seller's Blackwater gold matched to an item transfer, a wrong-cut flag, and a won mail emptied
+across two visits (recorded part by part since 1ffe250).
 Earlier state (2026-11-13 evening): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
 hours that share hours: first rough results around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20);
