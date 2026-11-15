@@ -373,11 +373,18 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   as TSM reads them; MAIL_CLOSED only as a fallback (confirmed from the event log 2026-11-14: this client never sends
   MAIL_CLOSED, so the first version only saved visits on /reload). The report (chat + popup) comes the moment the
   mailbox closes (Josh asked); the visit stays open 10 s more for late gold and the report is corrected only if that
-  changes it. First real visits 2026-11-14: 4 sales on Xria (Horde), gold check OK. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
+  changes it. First real visits 2026-11-14: 4 sales on Xria (Horde), gold check OK.
+  **Purchases** (Josh, 2026-11-14): "Auction won" mails (invoice "buyer": 4th value = total paid, 5th = quantity,
+  checked by screenshot; 100 Pristine Leather came as one mail with 5 attachments of 20). Gold left at the AH, so the
+  check is items: when a won mail leaves the inbox, that item's units that left the inbox and the bag rises
+  (BAG_UPDATE_DELAYED, C_Item.GetItemCount) must cover its quantity; units from other mails of the same item count
+  first. Records kind "buy" (price = total paid, itemID, status ok / noitem); visits buys / spent / buyMissing. A won
+  mail emptied over two visits is flagged noitem (known limit). Tracker: Purchases table under Sales; ticked when the
+  tracker already knows the item, new items unticked; added as purchase entries (cards under Waiting for transfer). `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (107 checks incl. the popup; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (150 checks incl. the popup and purchases; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the

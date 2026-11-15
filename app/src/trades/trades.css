@@ -125,3 +125,4 @@ h2 .t-link { font-size: 15px; font-weight: 600; color: var(--t-text); }
 .t-mailtable tr.t-off .t-money span { color: var(--t-muted); }
 .t-mail .t-bar { margin-top: 4px; }
 .t-mail .t-bar .t-small { margin-left: 0; }
+.t-mailsub { font-size: 13px; margin: 14px 0 6px; color: var(--t-muted); }

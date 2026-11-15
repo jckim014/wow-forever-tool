@@ -1,4 +1,5 @@
--- BavvbScan sales log: records each auction sale when its money reaches the character's gold.
+-- BavvbScan sales log: records each auction sale when its money reaches the character's gold, and each auction
+-- purchase when its items reach the character's bags.
 --
 -- Why gold and not clicks: a mail can glitch (money taken but the mail stays, or it seems to come twice), and the
 -- money can be collected by anything (by hand, Open All, TSM's mailbox). So the inbox is watched instead: when a mail
@@ -19,6 +20,12 @@
 --   A visit = one mailbox opening: goldIn / goldOut = all rises / falls of gold while open, other = money from mails
 --   that are not sales (refunds, gold sent between characters), unexplained = gold rises no mail accounts for,
 --   missing = sale mails that left without their gold.
+--   Purchases (2026-11-14): "Auction won" mails (invoice type "buyer"; on the Forever client the 4th value is the total
+--   paid, the 5th the quantity). The gold left at the auction house, so the check is the items instead: when a won
+--   mail leaves the inbox, its item's units that left the inbox (all mails) and the units that reached the bags while
+--   the mailbox was open must both cover the mail's quantity. Records { kind = "buy", t, item, itemID, count, price
+--   (total paid), status "ok" / "noitem" }; sale records carry kind = "sale" (older ones have no kind). Visits add
+--   buys, spent, buyMissing.
 -- Records are only ever added; fixes happen in the trade tracker. Buyer names are never read into the saved data.
 
 local GRACE = 10     -- seconds after the mailbox closes to wait for late gold or inbox updates
@@ -30,7 +37,82 @@ BavvbScanSalesCore = Core
 
 function Core.newVisit(now)
   return { t0 = now, present = {}, info = {}, pending = {}, rises = {}, goldIn = 0, goldOut = 0, confirmed = {},
-    other = 0 }
+    other = 0,
+    -- purchases: won mails present (sig -> n) and their details, won mails gone (in order), and per watched item ID
+    -- the units in the inbox when first seen / now, the bag count last seen and the units that reached the bags
+    buy = { present = {}, info = {}, gone = {}, inboxFirst = {}, inboxLast = {}, bagLast = {}, bagIn = {} } }
+end
+
+-- buyers: the won mails now in the inbox, each { sig, item, itemID, count, price }. totals: units per item ID in the
+-- whole inbox (all mails' attachments).
+function Core.buyers(v, buyers, totals, now)
+  local b = v.buy
+  local counts = {}
+  for _, m in ipairs(buyers) do
+    counts[m.sig] = (counts[m.sig] or 0) + 1
+    local old = b.info[m.sig]
+    if not old or (m.itemID and not old.itemID) then b.info[m.sig] = m end
+    local id = b.info[m.sig].itemID
+    if id and b.inboxFirst[id] == nil then b.inboxFirst[id] = totals[id] or 0 end
+  end
+  for sig, n in pairs(b.present) do
+    for _ = 1, n - (counts[sig] or 0) do b.gone[#b.gone + 1] = { mail = b.info[sig], at = now } end
+  end
+  for sig, n in pairs(counts) do
+    for _ = 1, n - (b.present[sig] or 0) do
+      for k = #b.gone, 1, -1 do -- a won mail that comes back is not gone
+        if b.gone[k].mail.sig == sig then
+          table.remove(b.gone, k)
+          break
+        end
+      end
+    end
+  end
+  b.present = counts
+  for id in pairs(b.inboxFirst) do b.inboxLast[id] = totals[id] or 0 end
+end
+
+-- The item IDs whose bag counts matter (items of won mails seen this visit).
+function Core.watched(v)
+  local ids = {}
+  for id in pairs(v.buy.inboxFirst) do ids[#ids + 1] = id end
+  return ids
+end
+
+-- counts: bag count per watched item ID now. Only rises count (items can also leave the bags, e.g. sent by mail).
+function Core.bags(v, counts)
+  local b = v.buy
+  for id, n in pairs(counts) do
+    local last = b.bagLast[id]
+    if last and n > last then b.bagIn[id] = (b.bagIn[id] or 0) + (n - last) end
+    b.bagLast[id] = n
+  end
+end
+
+-- Each won mail gone, in order, with "ok" when its units left the inbox and reached the bags, else "noitem". Units of
+-- the same item that left other mails (e.g. sent by an alt) are put against the bags first, so they never vouch for a
+-- won mail whose items didn't arrive.
+function Core.buyResult(v)
+  local b = v.buy
+  local avail = {}
+  local wonUnits = {}
+  for _, g in ipairs(b.gone) do
+    local id = g.mail.itemID
+    if id then wonUnits[id] = (wonUnits[id] or 0) + g.mail.count end
+  end
+  local out = {}
+  for _, g in ipairs(b.gone) do
+    local id = g.mail.itemID
+    if id and avail[id] == nil then
+      local left = math.max(0, (b.inboxFirst[id] or 0) - (b.inboxLast[id] or 0))
+      local fromOthers = math.max(0, left - wonUnits[id])
+      avail[id] = math.max(0, math.min(left, b.bagIn[id] or 0) - fromOthers)
+    end
+    local ok = id ~= nil and avail[id] >= g.mail.count
+    if ok then avail[id] = avail[id] - g.mail.count end
+    out[#out + 1] = { mail = g.mail, at = g.at, status = ok and "ok" or "noitem" }
+  end
+  return out
 end
 
 -- The subset of v.pending (first MAX_SUBSET, earliest preferred) whose money sums to amount, as a list of indexes.
@@ -123,8 +205,8 @@ function Core.finish(v, now)
   local out = {}
   local function add(mail, at, status)
     local received = mail.money - (mail.deposit or 0)
-    out[#out + 1] = { t = at, item = mail.item, count = mail.count, price = mail.price, deposit = mail.deposit,
-      cut = mail.cut, money = mail.money, received = received, status = status, src = mail.src }
+    out[#out + 1] = { kind = "sale", t = at, item = mail.item, count = mail.count, price = mail.price,
+      deposit = mail.deposit, cut = mail.cut, money = mail.money, received = received, status = status, src = mail.src }
   end
   local sales, received, deposits, missing = 0, 0, 0, 0
   for _, c in ipairs(v.confirmed) do
@@ -141,8 +223,19 @@ function Core.finish(v, now)
   end
   local unexplained = 0
   for _, r in ipairs(v.rises) do unexplained = unexplained + r.amount end
+  local buys, spent, buyMissing = 0, 0, 0
+  for _, r in ipairs(Core.buyResult(v)) do
+    out[#out + 1] = { kind = "buy", t = r.at, item = r.mail.item, itemID = r.mail.itemID, count = r.mail.count,
+      price = r.mail.price, status = r.status }
+    if r.status == "ok" then
+      buys, spent = buys + 1, spent + r.mail.price
+    else
+      buyMissing = buyMissing + 1
+    end
+  end
   return out, { t0 = v.t0, t1 = now, goldIn = v.goldIn, goldOut = v.goldOut, sales = sales, received = received,
-    deposits = deposits, other = v.other, unexplained = unexplained, missing = missing }
+    deposits = deposits, other = v.other, unexplained = unexplained, missing = missing, buys = buys, spent = spent,
+    buyMissing = buyMissing }
 end
 
 -- The parts below talk to the game.
@@ -183,11 +276,37 @@ local function subjectItem(subject)
   return item, 1
 end
 
--- The inbox's money mails, in the Core's shape. Only item, count and amounts are kept: never the buyer or sender.
+local function attachmentID(i, a)
+  local link = GetInboxItemLink and GetInboxItemLink(i, a)
+  local id = link and tonumber(link:match("item:(%d+)"))
+  if id then return id end
+  local _, second = GetInboxItem(i, a)
+  return type(second) == "number" and second or nil
+end
+
+-- The inbox in the Core's shape: money mails, won mails, and units per item ID over all attachments. Only items,
+-- counts and amounts are kept: never the buyer or sender.
 local function readInbox()
-  local list = {}
+  local list, buyers, totals = {}, {}, {}
   for i = 1, GetInboxNumItems() do
-    local _, _, _, subject, money = GetInboxHeaderInfo(i)
+    local _, _, _, subject, money, _, _, hasItem = GetInboxHeaderInfo(i)
+    local firstID
+    if type(hasItem) == "number" and hasItem > 0 then
+      for a = 1, (ATTACHMENTS_MAX_RECEIVE or 16) do
+        local _, _, _, n = GetInboxItem(i, a)
+        local id = n and attachmentID(i, a)
+        if id then
+          totals[id] = (totals[id] or 0) + n
+          firstID = firstID or id
+        end
+      end
+    end
+    local t, item, _, bid, c5, _, _, _, _, _, c11 = GetInboxInvoiceInfo(i)
+    if t == "buyer" and item then
+      local count = (type(c11) == "number" and c11 > 0 and c11) or (type(c5) == "number" and c5 > 0 and c5) or 1
+      buyers[#buyers + 1] = { sig = "B|" .. tostring(subject) .. "|" .. tostring(bid) .. "|" .. count, item = item,
+        itemID = firstID, count = count, price = bid or 0 }
+    end
     if money and money > 0 then
       local m = { sig = tostring(subject) .. "|" .. money, money = money, kind = "other" }
       local t, item, _, bid, buyout, deposit, cut, _, _, c10, c11 = GetInboxInvoiceInfo(i)
@@ -207,7 +326,18 @@ local function readInbox()
       list[#list + 1] = m
     end
   end
-  return list
+  return list, buyers, totals
+end
+
+local function itemCount(id)
+  if C_Item and C_Item.GetItemCount then return C_Item.GetItemCount(id, false, false, false, false) or 0 end
+  return GetItemCount(id) or 0
+end
+
+local function readBags(v)
+  local counts = {}
+  for _, id in ipairs(Core.watched(v)) do counts[id] = itemCount(id) end
+  Core.bags(v, counts)
 end
 
 local frame = CreateFrame("Frame")
@@ -226,6 +356,14 @@ function Core.preview(v)
     if q.mail.kind == "seller" then p.waiting = p.waiting + 1 end
   end
   for _, r in ipairs(v.rises) do p.unexplained = p.unexplained + r.amount end
+  p.buys, p.spent, p.buyWaiting = 0, 0, 0
+  for _, r in ipairs(Core.buyResult(v)) do
+    if r.status == "ok" then
+      p.buys, p.spent = p.buys + 1, p.spent + r.mail.price
+    else
+      p.buyWaiting = p.buyWaiting + 1
+    end
+  end
   return p
 end
 
@@ -238,37 +376,53 @@ local function issuesOf(x)
     out[#out + 1] = plural(x.missing, "sale mail") .. " left without " .. (x.missing == 1 and "its" or "their") .. " gold"
   end
   if (x.unexplained or 0) > 0 then out[#out + 1] = coins(x.unexplained) .. " gold no mail accounts for" end
+  if (x.buyMissing or 0) > 0 then
+    out[#out + 1] = plural(x.buyMissing, "won mail") .. " left without " .. (x.buyMissing == 1 and "its" or "their")
+      .. " items reaching your bags"
+  end
   return out
 end
 
 -- One line for chat and the popup: sales, gold, and either "gold OK", "waiting for gold" or the problems.
 local function reportLine(x, chat)
-  local line = plural(x.sales, "sale") .. " recorded (" .. coins(x.received) .. ")"
+  local parts = {}
+  if x.sales > 0 or (x.buys or 0) == 0 then parts[#parts + 1] = plural(x.sales, "sale") .. " (" .. coins(x.received) .. ")" end
+  if (x.buys or 0) > 0 then parts[#parts + 1] = plural(x.buys, "purchase") .. " (" .. coins(x.spent) .. ")" end
+  local line = table.concat(parts, ", ") .. " recorded"
   local issues = issuesOf(x)
   if #issues > 0 then
     return line .. (chat and ". " or "\n") .. "|cffffb000Check in the tracker: " .. table.concat(issues, "; ") .. "|r"
-  elseif (x.waiting or 0) > 0 then
-    return line .. (chat and ", " or "  ") .. "|cffffff80waiting for the gold of " .. plural(x.waiting, "mail") .. "...|r"
   end
-  return line .. (chat and ", mailbox gold matches " or "  ") .. "|cff40ff40" .. (chat and "(OK)" or "gold OK") .. "|r"
+  local waits = {}
+  if (x.waiting or 0) > 0 then waits[#waits + 1] = "the gold of " .. plural(x.waiting, "mail") end
+  if (x.buyWaiting or 0) > 0 then waits[#waits + 1] = "the items of " .. plural(x.buyWaiting, "won mail") end
+  if #waits > 0 then
+    return line .. (chat and ", " or "  ") .. "|cffffff80waiting for " .. table.concat(waits, " and ") .. "...|r"
+  end
+  return line .. (chat and ", everything matches " or "  ") .. "|cff40ff40" .. (chat and "(OK)" or "all OK") .. "|r"
 end
 
-local function hasNews(x) return x.sales > 0 or (x.missing or 0) > 0 or (x.unexplained or 0) > 0 or (x.waiting or 0) > 0 end
+local function hasNews(x)
+  return x.sales > 0 or (x.missing or 0) > 0 or (x.unexplained or 0) > 0 or (x.waiting or 0) > 0 or (x.buys or 0) > 0
+    or (x.buyMissing or 0) > 0 or (x.buyWaiting or 0) > 0
+end
 
 -- A small popup near the top of the screen after a mailbox visit with sales: what was recorded, whether the gold
 -- matched, and a Reload button (WoW writes the file on /reload). Visits add up until it is closed or reloaded; the
 -- visit just closed counts from its preview until it is final. Stays until clicked; no sound. Never saved, so a
 -- /reload removes it.
 local popup
-local shown = { sales = 0, received = 0, missing = 0, unexplained = 0 }
+local function emptyShown() return { sales = 0, received = 0, missing = 0, unexplained = 0, buys = 0, spent = 0, buyMissing = 0 } end
+local shown = emptyShown()
 local live -- preview of the visit just closed, until it is saved
 
 local function drawPopup()
   local x = { sales = shown.sales, received = shown.received, missing = shown.missing, unexplained = shown.unexplained,
-    waiting = 0 }
+    waiting = 0, buys = shown.buys, spent = shown.spent, buyMissing = shown.buyMissing, buyWaiting = 0 }
   if live then
     x.sales, x.received = x.sales + live.sales, x.received + live.received
     x.unexplained, x.waiting = x.unexplained + live.unexplained, live.waiting
+    x.buys, x.spent, x.buyWaiting = x.buys + live.buys, x.spent + live.spent, live.buyWaiting
   end
   if not hasNews(x) then return end
   if not popup then
@@ -296,7 +450,7 @@ local function drawPopup()
     p.close:SetPoint("TOPRIGHT", 0, 0)
     p.close:SetScript("OnClick", function()
       p:Hide()
-      shown = { sales = 0, received = 0, missing = 0, unexplained = 0 }
+      shown = emptyShown()
     end)
     popup = p
   end
@@ -328,6 +482,8 @@ local function save(v, now)
   if hasNews(summary) and final ~= v.reported then say(final) end
   shown.sales, shown.received = shown.sales + summary.sales, shown.received + summary.received
   shown.missing, shown.unexplained = shown.missing + summary.missing, shown.unexplained + summary.unexplained
+  shown.buys, shown.spent = shown.buys + summary.buys, shown.spent + summary.spent
+  shown.buyMissing = shown.buyMissing + summary.buyMissing
   live = nil
   drawPopup()
 end
@@ -398,7 +554,14 @@ frame:SetScript("OnEvent", function(_, event, arg)
     if not mailType() then closed() end
   elseif event == "MAIL_INBOX_UPDATE" then
     -- Not after closing: the client may then report an empty inbox, which would look like every mail leaving.
-    if visit and not closing then Core.inbox(visit, readInbox(), time()) end
+    if visit and not closing then
+      local list, buyers, totals = readInbox()
+      Core.buyers(visit, buyers, totals, time())
+      readBags(visit) -- new watched items get their baseline before any are taken
+      Core.inbox(visit, list, time())
+    end
+  elseif event == "BAG_UPDATE_DELAYED" then
+    if visit then readBags(visit) end
   elseif event == "PLAYER_MONEY" then
     local now = GetMoney()
     if visit and lastMoney then Core.money(visit, now - lastMoney, time()) end
@@ -408,7 +571,7 @@ frame:SetScript("OnEvent", function(_, event, arg)
   end
 end)
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "PLAYER_MONEY",
-  "MAIL_CLOSED", "PLAYER_LOGOUT", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
+  "MAIL_CLOSED", "PLAYER_LOGOUT", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "BAG_UPDATE_DELAYED" }) do
   pcall(frame.RegisterEvent, frame, e) -- an event this client doesn't know is skipped
 end
 
@@ -417,19 +580,21 @@ function BavvbScanSalesStatus()
   local s = db()
   local n = #s.records
   if n == 0 then
-    say("No sales recorded yet. They are recorded when you collect auction money at a mailbox.")
+    say("Nothing recorded yet. Sales and purchases are recorded when you collect them at a mailbox.")
     return
   end
-  say(n .. " sales recorded. Latest:")
+  say(n .. " sales and purchases recorded. Latest:")
   for i = n, math.max(1, n - 4), -1 do
     local r = s.records[i]
-    say(string.format("  %s  %s x%d  %s%s", date("%m-%d %H:%M", r.t), tostring(r.item), r.count or 1, coins(r.received),
-      r.status == "ok" and "" or "  |cffffb000(no gold seen)|r"))
+    local buy = r.kind == "buy"
+    local flag = r.status == "ok" and "" or (buy and "  |cffffb000(items not seen)|r" or "  |cffffb000(no gold seen)|r")
+    say(string.format("  %s  %s %s x%d  %s%s", date("%m-%d %H:%M", r.t), buy and "bought" or "sold", tostring(r.item),
+      r.count or 1, coins((buy and r.price or r.received) or 0), flag))
   end
   local v = s.visits[#s.visits]
   if v then
-    local ok = v.missing == 0 and v.unexplained == 0
-    say(string.format("Last mailbox visit %s (%s): %d sales, gold in %s%s", date("%m-%d %H:%M", v.t0), tostring(v.char),
-      v.sales, coins(v.goldIn), ok and " |cff40ff40(OK)|r" or " |cffffb000check in the tracker|r"))
+    local ok = v.missing == 0 and v.unexplained == 0 and (v.buyMissing or 0) == 0
+    say(string.format("Last mailbox visit %s (%s): %d sales, %d purchases, gold in %s%s", date("%m-%d %H:%M", v.t0),
+      tostring(v.char), v.sales, v.buys or 0, coins(v.goldIn), ok and " |cff40ff40(OK)|r" or " |cffffb000check in the tracker|r"))
   end
 end

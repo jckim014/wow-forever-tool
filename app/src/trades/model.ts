@@ -18,7 +18,8 @@ export const SIDE_NAME: Record<Side, string> = { A: 'Alliance', H: 'Horde' }
 export const BLACKWATER_CUT = 0.15
 
 interface EntryBase { id: string; at: string; item: string; qty: number }
-export interface Purchase extends EntryBase { kind: 'purchase'; side: Side; cost: number }
+/** `mail`: the BavvbScan log records it was added from (mailSales.ts); typed purchases have none. */
+export interface Purchase extends EntryBase { kind: 'purchase'; side: Side; cost: number; mail?: string[] }
 /** `purchase`: the purchase this transfer moved units of (made from its card; a purchase can be moved in several
  *  parts); a free transfer has none. */
 export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; price: number; purchase?: string }

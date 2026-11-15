@@ -1,14 +1,19 @@
-// Sales from the mailbox: BavvbScan's sales log (addon/BavvbScan/Sales.lua) -> sale entries for the trade tracker.
+// Sales and purchases from the mailbox: BavvbScan's sales log (addon/BavvbScan/Sales.lua) -> sale and purchase entries
+// for the trade tracker.
 //
-// The addon records each auction sale when its money reaches the character's gold (records), and one line per
-// mailbox visit (visits). Here they become suggestions: grouped per item and faction, ticked when the tracker holds
-// the item on that faction (up to the units held, in time order), unticked otherwise. Josh adds what he ticks; every
+// The addon records each auction sale when its money reaches the character's gold, each auction purchase when its
+// items reach the bags (records), and one line per mailbox visit (visits). Here they become suggestions: grouped per
+// kind, item and faction. Sales are ticked when the tracker holds the item on that faction (up to the units held, in
+// time order); purchases are ticked when the tracker already knows the item (a new item is Josh's call); the rest
+// start unticked. Josh adds what he ticks; every
 // record he adds or dismisses is remembered in the trades file (doc.mail.handled), so it never comes back. Only
 // records from his trading characters (doc.mail.chars) are listed. Pure; tested.
 import { field, indexOf, Reader, type Lua } from '../prices/auctioneer'
 import { itemKey, onHand, type Side, type TradesDoc } from './model'
 
 export interface MailRecord {
+  /** "buy": an auction won (price = total paid); "sale" (older records have no kind: sales). */
+  kind: 'sale' | 'buy'
   id: string
   /** Unix seconds: when the money reached the gold (or the mail left, for "nogold"). */
   t: number
@@ -22,8 +27,11 @@ export interface MailRecord {
   /** Gold in the mail (received + the deposit returned). */
   money: number
   deposit: number | null
-  /** "ok": its money reached the gold. "nogold": the mail left but no matching gold came. */
-  status: 'ok' | 'nogold'
+  /** Sale price (sales) or total paid (purchases), whole stack. */
+  price: number
+  /** "ok": its money reached the gold (sale) / its items reached the bags (purchase). "nogold" / "noitem": the mail
+   *  left without that. */
+  status: 'ok' | 'nogold' | 'noitem'
   /** "subject": only the mail subject could be read (deposit unknown, received = money). */
   src: 'invoice' | 'subject'
 }
@@ -41,6 +49,9 @@ export interface MailVisit {
   other: number
   unexplained: number
   missing: number
+  buys: number
+  spent: number
+  buyMissing: number
 }
 
 export interface MailLog { records: MailRecord[]; visits: MailVisit[] }
@@ -66,12 +77,14 @@ export function readMailLog(raw: Uint8Array): MailLog {
   }
   const records = list('records').map((x): MailRecord => {
     const deposit = field(x, 'deposit')
+    const status = field(x, 'status')
     return {
+      kind: field(x, 'kind') === 'buy' ? 'buy' : 'sale', price: num(field(x, 'price')),
       id: str(field(x, 'id')), t: num(field(x, 't')), char: str(field(x, 'char')), faction: str(field(x, 'faction')),
       visit: str(field(x, 'visit')), item: str(field(x, 'item')), count: num(field(x, 'count')) || 1,
       received: num(field(x, 'received')), money: num(field(x, 'money')),
       deposit: typeof deposit === 'number' ? deposit : null,
-      status: field(x, 'status') === 'ok' ? 'ok' : 'nogold',
+      status: status === 'ok' ? 'ok' : status === 'noitem' ? 'noitem' : 'nogold',
       src: field(x, 'src') === 'subject' ? 'subject' : 'invoice',
     }
   }).filter((x) => x.id && x.item)
@@ -80,6 +93,7 @@ export function readMailLog(raw: Uint8Array): MailLog {
     faction: str(field(x, 'faction')), goldIn: num(field(x, 'goldIn')), sales: num(field(x, 'sales')),
     received: num(field(x, 'received')), deposits: num(field(x, 'deposits')), other: num(field(x, 'other')),
     unexplained: num(field(x, 'unexplained')), missing: num(field(x, 'missing')),
+    buys: num(field(x, 'buys')), spent: num(field(x, 'spent')), buyMissing: num(field(x, 'buyMissing')),
   })).filter((x) => x.id)
   return { records, visits }
 }
@@ -97,7 +111,8 @@ export function mergeLogs(logs: MailLog[]): MailLog {
 export const sideOf = (faction: string): Side | null => (faction === 'Alliance' ? 'A' : faction === 'Horde' ? 'H' : null)
 
 export interface Suggestion {
-  /** itemKey + side */
+  kind: 'sale' | 'buy'
+  /** kind + itemKey + side */
   key: string
   /** The tracker's own spelling when it knows the item, else the game's. */
   item: string
@@ -112,10 +127,12 @@ export interface Suggestion {
 }
 
 export interface Suggestions {
-  /** Items the tracker knows (tracked = true), newest sale first. */
+  /** Sales of items the tracker knows (tracked = true), newest first. */
   tracked: Suggestion[]
-  /** Everything else from the trading characters. */
+  /** Other sales from the trading characters. */
   other: Suggestion[]
+  /** Purchases, newest first (known items first). */
+  buys: Suggestion[]
   /** Visits with records listed here, or with a problem, not yet dismissed. */
   visits: MailVisit[]
   /** Characters seen in the log, with their faction. */
@@ -132,16 +149,20 @@ export function suggestions(doc: TradesDoc, log: MailLog): Suggestions {
     const side = sideOf(r.faction)
     if (!side || handled.has(r.id) || !chars.has(r.char)) continue
     const k = itemKey(r.item)
-    const key = `${k}|${side}`
+    const key = `${r.kind}|${k}|${side}`
     let g = groups.get(key)
     if (!g) {
       const known = names.get(k)
-      g = { key, item: known ?? r.item, side, tracked: known !== undefined, held: known ? onHand(doc, known, side).units : 0, records: [], ticked: [] }
+      g = { kind: r.kind, key, item: known ?? r.item, side, tracked: known !== undefined, held: known ? onHand(doc, known, side).units : 0, records: [], ticked: [] }
       groups.set(key, g)
     }
     g.records.push(r)
   }
   for (const g of groups.values()) {
+    if (g.kind === 'buy') {
+      if (g.tracked) g.ticked.push(...g.records.filter((r) => r.status === 'ok').map((r) => r.id))
+      continue
+    }
     // Ticked in time order while the faction still holds units; a sale beyond that is left for Josh (and so is every
     // later one), as is one whose gold never came (it uses up no units).
     let left = g.held
@@ -160,19 +181,21 @@ export function suggestions(doc: TradesDoc, log: MailLog): Suggestions {
   for (const r of log.records) seen.set(r.char, r.faction)
   for (const v of log.visits) seen.set(v.char, v.faction)
   return {
-    tracked: all.filter((g) => g.tracked),
-    other: all.filter((g) => !g.tracked),
-    visits: log.visits.filter((v) => !handled.has(v.id) && chars.has(v.char) && (shown.has(v.id) || v.unexplained > 0 || v.missing > 0)).reverse(),
+    tracked: all.filter((g) => g.kind === 'sale' && g.tracked),
+    other: all.filter((g) => g.kind === 'sale' && !g.tracked),
+    buys: [...all.filter((g) => g.kind === 'buy' && g.tracked), ...all.filter((g) => g.kind === 'buy' && !g.tracked)],
+    visits: log.visits.filter((v) => !handled.has(v.id) && chars.has(v.char) && (shown.has(v.id) || !visitOk(v))).reverse(),
     chars: [...seen].map(([char, faction]) => ({ char, faction })).sort((a, b) => a.char.localeCompare(b.char)),
   }
 }
 
-/** A visit's gold all accounted for: every rise matched a mail and no sale mail left without its gold. */
-export const visitOk = (v: MailVisit) => v.unexplained === 0 && v.missing === 0
+/** A visit all accounted for: every gold rise matched a mail, no sale mail left without its gold, and no won mail
+ *  left without its items. */
+export const visitOk = (v: MailVisit) => v.unexplained === 0 && v.missing === 0 && v.buyMissing === 0
 
 /**
- * Adds the chosen records as sale entries (one per item and faction: quantity and gold summed, at the latest sale's
- * time) and marks them handled. `ids`: the record ids ticked.
+ * Adds the chosen records as sale and purchase entries (one per kind, item and faction: quantity and gold summed, at
+ * the latest record's time) and marks them handled. `ids`: the record ids ticked.
  */
 export function addSales(doc: TradesDoc, groups: Suggestion[], ids: Set<string>, newId: () => string): TradesDoc {
   const entries = [...doc.entries]
@@ -180,10 +203,13 @@ export function addSales(doc: TradesDoc, groups: Suggestion[], ids: Set<string>,
   for (const g of groups) {
     const rs = g.records.filter((r) => ids.has(r.id))
     if (!rs.length) continue
-    entries.push({
-      kind: 'sale', id: newId(), at: new Date(Math.max(...rs.map((r) => r.t)) * 1000).toISOString(), item: g.item, side: g.side,
-      qty: rs.reduce((n, r) => n + r.count, 0), received: rs.reduce((n, r) => n + r.received, 0), mail: rs.map((r) => r.id),
-    })
+    const base = {
+      id: newId(), at: new Date(Math.max(...rs.map((r) => r.t)) * 1000).toISOString(), item: g.item, side: g.side,
+      qty: rs.reduce((n, r) => n + r.count, 0), mail: rs.map((r) => r.id),
+    }
+    entries.push(g.kind === 'buy'
+      ? { ...base, kind: 'purchase', cost: rs.reduce((n, r) => n + r.price, 0) }
+      : { ...base, kind: 'sale', received: rs.reduce((n, r) => n + r.received, 0) })
     done.push(...rs.map((r) => r.id))
   }
   return { ...doc, entries, mail: { chars: doc.mail?.chars ?? [], handled: [...(doc.mail?.handled ?? []), ...done] } }

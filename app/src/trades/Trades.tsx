@@ -480,7 +480,7 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
                 {en && <>{en.item} · {plural(en.qty, 'unit')}</>}
                 {en?.kind === 'transfer' && <> to <Fac s={other(en.from)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(en.price)} />)</span></>}
                 {en?.kind === 'sale' && l.saleProfit[en.id] !== undefined && <span className="t-muted"> · profit <Profit v={l.saleProfit[en.id]} /></span>}
-                {en?.kind === 'sale' && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, 'mailbox sale')}`}> · from mailbox</span>}
+                {(en?.kind === 'sale' || en?.kind === 'purchase') && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, en.kind === 'sale' ? 'mailbox sale' : 'won auction')}`}> · from mailbox</span>}
                 {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
                 {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
               </td>
