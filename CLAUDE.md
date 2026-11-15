@@ -392,12 +392,17 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   GUID of that short name and faction, else as "name|faction" (`whoFinder`); a role set on "name|faction" carries over
   to that character's GUID while it's the only one. The old name-only roles / `chars` list count only for a name that
   is one character in the log (so "Xria" asked again; Xfaction stayed a trader). Checked on Josh's real files. `plan()` in mailSales.ts applies by itself (in
-  MailPanel's effect): trader purchases -> one purchase card per item, faction and visit; a transfer char's Blackwater
-  sale + the other faction's transfer char's Blackwater purchase with the same item, quantity and price -> a transfer
-  (at the later time, applied to the oldest waiting cards, split across cards, rest free; cut checked at 15% +-1%);
-  trader sales -> one sale per item, faction and visit while the faction holds the units. Unpaired halves wait
-  ("Waiting for the other side", Add as sale/purchase for a stranger's buy); amber records, sales beyond stock or of
-  unknown items, wrong cut -> "Needs a look" (Add / Dismiss). `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
+  MailPanel's effect, which saves whenever `plan().changed`): trader purchases -> one purchase card per item, faction
+  and visit; **a transfer char's Blackwater won mail alone -> a transfer at once** (Josh, 2026-11-14: the seller's
+  Blackwater gold arrives an hour+ later and he leaves it in the mailbox; with strict roles such a purchase is always a
+  transfer), from the other faction at the price paid, applied to the oldest waiting cards (split across cards, rest
+  free); the selling side's Blackwater sale, whenever collected, is matched to it (same item, quantity, price; mail
+  becomes [won, sold]) and its cut checked at 15% +-1% (wrong cut -> Needs a look, transfer kept). A Blackwater sale
+  with no such transfer waits ("Blackwater listings sold, no transfer yet": a stranger bought it -> Add as sale).
+  Trader sales -> one sale per item, faction and visit while the faction holds the units; amber records, sales beyond
+  stock or of unknown items -> "Needs a look" (Add / Dismiss). Known trade-off: a transfer char buying a stranger's
+  Blackwater item counts as a transfer (delete it). Jeder's first Blackwater sale (2026-11-14) was collected with the
+  addon off: recorded by hand; Dismiss its won-mail half if it shows. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");

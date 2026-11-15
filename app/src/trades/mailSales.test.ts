@@ -156,7 +156,7 @@ describe('plan (roles)', () => {
     const [card] = of(p.doc, 'purchase') as Purchase[]
     expect(card).toMatchObject({ item: 'Silk Cloth', side: 'A', qty: 40, cost: 8000, mail: ['b1'] })
     const [t] = of(p.doc, 'transfer') as Transfer[]
-    expect(t).toMatchObject({ item: 'Silk Cloth', from: 'A', qty: 20, price: 6000, purchase: card.id, mail: ['s1', 'r1'], at: new Date((T0 + 25) * 1000).toISOString() })
+    expect(t).toMatchObject({ item: 'Silk Cloth', from: 'A', qty: 20, price: 6000, purchase: card.id, mail: ['r1', 's1'], at: new Date((T0 + 25) * 1000).toISOString() })
     expect(leftToTransfer(p.doc, card)).toBe(20)
     expect(of(p.doc, 'sale')).toMatchObject([{ item: 'Silk Cloth', side: 'H', qty: 12, received: 3000, mail: ['x1'] }])
     expect(p.waiting.map((r) => r.id)).toEqual(['s2'])
@@ -168,8 +168,8 @@ describe('plan (roles)', () => {
     // Characters without a role, or marked "none", are ignored.
     expect([...p.waiting, ...p.look.map((l) => l.record)].some((r) => r.id === 'o1' || r.id === 'u1')).toBe(false)
     expect(p.chars.find((c) => c.name === 'Stranger')?.role).toBeUndefined()
-    // It settles: a second pass adds nothing.
-    expect(plan(p.doc, log, id).added).toEqual({ purchases: 0, transfers: 0, sales: 0 })
+    // It settles: a second pass changes nothing.
+    expect(plan(p.doc, log, id).changed).toBe(false)
     // Figures: Alliance spent 80s, got 51s back from Blackwater (60s - 15%); Horde paid 60s and received 30s.
     expect(ledger(p.doc).items[0]).toMatchObject({ soldUnits: 12, received: 3000, transferLoss: 900 })
   })
@@ -199,17 +199,21 @@ describe('plan (roles)', () => {
     expect(p.added.transfers).toBe(1)
   })
 
-  it('a Blackwater cut that isn\'t 15% needs a look (both halves)', () => {
+  it('a Blackwater cut that isn\'t 15% still makes the transfer, and the sale needs a look', () => {
     const lg: MailLog = { records: [
       bwSale('s', 'Jeder', 'Alliance', 'Iron Bar', 5, 1000, 1, 50),
       buy('r', 'Horde', 'Horde', 'Iron Bar', 5, 1000, 2),
     ], visits: [] }
     const p = plan(roles(), lg, id)
-    expect(p.added.transfers).toBe(0)
-    expect(p.look.map((l) => l.record.id)).toEqual(['s', 'r'])
+    expect(p.added.transfers).toBe(1)
+    expect(p.look.map((l) => [l.record.id, l.reason])).toEqual([['s', 'Blackwater took 50c, not 15% of the price: check this transfer']])
+    const again = plan(p.doc, lg, id) // stays a look on the next pass, nothing else changes
+    expect(again.changed).toBe(false)
+    expect(again.look.map((l) => l.record.id)).toEqual(['s'])
+    expect(again.waiting).toEqual([])
   })
 
-  it('halves only pair across factions with the same item, quantity and price', () => {
+  it('a won mail is a transfer at once; a Blackwater sale is matched only to one with the same item, quantity and price', () => {
     const lg: MailLog = { records: [
       bwSale('s', 'Jeder', 'Alliance', 'Iron Bar', 5, 1000, 1),
       buy('r1', 'Horde', 'Horde', 'Iron Bar', 4, 1000, 2),
@@ -217,10 +221,28 @@ describe('plan (roles)', () => {
       buy('r3', 'Horde', 'Horde', 'Gold Bar', 5, 1000, 4),
     ], visits: [] }
     const p = plan(roles(), lg, id)
-    expect(p.added.transfers).toBe(0)
-    expect(p.waiting.map((r) => r.id)).toEqual(['s', 'r1', 'r2', 'r3'])
+    expect(p.added.transfers).toBe(3)
+    expect((of(p.doc, 'transfer') as Transfer[]).map((t) => [t.item, t.from, t.qty, t.price, t.mail])).toEqual([
+      ['Iron Bar', 'A', 4, 1000, ['r1']], ['Iron Bar', 'A', 5, 999, ['r2']], ['Gold Bar', 'A', 5, 1000, ['r3']],
+    ])
+    expect(p.waiting.map((r) => r.id)).toEqual(['s'])
   })
 
+  it('the seller gold collected hours later is matched to the transfer already made', () => {
+    const won: MailLog = { records: [buy('b1', 'Xfaction', 'Alliance', 'Silk Cloth', 20, 4000, 1), buy('r', 'Horde', 'Horde', 'Silk Cloth', 20, 6000, 2)], visits: [] }
+    const p1 = plan(roles(), won, id)
+    expect(p1.added).toEqual({ purchases: 1, transfers: 1, sales: 0 })
+    expect(leftToTransfer(p1.doc, of(p1.doc, 'purchase')[0] as Purchase)).toBe(0)
+    const later: MailLog = { records: [...won.records, bwSale('s', 'Jeder', 'Alliance', 'Silk Cloth', 20, 6000, 9 * 3600)], visits: [] }
+    const p2 = plan(p1.doc, later, id)
+    expect(p2.added).toEqual({ purchases: 0, transfers: 0, sales: 0 })
+    expect(p2.changed).toBe(true) // saved, though nothing new was added
+    expect(p2.waiting).toEqual([])
+    expect(p2.look).toEqual([])
+    expect((of(p2.doc, 'transfer') as Transfer[])[0].mail).toEqual(['r', 's'])
+    expect(p2.doc.mail?.handled).toContain('s')
+    expect(plan(p2.doc, later, id).changed).toBe(false) // settled
+  })
   it('Add and Dismiss take a record out for good', () => {
     const p = plan(roles(), log, id)
     let d = addRecord(p.doc, p.look[1].record, id) // the Red Linen Bag, as a sale

@@ -91,10 +91,10 @@ export function MailPanel({ doc, update, link }: {
   // Apply what can be applied, once per new read or change (the records it adds are marked handled, so this settles).
   const total = p ? p.added.purchases + p.added.transfers + p.added.sales : 0
   useEffect(() => {
-    if (!p || total === 0 || st.kind !== 'ok') return
+    if (!p || !p.changed || st.kind !== 'ok') return
     const log = st.log
     update((d) => plan(d, log, newId).doc)
-    setLast({ ...p.added, at: new Date() })
+    if (total > 0) setLast({ ...p.added, at: new Date() })
   }, [p, total, st, update])
 
   if (st.kind === 'none') return null
@@ -154,8 +154,8 @@ export function MailPanel({ doc, update, link }: {
 
       {p.waiting.length > 0 && (
         <>
-          <h3 className="t-mailsub">Waiting for the other side ({p.waiting.length})</h3>
-          <p className="t-muted t-small">Half of a transfer. It's added by itself once the other character collects its mail. If someone else bought your Blackwater listing, add it as a sale.</p>
+          <h3 className="t-mailsub">Blackwater listings sold, no transfer yet ({p.waiting.length})</h3>
+          <p className="t-muted t-small">Matched by itself once your other faction's transfer character collects the won mail. If someone else bought the listing, add it as a sale.</p>
           <RecordTable rows={p.waiting.map((r) => ({ r }))} roleOf={roleOf} nameOf={nameOf}
             onAdd={(r) => update((d) => addRecord(d, r, newId))} onDismiss={(r) => update((d) => dismiss(d, [r.id]))} />
         </>

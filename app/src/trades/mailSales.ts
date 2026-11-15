@@ -174,6 +174,8 @@ export interface LookItem { record: MailRecord; reason: string }
 export interface Plan {
   /** The document with every automatic entry added and its records marked handled. */
   doc: TradesDoc
+  /** doc differs from the one given (something to save: entries added or a seller's gold matched). */
+  changed: boolean
   added: { purchases: number; transfers: number; sales: number }
   /** Transfer halves whose other half hasn't been collected yet (or never will be: someone else bought it). */
   waiting: MailRecord[]
@@ -196,9 +198,9 @@ export const blackwaterCutOk = (r: MailRecord) =>
 /**
  * Everything the mailbox log adds by itself, given the roles:
  * 1. trader purchases -> purchase entries (one per item, faction and mailbox visit: a card each);
- * 2. transfers: a transfer character's Blackwater sale + the other faction's transfer character's Blackwater purchase of
- *    the same item, quantity and price -> a transfer from the selling side, at the purchase's time, applied to that
- *    item's oldest waiting purchase cards first (split across cards when it spans several; the rest is a free transfer);
+ * 2. transfers: a transfer character's Blackwater purchase -> a transfer from the other faction at the price paid, at
+ *    once, applied to that item's oldest waiting purchase cards first (split across cards when it spans several; the
+ *    rest is a free transfer); the selling side's Blackwater sale is matched to it later and its 15% cut checked;
  * 3. trader sales -> sale entries (one per item, faction and visit) while the tracker holds the units on that faction.
  * Anything amber, a sale beyond the stock or of an item the tracker doesn't know, and a Blackwater cut that isn't 15%
  * goes to `look`. Pure; tested.
@@ -249,24 +251,17 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
     done.push(...rs.map((r) => r.id))
   }
 
-  // 2. transfers
-  const sends = ok.filter((r) => !trader(r) && r.kind === 'sale')
-  const receives = ok.filter((r) => !trader(r) && r.kind === 'buy')
-  const paired = new Set<string>()
-  for (const snd of sends) {
-    const from = sideOf(snd.faction)!
-    const rcv = receives.find((x) => !paired.has(x.id) && sideOf(x.faction) === other(from) && itemKey(x.item) === itemKey(snd.item)
-      && x.count === snd.count && x.price === snd.price)
-    if (!rcv) continue
-    paired.add(snd.id).add(rcv.id)
-    if (!blackwaterCutOk(snd)) {
-      look.push({ record: snd, reason: `Blackwater took ${snd.cut}c, not 15% of the price` }, { record: rcv, reason: 'its other half has a Blackwater cut that isn\'t 15%' })
-      continue
-    }
-    const item = names().get(itemKey(snd.item)) ?? snd.item
-    const at = isoOf(Math.max(snd.t, rcv.t))
+  // 2. transfers. The receiving side's won mail is the transfer (Josh, 2026-11-14: the seller's gold can sit in the
+  // mailbox for hours, and with strict roles a transfer character's Blackwater purchase is always a transfer): it is
+  // added at once, from the other faction, at the price paid. The sending side's Blackwater sale, whenever it is
+  // collected, is matched to it (same item, quantity and price) and its 15% cut checked; a sale with no such transfer
+  // waits (the buyer hasn't collected yet, or a stranger bought the listing).
+  const log2 = new Map(log.records.map((r) => [r.id, r]))
+  for (const rcv of ok.filter((r) => !trader(r) && r.kind === 'buy')) {
+    const from = other(sideOf(rcv.faction)!)
+    const item = names().get(itemKey(rcv.item)) ?? rcv.item
     // Oldest waiting cards of this item on the sending side first.
-    let left = snd.count
+    let left = rcv.count
     const parts: { qty: number; purchase?: string }[] = []
     for (const p of awaitingTransfer(doc)) {
       if (left <= 0) break
@@ -275,16 +270,31 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
       if (n > 0) { parts.push({ qty: n, purchase: p.id }); left -= n }
     }
     if (left > 0) parts.push({ qty: left })
-    let priceLeft = snd.price
-    parts.forEach((pt, i) => {
-      const price = i === parts.length - 1 ? priceLeft : Math.round((snd.price * pt.qty) / snd.count)
+    let priceLeft = rcv.price
+    parts.forEach((pt, k) => {
+      const price = k === parts.length - 1 ? priceLeft : Math.round((rcv.price * pt.qty) / rcv.count)
       priceLeft -= price
-      push([{ kind: 'transfer', id: newId(), at, item, qty: pt.qty, from, price, ...(pt.purchase ? { purchase: pt.purchase } : {}), mail: [snd.id, rcv.id] }])
+      push([{ kind: 'transfer', id: newId(), at: isoOf(rcv.t), item, qty: pt.qty, from, price, ...(pt.purchase ? { purchase: pt.purchase } : {}), mail: [rcv.id] }])
     })
     added.transfers++
-    done.push(snd.id, rcv.id)
+    done.push(rcv.id)
   }
-  const waiting = [...sends, ...receives].filter((r) => !paired.has(r.id)).sort((a, b) => a.t - b.t)
+  const waiting: MailRecord[] = []
+  for (const snd of ok.filter((r) => !trader(r) && r.kind === 'sale')) {
+    const from = sideOf(snd.faction)!
+    // A transfer from this side made from a won mail of the same item, quantity and price, not yet matched to a sale.
+    const match = doc.entries.find((e) => {
+      if (e.kind !== 'transfer' || e.from !== from || !e.mail || e.mail.length !== 1) return false
+      const r = log2.get(e.mail[0])
+      return !!r && r.kind === 'buy' && itemKey(r.item) === itemKey(snd.item) && r.count === snd.count && r.price === snd.price
+    })
+    if (!match) { waiting.push(snd); continue }
+    // A wrong cut leaves the sale for Josh (and the transfer unmatched, so the same holds on the next pass).
+    if (!blackwaterCutOk(snd)) { look.push({ record: snd, reason: `Blackwater took ${snd.cut}c, not 15% of the price: check this transfer` }); continue }
+    const rcvId = match.mail![0]
+    doc = { ...doc, entries: doc.entries.map((e) => (e.kind === 'transfer' && e.mail?.length === 1 && e.mail[0] === rcvId ? { ...e, mail: [rcvId, snd.id] } : e)) }
+    done.push(snd.id)
+  }
 
   // 3. sales, in time order, while the faction holds the units
   const sales = new Map<string, MailRecord[]>()
@@ -315,7 +325,7 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
   for (const x of [...log.records, ...log.visits]) { const w = who(x); seen.set(w.key, w) }
   const trading = (x: MailVisit) => { const r = role(x); return r === 'trader' || r === 'transfer' }
   return {
-    doc, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
+    doc, changed: doc !== doc0, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
     visits: log.visits.filter((v) => !handled.has(v.id) && trading(v) && (listed.has(v.id) || !visitOk(v))).reverse(),
     chars: [...seen.values()].map((w) => ({ key: w.key, name: w.name, faction: w.faction, role: roleOf(doc0, w, single) }))
       .sort((a, b) => a.name.localeCompare(b.name) || a.faction.localeCompare(b.faction)),
