@@ -376,9 +376,13 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
   const seen = new Map<string, Who>()
   for (const x of [...log.records, ...log.visits]) { const w = who(x); seen.set(w.key, w) }
   const trading = (x: MailVisit) => { const r = role(x); return r === 'trader' || r === 'transfer' }
+  // A visit's mails without their gold / items are records of their own: once each is added or dismissed, the visit
+  // line goes too (2026-11-15: it stayed after Josh added all 4 such sales). Gold no mail accounts for keeps it.
+  const openBad = new Set(open.filter((r) => r.status !== 'ok').map((r) => r.visit))
+  const stillBad = (v: MailVisit) => v.unexplained > 0 || ((v.missing > 0 || v.buyMissing > 0) && openBad.has(v.id))
   return {
     doc, changed: doc !== doc0, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
-    visits: log.visits.filter((v) => fresh(v.t0) && !handled.has(v.id) && trading(v) && (listed.has(v.id) || (!visitOk(v) && !paid.has(v.id)))).reverse(),
+    visits: log.visits.filter((v) => fresh(v.t0) && !handled.has(v.id) && trading(v) && (listed.has(v.id) || (stillBad(v) && !paid.has(v.id)))).reverse(),
     coverable,
     chars: [...seen.values()].map((w) => ({ key: w.key, name: w.name, faction: w.faction, role: roleOf(doc0, w, single) }))
       .sort((a, b) => a.name.localeCompare(b.name) || a.faction.localeCompare(b.faction)),

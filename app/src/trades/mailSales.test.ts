@@ -366,6 +366,13 @@ describe('plan (roles)', () => {
     expect(after.look.map((l) => l.record.id)).toEqual(['g4'])
     expect(after.visits.map((v) => v.id)).toEqual(['vc'])
     expect(after.coverable.size).toBe(0)
+    // Adding (or dismissing) the visit's last mail without gold takes the visit line away too, unless gold no mail
+    // accounts for is left.
+    const g4 = lg.records.find((r) => r.id === 'g4')!
+    expect(plan(addRecord(after.doc, g4, id), lg, id).visits.map((v) => v.id)).toEqual(['vc'])
+    const noGold = { ...lg, visits: lg.visits.map((v) => (v.id === 'vc' ? { ...v, unexplained: 0 } : v)) }
+    expect(plan(addRecord(after.doc, g4, id), noGold, id).visits).toEqual([])
+    expect(plan(dismiss(after.doc, ['g4']), noGold, id).visits).toEqual([])
     expect(parseTradesDoc(JSON.stringify(after.doc)).mail?.paid).toEqual(['vb'])
     // A covered visit whose sales go beyond stock still lists those, with the real reason.
     const over = plan(markPaid(roles(), 'vb'), { ...lg, records: lg.records.filter((r) => r.id !== 'b1') }, id)
