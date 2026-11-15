@@ -687,15 +687,24 @@ checked it on the live site ("looks good").
   Faction tab switch "Send the gold back to Alliance" (ab4c32b) and "Gold sent" with a Skinning Knife in the trade
   tracker, both directions (e0776ac). All pushed; the trades page is live.
 
+2026-11-15 (short session, talk + one model change): Josh decided to fund Horde with Skinning Knife gold sends
+  (Horde -> Alliance has far more trades; he can't keep Horde stocked from sales). Worked through the cost with him
+  ("100g on Horde, buy 10g, sell 15g -> 2.49g"): only the 15% Blackwater cut leaves the buying side's pool (the
+  transfer listing returns 85%), and refilling it costs 17.6% of the cut. Faction profit is now sell x 0.95 - buy / 0.85
+  in both directions; both gold checkboxes removed (d49517c, b5b004b, pushed). Magnitude on one snapshot: 143 of 2,982
+  rows dropped (all < 2.6% above old break-even, 1.8g total), top 50 by profit 49/50 the same. Considered and not built
+  (Josh agreed it would double up): a per-item "gold cost" share in the trade tracker.
+
 Where we left off (2026-11-15, signed off): the trade tracker's mailbox log is in daily use (Josh plays, logs off,
 Refreshes the trades page; only "Needs a look" and "Blackwater listings sold, no transfer yet" need him). Josh is
-short of gold on Horde and will send gold Alliance -> Horde with a Skinning Knife (Horde Xria lists, Jeder buys).
-Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on Refresh, a "Gold sent" History row, no
-knife in stock, and the seller's gold matched later (nothing left under "Blackwater listings sold, no transfer yet").
-Also unconfirmed: the Faction tab's single formula sell x 0.95 - buy / 0.85 (2026-11-15; Market needs a restart to
-load it: close tabs, wait 10 min, reopen), the
-popup-less chat line, a seller's Blackwater gold matched to an item transfer, a wrong-cut flag, and a won mail emptied
-across two visits (recorded part by part since 1ffe250).
+short of gold on Horde and funds it with Skinning Knife sends (Horde Xria lists, Jeder buys), picking trades from the
+Faction tab's new single formula. Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on
+Refresh, a "Gold sent" History row, no knife in stock, and the seller's gold matched later (nothing left under
+"Blackwater listings sold, no transfer yet"); the Faction tab without the two checkboxes and its note "sell x 0.95 -
+buy / 0.85" (Market needs a restart: close tabs, wait 10 min, reopen). Also unconfirmed: the popup-less chat line, a
+seller's Blackwater gold matched to an item transfer, a wrong-cut flag, and a won mail emptied across two visits
+(recorded part by part since 1ffe250). If he later wants per-item gold cost in the tracker, the design is: 17.6% of
+the net gold an item took from the buying side's pool (credit for gold it brought), leftover = 17.6% of the float.
 Earlier state (2026-11-13 evening): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
 hours that share hours: first rough results around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20);
