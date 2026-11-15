@@ -371,7 +371,7 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   gold came, src invoice / subject) and one visit line per mailbox opening (goldIn, sales, deposits, other mail money,
   unexplained gold, missing). Mailbox open/close from PLAYER_INTERACTION_MANAGER_FRAME_SHOW/_HIDE (type MailInfo),
   as TSM reads them; MAIL_CLOSED only as a fallback (confirmed from the event log 2026-11-14: this client never sends
-  MAIL_CLOSED, so the first version only saved visits on /reload). The report (chat + popup) comes the moment the
+  MAIL_CLOSED, so the first version only saved visits on /reload). The chat report comes the moment the
   mailbox closes (Josh asked); the visit stays open 10 s more for late gold and the report is corrected only if that
   changes it. First real visits 2026-11-14: 4 sales on Xria (Horde), gold check OK.
   **Purchases** (Josh, 2026-11-14): "Auction won" mails (invoice "buyer": 4th value = total paid, 5th = quantity,
@@ -413,9 +413,9 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   Blackwater item counts as a transfer (delete it). Jeder's first Blackwater sale (2026-11-14) was collected with the
   addon off: recorded by hand; Dismiss its won-mail half if it shows. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
-  cut. Only Josh's four trading characters record (Josh, 2026-11-14: the popup showed on all his alts): their GUIDs are built in (`TRADERS` in Sales.lua: Xfaction Player-6925-03AADB1A, Jeder Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D); `/bscan mail on|off` changes it per character (BavvbScanDB.mailChars, by GUID); a new trading character needs `/bscan mail on` (and a role on the page). Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
-  visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (192 checks incl. the popup, purchases, partial won mails, GUIDs, the 60-day limit and per-character switch; scratchpad, gone).
+  cut. Only Josh's four trading characters record (Josh, 2026-11-14: the popup showed on all his alts): their GUIDs are built in (`TRADERS` in Sales.lua: Xfaction Player-6925-03AADB1A, Jeder Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D); `/bscan mail on|off` changes it per character (BavvbScanDB.mailChars, by GUID); a new trading character needs `/bscan mail on` (and a role on the page). Chat line after each visit (a popup with a Reload button was dropped 2026-11-14 at
+  Josh's request: logging off writes SavedVariables too, so his routine is just to log off; the risk is a crash,
+  which loses that session's records since the mails are gone); `/bscan sales`. Tested in a fengari harness (192 checks incl. the popup, purchases, partial won mails, GUIDs, the 60-day limit and per-character switch; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
@@ -660,7 +660,7 @@ checked it on the live site ("looks good").
   purchase cards (4d364fe); both pushed and live, checked in headless Chrome, not yet by Josh.
 2026-11-14 (evening, long session): mailbox log for the trade tracker (see Trade tracker > Sales from the mailbox).
   Josh found typing scattered sales tedious and doesn't trust TSM's records, so BavvbScan 1.1 records auction sales
-  (gold-checked) and purchases (bag-checked) from the mailbox, with a report + Reload popup the moment the mailbox
+  (gold-checked) and purchases (bag-checked) from the mailbox, with a chat report the moment the mailbox
   closes; the trades page applies them by itself from character roles: purchases -> cards, a Blackwater won mail ->
   transfer at once, seller's gold matched later, sales while in stock. Commits b05e67d .. f6c2cae, all pushed and
   live. Found on the way: this client never sends MAIL_CLOSED (interaction events used); short names collide ("Xria" x3;
@@ -669,7 +669,7 @@ checked it on the live site ("looks good").
   differences on his three hand-typed transfers of earlier that day.
 
 Where we left off (2026-11-14 evening, signed off): the trade tracker's mailbox log is done and in daily use: Josh
-plays as normal on his four characters, /reloads (popup button) and opens or Refreshes the trades page; only "Needs a
+plays as normal on his four characters, logs off (or /reloads) and opens or Refreshes the trades page; only "Needs a
 look" and "Blackwater listings sold, no transfer yet" need him. Next: iterations from real use. Not yet seen for real:
 a seller's Blackwater gold being matched later (Horde Xria hasn't collected the Pristine Leather gold yet: expect
 nothing to show), a wrong-cut flag, and a won mail emptied across two visits (flagged noitem by design).

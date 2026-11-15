@@ -471,81 +471,29 @@ local function issuesOf(x)
   return out
 end
 
--- One line for chat and the popup: sales, gold, and either "gold OK", "waiting for gold" or the problems.
-local function reportLine(x, chat)
+-- The chat line after a mailbox visit: sales, gold, and either "everything matches", "waiting for ..." or the problems.
+-- (A popup with a Reload button showed the same until 2026-11-14; Josh dropped it: logging off saves the file too.)
+local function reportLine(x)
   local parts = {}
   if x.sales > 0 or (x.buys or 0) == 0 then parts[#parts + 1] = plural(x.sales, "sale") .. " (" .. coins(x.received) .. ")" end
   if (x.buys or 0) > 0 then parts[#parts + 1] = plural(x.buys, "purchase") .. " (" .. coins(x.spent) .. ")" end
   local line = table.concat(parts, ", ") .. " recorded"
   local issues = issuesOf(x)
   if #issues > 0 then
-    return line .. (chat and ". " or "\n") .. "|cffffb000Check in the tracker: " .. table.concat(issues, "; ") .. "|r"
+    return line .. ". |cffffb000Check in the tracker: " .. table.concat(issues, "; ") .. "|r"
   end
   local waits = {}
   if (x.waiting or 0) > 0 then waits[#waits + 1] = "the gold of " .. plural(x.waiting, "mail") end
   if (x.buyWaiting or 0) > 0 then waits[#waits + 1] = "the items of " .. plural(x.buyWaiting, "won mail") end
   if #waits > 0 then
-    return line .. (chat and ", " or "  ") .. "|cffffff80waiting for " .. table.concat(waits, " and ") .. "...|r"
+    return line .. ", |cffffff80waiting for " .. table.concat(waits, " and ") .. "...|r"
   end
-  return line .. (chat and ", everything matches " or "  ") .. "|cff40ff40" .. (chat and "(OK)" or "all OK") .. "|r"
+  return line .. ", everything matches |cff40ff40(OK)|r"
 end
 
 local function hasNews(x)
   return x.sales > 0 or (x.missing or 0) > 0 or (x.unexplained or 0) > 0 or (x.waiting or 0) > 0 or (x.buys or 0) > 0
     or (x.buyMissing or 0) > 0 or (x.buyWaiting or 0) > 0
-end
-
--- A small popup near the top of the screen after a mailbox visit with sales: what was recorded, whether the gold
--- matched, and a Reload button (WoW writes the file on /reload). Visits add up until it is closed or reloaded; the
--- visit just closed counts from its preview until it is final. Stays until clicked; no sound. Never saved, so a
--- /reload removes it.
-local popup
-local function emptyShown() return { sales = 0, received = 0, missing = 0, unexplained = 0, buys = 0, spent = 0, buyMissing = 0 } end
-local shown = emptyShown()
-local live -- preview of the visit just closed, until it is saved
-
-local function drawPopup()
-  local x = { sales = shown.sales, received = shown.received, missing = shown.missing, unexplained = shown.unexplained,
-    waiting = 0, buys = shown.buys, spent = shown.spent, buyMissing = shown.buyMissing, buyWaiting = 0 }
-  if live then
-    x.sales, x.received = x.sales + live.sales, x.received + live.received
-    x.unexplained, x.waiting = x.unexplained + live.unexplained, live.waiting
-    x.buys, x.spent, x.buyWaiting = x.buys + live.buys, x.spent + live.spent, live.buyWaiting
-  end
-  if not hasNews(x) then return end
-  if not popup then
-    local p = CreateFrame("Frame", "BavvbScanSalesPopup", UIParent)
-    p:SetSize(520, 84)
-    p:SetPoint("TOP", UIParent, "TOP", 0, -110)
-    p:SetFrameStrata("DIALOG")
-    p.bg = p:CreateTexture(nil, "BACKGROUND")
-    p.bg:SetAllPoints()
-    p.bg:SetColorTexture(0, 0, 0, 0.8)
-    p.edge = p:CreateTexture(nil, "BORDER")
-    p.edge:SetPoint("TOPLEFT")
-    p.edge:SetPoint("BOTTOMLEFT")
-    p.edge:SetWidth(4)
-    p.line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    p.line:SetPoint("TOPLEFT", 16, -12)
-    p.line:SetPoint("RIGHT", -36, 0)
-    p.line:SetJustifyH("LEFT")
-    p.reload = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
-    p.reload:SetSize(110, 26)
-    p.reload:SetPoint("BOTTOMRIGHT", -12, 10)
-    p.reload:SetText("Reload")
-    p.reload:SetScript("OnClick", function() ReloadUI() end)
-    p.close = CreateFrame("Button", nil, p, "UIPanelCloseButton")
-    p.close:SetPoint("TOPRIGHT", 0, 0)
-    p.close:SetScript("OnClick", function()
-      p:Hide()
-      shown = emptyShown()
-    end)
-    popup = p
-  end
-  local bad = #issuesOf(x) > 0
-  popup.edge:SetColorTexture(bad and 1 or 0.25, bad and 0.7 or 1, bad and 0.1 or 0.25, 1)
-  popup.line:SetText("BavvbScan: " .. reportLine(x, false))
-  popup:Show()
 end
 
 -- The character's name as shown in game. On Forever the short name (UnitName) is only the first word, so "Xria Two",
@@ -599,14 +547,8 @@ local function save(v, now)
   end
   Core.prune(s, now)
   -- Chat: once when the mailbox closed (the preview); again only if the final result differs from it.
-  local final = reportLine(summary, true)
+  local final = reportLine(summary)
   if hasNews(summary) and final ~= v.reported then say(final) end
-  shown.sales, shown.received = shown.sales + summary.sales, shown.received + summary.received
-  shown.missing, shown.unexplained = shown.missing + summary.missing, shown.unexplained + summary.unexplained
-  shown.buys, shown.spent = shown.buys + summary.buys, shown.spent + summary.spent
-  shown.buyMissing = shown.buyMissing + summary.buyMissing
-  live = nil
-  drawPopup()
 end
 
 local function finishVisit()
@@ -633,11 +575,10 @@ end
 local function closed()
   if visit and not closing then
     -- Report at once what is recorded so far.
-    live = Core.preview(visit)
+    local live = Core.preview(visit)
     if hasNews(live) then
-      visit.reported = reportLine(live, true)
+      visit.reported = reportLine(live)
       say(visit.reported)
-      drawPopup()
     end
     local token = {}
     closing = token
@@ -658,7 +599,7 @@ local function note(event, arg)
   while #s.events > 120 do table.remove(s.events, 1) end
 end
 
--- Which characters record their mail (Josh, 2026-11-14: the popup showed on all his other characters). By default only
+-- Which characters record their mail (Josh, 2026-11-14: the report showed on all his other characters). By default only
 -- his four trading characters; `/bscan mail on` / `off` changes it for the character playing (saved per account, by
 -- GUID, in BavvbScanDB.mailChars).
 local TRADERS = {
@@ -677,7 +618,7 @@ local function recording()
 end
 
 frame:SetScript("OnEvent", function(_, event, arg)
-  -- A character that doesn't record: no visits, no popup, no chat; only the gold baseline is kept.
+  -- A character that doesn't record: no visits, no chat; only the gold baseline is kept.
   if not recording() and not visit then
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_MONEY" then lastMoney = GetMoney() end
     if event == "PLAYER_LOGOUT" and BavvbScanDB and BavvbScanDB.sales then Core.prune(BavvbScanDB.sales, time()) end
