@@ -378,8 +378,17 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   checked by screenshot; 100 Pristine Leather came as one mail with 5 attachments of 20). Gold left at the AH, so the
   check is items: when a won mail leaves the inbox, that item's units that left the inbox and the bag rises
   (BAG_UPDATE_DELAYED, C_Item.GetItemCount) must cover its quantity; units from other mails of the same item count
-  first. Records kind "buy" (price = total paid, itemID, status ok / noitem); visits buys / spent / buyMissing. A won
-  mail emptied over two visits is flagged noitem (known limit). Tracker: Purchases table under Sales; ticked when the
+  first. Records kind "buy" (price = total paid, itemID, status ok / noitem); visits buys / spent / buyMissing.
+  **Won mails emptied over several visits** (Josh, 2026-11-14: he often has room for half a big purchase, mails it
+  off, comes back for the rest): the check is per won mail (units taken out of it that reached the bags, other mails'
+  units of the item first); each visit records the part that arrived at its share of the price (record count = units
+  of the part, price = paid for them, plus mailCount / mailPrice), and `sales.wonCarry` remembers what is recorded of
+  each mail still in the inbox ({sig, expiry, units, price, t}; expiry = now + daysLeft, fixed per mail; dropped after
+  35 days). When the mail is gone the last part takes the rest of the price; units that never arrived are a noitem
+  record. Matching a listing to a known mail: same sig, expiry within 300 s, units only go down, unchanged first, then
+  closest expiry; a saved entry goes to the mail whose remaining + recorded = its quantity, and an untouched mail never
+  takes one (identical mails bought seconds apart are interchangeable). A mail half-emptied before this version (no
+  saved entry) ends with a noitem part for the earlier units (Add as purchase). Tracker: Purchases table under Sales; ticked when the
   tracker already knows the item, new items unticked; added as purchase entries (cards under Waiting for transfer).
   **Automatic chain with roles** (Josh, 2026-11-14; replaced the ticking): Josh's characters and strict roles:
   Alliance = Xfaction Bavvb (trader: buys/sells on the Alliance AH) + Jeder Hillmont (transfer: Blackwater), account
@@ -406,7 +415,7 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (156 checks incl. the popup, purchases and GUIDs; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (177 checks incl. the popup, purchases, partial won mails and GUIDs; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
@@ -685,8 +694,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), last copy = the GUID version (ba22491;
-  Sales.lua unchanged since). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks) also lived in the
+  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), last copy = the partial won mails version. A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks) also lived in the
   scratchpad and is gone; rebuild it the same way before changing Sales.lua. `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
@@ -723,8 +731,9 @@ Open items to raise when relevant:
   data/private/trades.json (entries with `mail`, `mail.handled`, `mail.roles`); to try the page on his real data
   without touching it, run the dev server and seed a headless Chrome with copies (how it was checked this session).
   When Josh can't paste from the game, ask for a screenshot (Print Screen) and read the newest file in
-  F:\World of Warcraft\_forever_\Screenshots. Known limits: a won mail emptied over two visits is flagged; a transfer
-  char buying a stranger's Blackwater item becomes a transfer; `full` names work ("Xria Two" from UnitFullName).
+  F:\World of Warcraft\_forever_\Screenshots. Known limits: a transfer char buying a stranger's Blackwater item
+  becomes a transfer; `full` names work ("Xria Two" from UnitFullName). Partial won mails across visits: built and
+  tested 2026-11-14 late (see Sales from the mailbox), not yet seen for real.
 - Trade tracker (stock-pool version live 2026-11-14, 8948234; per-unit transfer prices and partial card transfers,
   b2f9f9d; Avg buy / Avg sell columns 9dfa364; price each on cards 4d364fe): Josh has a real trades file in batch format (v1); the live page converts it on first load and saves v2 on
   his next change (suggested: File > Download a copy first). Not yet confirmed that his real data converted as

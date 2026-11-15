@@ -21,14 +21,20 @@
 --   that are not sales (refunds, gold sent between characters), unexplained = gold rises no mail accounts for,
 --   missing = sale mails that left without their gold.
 --   Purchases (2026-11-14): "Auction won" mails (invoice type "buyer"; on the Forever client the 4th value is the total
---   paid, the 5th the quantity). The gold left at the auction house, so the check is the items instead: when a won
---   mail leaves the inbox, its item's units that left the inbox (all mails) and the units that reached the bags while
---   the mailbox was open must both cover the mail's quantity. Records { kind = "buy", t, item, itemID, count, price
---   (total paid), status "ok" / "noitem" }; sale records carry kind = "sale" (older ones have no kind). Visits add
---   buys, spent, buyMissing.
+--   paid, the 5th the quantity). The gold left at the auction house, so the check is the items instead: the units
+--   taken out of each won mail that reached the bags (units from other mails of the same item count first, so they
+--   never vouch for a won mail). A won mail can be emptied over several visits (Josh: bags full, mail half off to
+--   another character, come back for the rest): every visit records the units of it that arrived, at their share of
+--   the price, and `wonCarry` remembers how much of each mail is recorded (mails told apart by subject, price,
+--   quantity and expiry time, which is fixed per mail); when the mail is gone, the last part takes the rest of the
+--   price, and units that never arrived are a "noitem" record. Records { kind = "buy", t, item, itemID, count (units
+--   in this part), price (paid for them), status "ok" / "noitem", mailCount, mailPrice (the whole mail) }; sale records
+--   carry kind = "sale" (older ones have no kind). Visits add buys (parts), spent, buyMissing.
 -- Records are only ever added; fixes happen in the trade tracker. Buyer names are never read into the saved data.
 
 local GRACE = 10     -- seconds after the mailbox closes to wait for late gold or inbox updates
+local EXPIRY_SLACK = 300 -- seconds: a won mail's expiry time, worked out from its days left, matches within this
+local CARRY_DAYS = 35  -- won mails expire after 30 days; older carry entries are dropped
 local MAX_SUBSET = 12 -- waiting mails considered when matching one gold rise (a rise can pay several mails at once)
 
 -- Pure part (no WoW calls), exposed for the test harness.
@@ -38,44 +44,84 @@ BavvbScanSalesCore = Core
 function Core.newVisit(now)
   return { t0 = now, present = {}, info = {}, pending = {}, rises = {}, goldIn = 0, goldOut = 0, confirmed = {},
     other = 0,
-    -- purchases: won mails present (sig -> n) and their details, won mails gone (in order), and per watched item ID
-    -- the units in the inbox when first seen / now, the bag count last seen and the units that reached the bags
-    buy = { present = {}, info = {}, gone = {}, inboxFirst = {}, inboxLast = {}, bagLast = {}, bagIn = {} } }
+    -- purchases: the won mails seen this visit (in order: units in them when first seen / now, gone, what earlier
+    -- visits recorded of them), and per watched item ID the units of it in other mails when first seen / now, the bag
+    -- count last seen and the units that reached the bags
+    buy = { mails = {}, watch = {}, otherFirst = {}, otherLast = {}, bagLast = {}, bagIn = {} } }
 end
 
--- buyers: the won mails now in the inbox, each { sig, item, itemID, count, price }. totals: units per item ID in the
--- whole inbox (all mails' attachments).
-function Core.buyers(v, buyers, totals, now)
+-- buyers: the won mails now in the inbox, each { sig, item, itemID, count, price, remaining (units still in it),
+-- expiry (Unix time) }. totals: units per item ID in the whole inbox (all mails' attachments). carry: the saved list of
+-- won mails partly recorded on earlier visits ({ sig, expiry, units, price, t }).
+function Core.buyers(v, buyers, totals, now, carry)
   local b = v.buy
-  local counts = {}
+  b.claimed = b.claimed or {}
+  local here = {}
+  -- Which known mail is this listing? Same subject, price and quantity, expiry within the slack, and its units can only
+  -- have gone down; one that hasn't changed first, then the closest expiry. (Identical mails bought seconds apart are
+  -- interchangeable: same price and quantity.)
+  local function known(m)
+    local best, bestScore
+    for _, y in ipairs(b.mails) do
+      local d = math.abs(y.mail.expiry - m.expiry)
+      if not here[y] and y.mail.sig == m.sig and d <= EXPIRY_SLACK and y.last >= m.remaining then
+        local score = (y.last == m.remaining and 0 or EXPIRY_SLACK + 1) + d
+        if not bestScore or score < bestScore then best, bestScore = y, score end
+      end
+    end
+    return best
+  end
+  -- What earlier visits recorded of a mail: an unclaimed saved entry whose units plus the units still in the mail make
+  -- the whole quantity (closest expiry first); failing that, for a mail already partly emptied only, the closest entry.
+  -- An untouched mail never takes another mail's entry.
+  local function savedFor(m, strict)
+    local best, bestD
+    for _, c in ipairs(carry or {}) do
+      local d = math.abs(c.expiry - m.expiry)
+      if not b.claimed[c] and c.sig == m.sig and d <= EXPIRY_SLACK and (not strict or c.units + m.remaining == m.count)
+        and (not bestD or d < bestD) then best, bestD = c, d end
+    end
+    return best
+  end
+  local fresh = {}
   for _, m in ipairs(buyers) do
-    counts[m.sig] = (counts[m.sig] or 0) + 1
-    local old = b.info[m.sig]
-    if not old or (m.itemID and not old.itemID) then b.info[m.sig] = m end
-    local id = b.info[m.sig].itemID
-    if id and b.inboxFirst[id] == nil then b.inboxFirst[id] = totals[id] or 0 end
+    local x = known(m)
+    if not x then
+      x = { mail = m, first = m.remaining, last = m.remaining }
+      b.mails[#b.mails + 1] = x
+      fresh[#fresh + 1] = x
+    end
+    here[x] = true
+    x.last, x.gone = m.remaining, false
+    if m.itemID and not x.mail.itemID then x.mail.itemID = m.itemID end
+    if x.mail.itemID then b.watch[x.mail.itemID] = true end
   end
-  for sig, n in pairs(b.present) do
-    for _ = 1, n - (counts[sig] or 0) do b.gone[#b.gone + 1] = { mail = b.info[sig], at = now } end
-  end
-  for sig, n in pairs(counts) do
-    for _ = 1, n - (b.present[sig] or 0) do
-      for k = #b.gone, 1, -1 do -- a won mail that comes back is not gone
-        if b.gone[k].mail.sig == sig then
-          table.remove(b.gone, k)
-          break
-        end
+  for pass = 1, 2 do
+    for _, x in ipairs(fresh) do
+      if not x.carry and (pass == 1 or x.first < x.mail.count) then
+        local c = savedFor({ sig = x.mail.sig, expiry = x.mail.expiry, remaining = x.first, count = x.mail.count }, pass == 1)
+        if c then x.carry, b.claimed[c] = c, true end
       end
     end
   end
-  b.present = counts
-  for id in pairs(b.inboxFirst) do b.inboxLast[id] = totals[id] or 0 end
+  for _, y in ipairs(b.mails) do
+    if not here[y] then y.gone = true end
+  end
+  for id in pairs(b.watch) do
+    local won = 0
+    for _, y in ipairs(b.mails) do
+      if here[y] and y.mail.itemID == id then won = won + y.last end
+    end
+    local other = math.max(0, (totals[id] or 0) - won)
+    if b.otherFirst[id] == nil then b.otherFirst[id] = other end
+    b.otherLast[id] = other
+  end
 end
 
 -- The item IDs whose bag counts matter (items of won mails seen this visit).
 function Core.watched(v)
   local ids = {}
-  for id in pairs(v.buy.inboxFirst) do ids[#ids + 1] = id end
+  for id in pairs(v.buy.watch) do ids[#ids + 1] = id end
   return ids
 end
 
@@ -89,30 +135,46 @@ function Core.bags(v, counts)
   end
 end
 
--- Each won mail gone, in order, with "ok" when its units left the inbox and reached the bags, else "noitem". Units of
--- the same item that left other mails (e.g. sent by an alt) are put against the bags first, so they never vouch for a
--- won mail whose items didn't arrive.
+-- Per won mail seen this visit: the units of it that arrived (give), whether it is gone (final), and what earlier
+-- visits recorded of it (before, beforePrice). Units that reached the bags are shared out to the won mails of that
+-- item in order, after the units that left other mails of the item.
 function Core.buyResult(v)
   local b = v.buy
   local avail = {}
-  local wonUnits = {}
-  for _, g in ipairs(b.gone) do
-    local id = g.mail.itemID
-    if id then wonUnits[id] = (wonUnits[id] or 0) + g.mail.count end
-  end
   local out = {}
-  for _, g in ipairs(b.gone) do
-    local id = g.mail.itemID
+  for _, x in ipairs(b.mails) do
+    local id = x.mail.itemID
     if id and avail[id] == nil then
-      local left = math.max(0, (b.inboxFirst[id] or 0) - (b.inboxLast[id] or 0))
-      local fromOthers = math.max(0, left - wonUnits[id])
-      avail[id] = math.max(0, math.min(left, b.bagIn[id] or 0) - fromOthers)
+      local fromOthers = math.max(0, (b.otherFirst[id] or 0) - (b.otherLast[id] or 0))
+      avail[id] = math.max(0, (b.bagIn[id] or 0) - fromOthers)
     end
-    local ok = id ~= nil and avail[id] >= g.mail.count
-    if ok then avail[id] = avail[id] - g.mail.count end
-    out[#out + 1] = { mail = g.mail, at = g.at, status = ok and "ok" or "noitem" }
+    local taken = math.max(0, x.first - (x.gone and 0 or x.last))
+    local give = id and math.min(taken, avail[id]) or 0
+    if id then avail[id] = avail[id] - give end
+    out[#out + 1] = { x = x, mail = x.mail, give = give, final = x.gone == true,
+      before = x.carry and x.carry.units or 0, beforePrice = x.carry and x.carry.price or 0 }
   end
   return out
+end
+
+-- The purchase records of one result (a part that arrived, and for a mail now gone the units that never did), and the
+-- figures for the visit. Pure.
+local function buyParts(r, at)
+  local m = r.mail
+  local parts = {}
+  local done = r.before + r.give
+  local partPrice = 0
+  if r.give > 0 then
+    if r.final and done >= m.count then partPrice = m.price - r.beforePrice
+    else partPrice = math.floor(m.price * r.give / m.count + 0.5) end
+    parts[#parts + 1] = { kind = "buy", t = at, item = m.item, itemID = m.itemID, count = r.give, price = partPrice,
+      status = "ok", mailCount = m.count, mailPrice = m.price }
+  end
+  if r.final and done < m.count then
+    parts[#parts + 1] = { kind = "buy", t = at, item = m.item, itemID = m.itemID, count = m.count - done,
+      price = m.price - r.beforePrice - partPrice, status = "noitem", mailCount = m.count, mailPrice = m.price }
+  end
+  return parts, partPrice
 end
 
 -- The subset of v.pending (first MAX_SUBSET, earliest preferred) whose money sums to amount, as a list of indexes.
@@ -200,8 +262,9 @@ function Core.money(v, delta, now)
   end
 end
 
--- Ends a visit: returns the sale records (without ids) and the visit summary.
-function Core.finish(v, now)
+-- Ends a visit: returns the records (without ids) and the visit summary. carry (the saved list of partly recorded won
+-- mails) is updated in place.
+function Core.finish(v, now, carry)
   local out = {}
   local function add(mail, at, status)
     local received = mail.money - (mail.deposit or 0)
@@ -225,12 +288,29 @@ function Core.finish(v, now)
   for _, r in ipairs(v.rises) do unexplained = unexplained + r.amount end
   local buys, spent, buyMissing = 0, 0, 0
   for _, r in ipairs(Core.buyResult(v)) do
-    out[#out + 1] = { kind = "buy", t = r.at, item = r.mail.item, itemID = r.mail.itemID, count = r.mail.count,
-      price = r.mail.price, status = r.status }
-    if r.status == "ok" then
-      buys, spent = buys + 1, spent + r.mail.price
-    else
-      buyMissing = buyMissing + 1
+    local parts, partPrice = buyParts(r, now)
+    for _, part in ipairs(parts) do
+      out[#out + 1] = part
+      if part.status == "ok" then buys, spent = buys + 1, spent + part.price else buyMissing = buyMissing + 1 end
+    end
+    -- What is recorded of a mail still in the inbox is remembered for the next visit; a gone mail is forgotten.
+    if carry then
+      local c = r.x.carry
+      if r.final then
+        if c then for k = #carry, 1, -1 do if carry[k] == c then table.remove(carry, k) end end end
+      elseif r.give > 0 then
+        if not c then
+          c = { sig = r.mail.sig, expiry = r.mail.expiry, units = 0, price = 0, item = r.mail.item }
+          carry[#carry + 1] = c
+          r.x.carry = c
+        end
+        c.units, c.price, c.t = c.units + r.give, c.price + partPrice, now
+      end
+    end
+  end
+  if carry then
+    for k = #carry, 1, -1 do
+      if carry[k].t and now - carry[k].t > CARRY_DAYS * 86400 then table.remove(carry, k) end
     end
   end
   return out, { t0 = v.t0, t1 = now, goldIn = v.goldIn, goldOut = v.goldOut, sales = sales, received = received,
@@ -289,8 +369,9 @@ end
 local function readInbox()
   local list, buyers, totals = {}, {}, {}
   for i = 1, GetInboxNumItems() do
-    local _, _, _, subject, money, _, _, hasItem = GetInboxHeaderInfo(i)
+    local _, _, _, subject, money, _, daysLeft, hasItem = GetInboxHeaderInfo(i)
     local firstID
+    local units = 0 -- this mail's units of its first item (a won mail holds one item)
     if type(hasItem) == "number" and hasItem > 0 then
       for a = 1, (ATTACHMENTS_MAX_RECEIVE or 16) do
         local _, _, _, n = GetInboxItem(i, a)
@@ -298,14 +379,18 @@ local function readInbox()
         if id then
           totals[id] = (totals[id] or 0) + n
           firstID = firstID or id
+          if id == firstID then units = units + n end
         end
       end
     end
     local t, item, _, bid, c5, _, _, _, _, _, c11 = GetInboxInvoiceInfo(i)
     if t == "buyer" and item then
       local count = (type(c11) == "number" and c11 > 0 and c11) or (type(c5) == "number" and c5 > 0 and c5) or 1
+      local remaining = 0
+      if firstID then remaining = units end
       buyers[#buyers + 1] = { sig = "B|" .. tostring(subject) .. "|" .. tostring(bid) .. "|" .. count, item = item,
-        itemID = firstID, count = count, price = bid or 0 }
+        itemID = firstID, count = count, price = bid or 0, remaining = remaining,
+        expiry = math.floor(time() + (tonumber(daysLeft) or 0) * 86400 + 0.5) }
     end
     if money and money > 0 then
       local m = { sig = tostring(subject) .. "|" .. money, money = money, kind = "other" }
@@ -358,10 +443,9 @@ function Core.preview(v)
   for _, r in ipairs(v.rises) do p.unexplained = p.unexplained + r.amount end
   p.buys, p.spent, p.buyWaiting = 0, 0, 0
   for _, r in ipairs(Core.buyResult(v)) do
-    if r.status == "ok" then
-      p.buys, p.spent = p.buys + 1, p.spent + r.mail.price
-    else
-      p.buyWaiting = p.buyWaiting + 1
+    local parts = buyParts(r, 0)
+    for _, part in ipairs(parts) do
+      if part.status == "ok" then p.buys, p.spent = p.buys + 1, p.spent + part.price else p.buyWaiting = p.buyWaiting + 1 end
     end
   end
   return p
@@ -475,7 +559,9 @@ local function fullName()
 end
 
 local function save(v, now)
-  local records, summary = Core.finish(v, now)
+  local s0 = db()
+  s0.wonCarry = s0.wonCarry or {}
+  local records, summary = Core.finish(v, now, s0.wonCarry)
   if #records == 0 and summary.goldIn == 0 then return end -- no money came in (e.g. only postage paid): keep no visit
   local s = db()
   local who = {
@@ -573,7 +659,7 @@ frame:SetScript("OnEvent", function(_, event, arg)
     -- Not after closing: the client may then report an empty inbox, which would look like every mail leaving.
     if visit and not closing then
       local list, buyers, totals = readInbox()
-      Core.buyers(visit, buyers, totals, time())
+      Core.buyers(visit, buyers, totals, time(), db().wonCarry)
       readBags(visit) -- new watched items get their baseline before any are taken
       Core.inbox(visit, list, time())
     end
