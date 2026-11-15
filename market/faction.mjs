@@ -3,14 +3,12 @@
 //   buy  = cheap side's average of the cheapest 15% of units (robust to a single bait listing)
 //   sell = dear side's lowest listing, unless it is under 80% of the dear side's cheapest-15% average (a lone outlier,
 //          e.g. a bait auction): then that average, and the row says the outlier was ignored
-//   profit per unit = sell x 0.95 - buy x 1.15  (deposits left out: they come back when the item sells)
-//   with the gold sent back (Josh, 2026-11-14; the Faction tab's switch, Alliance -> Horde only): the Horde gold left
-//   after the sale (sell x 0.95 - buy) also crosses Blackwater, by a junk item listed by the Alliance side, so all of
-//   the sale money crosses once: profitBack = sell x 0.95 x 0.85 - buy (break-even ~24% above buy instead of ~21%).
-//   with Horde funded from Alliance (Josh, 2026-11-15; the Faction tab's second switch, Horde -> Alliance only): the
-//   transfer listing returns 85% of the buy price to Horde; the 15% it loses is topped up from Alliance by a junk item
-//   (Skinning Knife), which loses 15% too, so every gold Horde spends costs 1 / 0.85 Alliance gold:
-//   profitFund = sell x 0.95 - buy / 0.85 (break-even ~24% above buy, like the gold sent back).
+//   profit per unit = sell x 0.95 - buy / 0.85, both directions (Josh, 2026-11-15; replaced buy x 1.15 and the
+//   "send the gold back" / "Horde's gold comes from Alliance" switches): each faction keeps a fixed pool of gold; the
+//   transfer listing returns 85% of the buy price to the buying side, and the 15% it loses is refilled from the selling
+//   side by a junk item (Skinning Knife), which loses 15% too: 0.15 / 0.85 = 17.6% of the cut, so the buy costs
+//   1 + 0.15 + 0.026 = 1 / 0.85. Break-even: sell ~24% above buy. Profit stays on the faction sold on; moving it
+//   elsewhere costs another 15% (not included). Deposits left out: they come back when the item sells.
 // Pure; tested in faction.test.mjs.
 
 export const AH_CUT = 0.05;
@@ -24,29 +22,24 @@ export function trade(cheap, dear) {
   const buy = cheap.cheapest15;
   const outlier = dear.cheapest15 > 0 && dear.lowest < OUTLIER_RATIO * dear.cheapest15;
   const sell = outlier ? dear.cheapest15 : dear.lowest;
-  const profit = sell * (1 - AH_CUT) - buy * (1 + TRANSFER_CUT);
-  const profitBack = sell * (1 - AH_CUT) * (1 - TRANSFER_CUT) - buy;
-  const profitFund = sell * (1 - AH_CUT) - buy / (1 - TRANSFER_CUT);
+  const profit = sell * (1 - AH_CUT) - buy / (1 - TRANSFER_CUT);
   return {
-    buy, sell, profit, margin: profit / buy, profitBack, marginBack: profitBack / buy,
-    profitFund, marginFund: profitFund / buy, outlier,
+    buy, sell, profit, margin: profit / buy, outlier,
     thin: (cheap.units ?? 0) <= THIN_UNITS || (dear.listings ?? 0) <= THIN_UNITS,
   };
 }
 
 /**
  * Steadiness over a window: of the snapshots where both sides had the item, the share where this direction was
- * profitable. mode: '' (plain), 'back' (gold sent back) or 'fund' (Horde funded from Alliance); true = 'back'.
- * series: Map(t -> { cheap, dear }). Returns { profitable, seen }.
+ * profitable. series: Map(t -> { cheap, dear }). Returns { profitable, seen }.
  */
-export function steadiness(series, mode = '') {
-  const key = mode === true || mode === 'back' ? 'profitBack' : mode === 'fund' ? 'profitFund' : 'profit';
+export function steadiness(series) {
   let profitable = 0, seen = 0;
   for (const { cheap, dear } of series.values()) {
     const r = trade(cheap, dear);
     if (!r) continue;
     seen++;
-    if (r[key] > 0) profitable++;
+    if (r.profit > 0) profitable++;
   }
   return { profitable, seen };
 }
