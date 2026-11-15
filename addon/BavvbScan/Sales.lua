@@ -634,13 +634,14 @@ local function note(event, arg)
 end
 
 -- Which characters record their mail (Josh, 2026-11-14: the report showed on all his other characters). By default only
--- his four trading characters; `/bscan mail on` / `off` changes it for the character playing (saved per account, by
+-- his trading characters; `/bscan mail on` / `off` changes it for the character playing (saved per account, by
 -- GUID, in BavvbScanDB.mailChars).
 local TRADERS = {
   ["Player-6925-03AADB1A"] = "Xfaction Bavvb",
   ["Player-6925-037750ED"] = "Jeder Hillmont",
   ["Player-6921-0306E8F7"] = "Horde Xria",
   ["Player-6921-0308022D"] = "Xria Two",
+  ["Player-6921-03DDDF8A"] = "Xfaction Two", -- second Alliance seller, account 1120039#2 (2026-11-15)
 }
 function Core.recording(guid, choices)
   local c = choices and guid and choices[guid]

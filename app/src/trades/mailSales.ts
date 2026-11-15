@@ -161,12 +161,29 @@ export function whoFinder(log: MailLog) {
 }
 
 /**
+ * Josh's trading characters by GUID, as in the addon's TRADERS list (a role set on the page wins). Built in on
+ * 2026-11-15 when Xfaction Two (short name "Xfaction" like Xfaction Bavvb) joined: Xfaction Bavvb's role was only the
+ * old name-based "trading characters" list, which stops counting once two characters share the name.
+ * "Xfaction|Alliance": records from before GUIDs (2026-11-14), all Xfaction Bavvb's.
+ */
+export const KNOWN_ROLES: Record<string, Role> = {
+  'Player-6925-03AADB1A': 'trader', // Xfaction Bavvb (Alliance)
+  'Player-6921-03DDDF8A': 'trader', // Xfaction Two (Alliance)
+  'Player-6921-0308022D': 'trader', // Xria Two (Horde)
+  'Player-6925-037750ED': 'transfer', // Jeder Hillmont (Alliance, Blackwater)
+  'Player-6921-0306E8F7': 'transfer', // Horde Xria (Horde, Blackwater)
+  'Xfaction|Alliance': 'trader',
+}
+
+/**
  * The role set for a character (by its key). Before keys, roles were per short name and the "trading characters" list
  * named traders: those still count, but only for a name that belongs to a single character in the log.
  */
 export function roleOf(doc: TradesDoc, who: Who, single: (name: string) => boolean): Role | undefined {
   const set = doc.mail?.roles?.[who.key] ?? (who.pair ? doc.mail?.roles?.[who.pair] : undefined)
   if (set) return set
+  const known = KNOWN_ROLES[who.key] ?? (who.pair ? KNOWN_ROLES[who.pair] : undefined)
+  if (known) return known
   const short = who.key.includes('|') ? who.key.split('|')[0] : undefined
   const legacy = (n: string) => doc.mail?.roles?.[n] ?? (doc.mail?.chars?.includes(n) ? 'trader' : undefined)
   for (const n of [short, who.name.split(' ')[0]]) {
