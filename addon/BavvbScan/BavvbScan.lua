@@ -389,7 +389,9 @@ SlashCmdList.BAVVBSCAN = function(msg)
     status()
   elseif msg == "sales" and BavvbScanSalesStatus then
     BavvbScanSalesStatus()
+  elseif (msg == "mail" or msg == "mail on" or msg == "mail off") and BavvbScanMailSwitch then
+    BavvbScanMailSwitch(msg:match("^mail (%a+)$"))
   else
-    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel; /bscan sales shows the latest recorded sales.")
+    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel; /bscan sales shows the latest recorded sales; /bscan mail shows whether this character records its mail (on / off to change).")
   end
 end

@@ -413,9 +413,9 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   Blackwater item counts as a transfer (delete it). Jeder's first Blackwater sale (2026-11-14) was collected with the
   addon off: recorded by hand; Dismiss its won-mail half if it shows. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
-  cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
+  cut. Only Josh's four trading characters record (Josh, 2026-11-14: the popup showed on all his alts): their GUIDs are built in (`TRADERS` in Sales.lua: Xfaction Player-6925-03AADB1A, Jeder Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D); `/bscan mail on|off` changes it per character (BavvbScanDB.mailChars, by GUID); a new trading character needs `/bscan mail on` (and a role on the page). Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (181 checks incl. the popup, purchases, partial won mails, GUIDs and the 60-day limit; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (192 checks incl. the popup, purchases, partial won mails, GUIDs, the 60-day limit and per-character switch; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the

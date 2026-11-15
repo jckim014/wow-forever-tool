@@ -658,7 +658,31 @@ local function note(event, arg)
   while #s.events > 120 do table.remove(s.events, 1) end
 end
 
+-- Which characters record their mail (Josh, 2026-11-14: the popup showed on all his other characters). By default only
+-- his four trading characters; `/bscan mail on` / `off` changes it for the character playing (saved per account, by
+-- GUID, in BavvbScanDB.mailChars).
+local TRADERS = {
+  ["Player-6925-03AADB1A"] = "Xfaction Bavvb",
+  ["Player-6925-037750ED"] = "Jeder Hillmont",
+  ["Player-6921-0306E8F7"] = "Horde Xria",
+  ["Player-6921-0308022D"] = "Xria Two",
+}
+function Core.recording(guid, choices)
+  local c = choices and guid and choices[guid]
+  if c ~= nil then return c end
+  return guid ~= nil and TRADERS[guid] ~= nil
+end
+local function recording()
+  return Core.recording(UnitGUID and UnitGUID("player"), BavvbScanDB and BavvbScanDB.mailChars)
+end
+
 frame:SetScript("OnEvent", function(_, event, arg)
+  -- A character that doesn't record: no visits, no popup, no chat; only the gold baseline is kept.
+  if not recording() and not visit then
+    if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_MONEY" then lastMoney = GetMoney() end
+    if event == "PLAYER_LOGOUT" and BavvbScanDB and BavvbScanDB.sales then Core.prune(BavvbScanDB.sales, time()) end
+    return
+  end
   if event ~= "PLAYER_LOGIN" and event ~= "PLAYER_ENTERING_WORLD" and event ~= "PLAYER_LOGOUT"
     and (event ~= "PLAYER_MONEY" or visit) then
     note(event, arg)
@@ -698,6 +722,21 @@ for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "MAIL_SHOW", "MAIL
 end
 
 -- /bscan sales: the last few sales and the last mailbox check.
+-- /bscan mail [on|off]: whether this character records its mail.
+function BavvbScanMailSwitch(arg)
+  local guid = UnitGUID and UnitGUID("player")
+  if arg == "on" or arg == "off" then
+    BavvbScanDB = BavvbScanDB or {}
+    BavvbScanDB.mailChars = BavvbScanDB.mailChars or {}
+    BavvbScanDB.mailChars[guid] = (arg == "on")
+  end
+  if recording() then
+    say("This character records its auction mail (sales and purchases). /bscan mail off to stop.")
+  else
+    say("This character doesn't record its auction mail. /bscan mail on to start.")
+  end
+end
+
 function BavvbScanSalesStatus()
   local s = db()
   local n = #s.records
