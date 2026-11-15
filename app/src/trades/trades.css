@@ -107,3 +107,21 @@ h2 .t-link { font-size: 15px; font-weight: 600; color: var(--t-text); }
 .t-actions .t-left { margin-right: auto; }
 .t-hint { margin: 0; color: var(--t-muted); font-size: 13px; }
 .t-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+/* Sales from the mailbox (MailPanel.tsx) */
+.t-mail { background: var(--t-panel); border: 1px solid var(--t-line); border-radius: 10px; padding: 4px 14px 12px; margin-top: 18px; }
+.t-mailhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.t-mailhead h2 { margin: 12px 0 8px; }
+.t-mailhead > button:first-of-type { margin-left: auto; }
+.t-chars { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; background: var(--t-warn-bg); border-radius: 8px; padding: 8px 12px; margin: 6px 0 10px; }
+.t-char { display: inline-flex; align-items: center; gap: 4px; }
+.t-visits { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; font-size: 13px; }
+.t-visit { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.t-visit-bad { background: var(--t-warn-bg); border-radius: 6px; padding: 3px 8px; margin: 0 -8px; }
+.t-mailtable { margin-bottom: 10px; }
+.t-mailtable td:first-child, .t-mailtable th:first-child { width: 28px; padding-right: 0; }
+.t-mailtable tr.t-sub td { background: var(--t-bg); font-size: 13px; padding-top: 4px; padding-bottom: 4px; }
+.t-mailtable tr.t-off td { color: var(--t-muted); }
+.t-mailtable tr.t-off .t-money span { color: var(--t-muted); }
+.t-mail .t-bar { margin-top: 4px; }
+.t-mail .t-bar .t-small { margin-left: 0; }

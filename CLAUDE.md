@@ -361,6 +361,22 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   with all its entries (the confirm shows each balance's change)), Sold out (collapsed), History (every entry editable).
   Both item tables show Avg buy (gold spent on all purchases / units bought, Blackwater's cut not included) and Avg sell
   (received as recorded, i.e. after the AH cut, / units sold; Josh, 2026-11-14: "show as is"), for restock prices.
+- **Sales from the mailbox** (Josh, 2026-11-14: typing scattered small sales was tedious; he doesn't trust TSM's
+  records for this). BavvbScan 1.1 `addon/BavvbScan/Sales.lua` records each auction sale when its gold reaches the
+  character: it watches the inbox (any opener: by hand, Open All, TSM's mailbox), queues mails whose money leaves, and
+  matches each gold rise (PLAYER_MONEY) to a set of queued mails summing to exactly that amount; a mail that comes back
+  cancels its wait, so ghost mails / double clicks never count twice. Saved in `BavvbScanDB.sales` (format
+  `bavvbsales` v1): records (item, count, price, deposit, cut, money, received = money - deposit = sale - AH cut (Josh
+  chose this over the full mail gold; past typed entries used the full mail gold), status ok / nogold = mail left but no
+  gold came, src invoice / subject) and one visit line per mailbox opening (goldIn, sales, deposits, other mail money,
+  unexplained gold, missing). Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
+  2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
+  cut. Chat line after each visit; `/bscan sales`. Tested in a fengari harness (89 checks; scratchpad, gone).
+  Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
+  or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
+  trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
+  tracker holds the units on that faction (nogold and untracked items unticked); Add makes one sale per item+faction
+  (`mail`: record ids), added or dismissed ids go in `doc.mail.handled` and never return. Visit checks show ✓ or amber.
 - Figures: balances per faction and total gold = liquid gold only; tied up = cost of units held (not in the total;
   Josh confirmed); trading profit = received - cost of units sold - transfer loss, per item and overall (= total +
   tied up - starting gold - adjustments, tested).
@@ -619,7 +635,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   (0 = the server sent nothing; Josh's `/dump` attempt gave a parse error, `/run print(...)` worked).
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a changed .lua loads on `/reload`; a new file or .toc change needs a WoW restart).
-  Copied 2026-11-11 with the scan panel. `.gitignore` ignores `*.lua` (SavedVariables copies) with an
+  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
@@ -648,6 +664,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Mailbox sales (2026-11-14, first real try pending): Josh needs a full WoW restart (new Sales.lua), then a mailbox
+  visit, /reload, link the file and tick his trading character. Check: the visit line shows ✓ and the sales match. If a
+  real glitch shows up, compare the visit's gold with the records and adjust from that example. Not yet known which
+  account(s) his two trading characters are on.
 - Trade tracker (stock-pool version live 2026-11-14, 8948234; per-unit transfer prices and partial card transfers,
   b2f9f9d; Avg buy / Avg sell columns 9dfa364; price each on cards 4d364fe): Josh has a real trades file in batch format (v1); the live page converts it on first load and saves v2 on
   his next change (suggested: File > Download a copy first). Not yet confirmed that his real data converted as

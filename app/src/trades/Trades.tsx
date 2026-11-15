@@ -5,25 +5,11 @@ import {
   type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc, type Transfer,
 } from './model'
 import { useTradesStore, type TradesStatus } from './store'
+import { Fac, Money, Profit, plural, when } from './parts'
+import { useMailLink } from './mailLink'
+import { MailPanel } from './MailPanel'
 
 // ---- small pieces ----
-
-/** Copper -> coin-coloured "12g 40s 05c" (zero parts after a larger one kept, so amounts read evenly). */
-function Money({ v, sign = false }: { v: number; sign?: boolean }) {
-  const c = Math.round(Math.abs(v))
-  const g = Math.floor(c / 10000), s = Math.floor((c % 10000) / 100), cc = c % 100
-  const parts: ReactNode[] = []
-  if (g) parts.push(<span key="g" className="t-g">{g.toLocaleString()}g</span>)
-  if (g || s) parts.push(<span key="s" className="t-s">{g ? String(s).padStart(2, '0') : s}s</span>)
-  parts.push(<span key="c" className="t-c">{g || s ? String(cc).padStart(2, '0') : cc}c</span>)
-  const pre = v < 0 && c ? '−' : sign && c ? '+' : ''
-  return <span className="t-money">{pre}{parts.reduce<ReactNode[]>((a, p, i) => (i ? [...a, ' ', p] : [p]), [])}</span>
-}
-
-const Fac = ({ s }: { s: Side }) => <span className={s === 'A' ? 't-ally' : 't-horde'}>{SIDE_NAME[s]}</span>
-const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`
-const Profit = ({ v }: { v: number }) => <span className={v >= 0 ? 't-pos' : 't-neg'}><Money v={v} sign /></span>
 
 function MoneyInput({ label, value, onChange, allowNegative = false, autoFocus = false, extra }: {
   label: string; value: string; onChange: (v: string) => void; allowNegative?: boolean; autoFocus?: boolean; extra?: ReactNode
@@ -317,7 +303,7 @@ function AdjustDialog({ adj, update, close }: { adj?: Adjustment; update: Update
 
 // ---- page parts ----
 
-function StatusLine({ status, s }: { status: TradesStatus; s: ReturnType<typeof useTradesStore> }) {
+function StatusLine({ status, s, mail }: { status: TradesStatus; s: ReturnType<typeof useTradesStore>; mail: ReturnType<typeof useMailLink> }) {
   const [menu, setMenu] = useState(false)
   const label =
     status.kind === 'loading' ? 'Loading…'
@@ -338,6 +324,8 @@ function StatusLine({ status, s }: { status: TradesStatus; s: ReturnType<typeof 
             <button onClick={s.createFile}>Create trades file…</button>
             <button onClick={s.openFile}>Open trades file…</button>
             <button onClick={s.exportFile}>Download a copy</button>
+            <button onClick={mail.link}>{mail.state.kind === 'none' ? 'Link BavvbScan.lua (mailbox sales)…' : 'Link another BavvbScan.lua…'}</button>
+            {mail.state.kind !== 'none' && <button onClick={() => { if (confirm('Stop reading mailbox sales from BavvbScan.lua? Sales already added stay.')) mail.unlinkAll() }}>Unlink BavvbScan.lua</button>}
             {(status.kind === 'saved' || status.kind === 'saving' || status.kind === 'needs-permission') && <button onClick={s.disconnect}>Stop saving to the file</button>}
           </div>
         )}
@@ -492,6 +480,7 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
                 {en && <>{en.item} · {plural(en.qty, 'unit')}</>}
                 {en?.kind === 'transfer' && <> to <Fac s={other(en.from)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(en.price)} />)</span></>}
                 {en?.kind === 'sale' && l.saleProfit[en.id] !== undefined && <span className="t-muted"> · profit <Profit v={l.saleProfit[en.id]} /></span>}
+                {en?.kind === 'sale' && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, 'mailbox sale')}`}> · from mailbox</span>}
                 {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
                 {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
               </td>
@@ -512,6 +501,7 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
 export function Trades() {
   const s = useTradesStore()
   const { doc, update } = s
+  const mail = useMailLink()
   const [dlg, setDlg] = useState<Open | null>(null)
   const [showSoldOut, setShowSoldOut] = useState(false)
   const l = useMemo(() => ledger(doc), [doc])
@@ -531,7 +521,7 @@ export function Trades() {
     <div className="t-page">
       <header className="t-top">
         <h1>Cross-faction trades</h1>
-        <StatusLine status={s.status} s={s} />
+        <StatusLine status={s.status} s={s} mail={mail} />
       </header>
 
       {!doc.start.at && (
@@ -556,6 +546,8 @@ export function Trades() {
         <button onClick={() => setDlg({ kind: 'adjust' })}>Adjust balance</button>
         {doc.start.at && <button className="t-link" onClick={() => setDlg({ kind: 'start' })}>Starting gold: <Money v={doc.start.A} /> / <Money v={doc.start.H} /></button>}
       </div>
+
+      <MailPanel doc={doc} update={update} link={mail} />
 
       <h2>Waiting for transfer</h2>
       {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} left={leftToTransfer(doc, p)} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}

@@ -387,7 +387,9 @@ SlashCmdList.BAVVBSCAN = function(msg)
     demo(msg == "demo fail" and "fail" or "done")
   elseif msg == "status" then
     status()
+  elseif msg == "sales" and BavvbScanSalesStatus then
+    BavvbScanSalesStatus()
   else
-    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel.")
+    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel; /bscan sales shows the latest recorded sales.")
   end
 end
