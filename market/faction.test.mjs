@@ -31,6 +31,22 @@ test('gold sent back: all the sale money crosses Blackwater once (~24% break-eve
   assert.ok(trade(side(1, 100), side(124, 130)).profitBack > 0);
 });
 
+test('Horde funded from Alliance: every gold Horde spends costs 1 / 0.85 (~24% break-even)', () => {
+  const r = trade(side(9000, 10000), side(14000, 15000));
+  assert.ok(Math.abs(r.profitFund - (14000 * 0.95 - 10000 / 0.85)) < 1e-9);
+  assert.ok(Math.abs(r.marginFund - r.profitFund / 10000) < 1e-9);
+  // the example shown to Josh: buy 10g, sell 12.2g -> +0.09g today, -0.17g with Horde funded
+  const e = trade(side(1, 100000), side(122000, 122000));
+  assert.equal(Math.round(e.profit), 900);
+  assert.equal(Math.round(e.profitFund), -1747);
+  // break-even: sell = buy / (0.85 x 0.95) = 123.8% of buy, the same as the gold sent back
+  assert.ok(trade(side(1, 100), side(123, 130)).profitFund < 0);
+  assert.ok(trade(side(1, 100), side(124, 130)).profitFund > 0);
+  const b = new Map([[1, { cheap: side(1, 100), dear: side(122, 130) }]]);
+  assert.deepEqual(steadiness(b, 'fund'), { profitable: 0, seen: 1 });
+  assert.deepEqual(steadiness(b, 'back'), { profitable: 0, seen: 1 });
+});
+
 test('a lone low listing on the dear side is ignored', () => {
   const r = trade(side(9000, 10000), side(5000, 15000)); // 5000 < 80% of 15000
   assert.equal(r.sell, 15000);

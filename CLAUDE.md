@@ -302,7 +302,13 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   with it on, those rows assume Horde's gold after the sale (sell x 0.95 - buy) is sent back through Blackwater by a
   junk item the Alliance transfer char lists (another 15%), so all the sale money crosses once: profit = sell x 0.95 x
   0.85 - buy (break-even ~24% above buy instead of ~21%). Profit, Margin, Steady, the filters and the count use it;
-  Horde -> Alliance rows are unchanged (their gold already lands on Alliance). `profitBack` in faction.mjs. Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
+  Horde -> Alliance rows are unchanged (their gold already lands on Alliance). `profitBack` in faction.mjs.
+  **Horde's gold comes from Alliance** (second checkbox, Josh, 2026-11-15, remembered; for when he funds Horde with
+  Skinning Knife gold sends instead of Alliance -> Horde sales): a Horde -> Alliance transfer listed at the buy price
+  returns 85% of it to Horde, and the 15% lost is topped up from Alliance by the knife (another 15%), so every gold
+  Horde spends costs 1 / 0.85 Alliance gold: profit = sell x 0.95 - buy / 0.85 (break-even ~24% above buy, the same as
+  the gold-back switch). Only Horde -> Alliance rows change; both switches can be on together. `profitFund` in
+  faction.mjs. The trade tracker's trading profit already subtracts each real knife send, so it checks this after the fact. Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
   cached per window); it also sets the period of "Sales / day*" (dear side = the faction sold on, our estimate) next to "TSM sales / day".
   That header names the faction from the Direction filter (Josh, 2026-11-14): "Horde sales / day*" for Alliance -> Horde,
   "Alliance sales / day*" for Horde -> Alliance, "Sales / day* (where sold)" for Both. Filters remembered per browser; a
