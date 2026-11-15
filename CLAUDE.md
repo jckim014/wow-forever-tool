@@ -704,11 +704,23 @@ checked it on the live site ("looks good").
   in both directions; both gold checkboxes removed (d49517c, b5b004b, pushed). Magnitude on one snapshot: 143 of 2,982
   rows dropped (all < 2.6% above old break-even, 1.8g total), top 50 by profit 49/50 the same. Considered and not built
   (Josh agreed it would double up): a per-item "gold cost" share in the trade tracker.
+2026-11-15 (morning session, mailbox fixes): a big mailbox gave ~100 "no gold" warnings. Two addon bugs (see Sales
+  from the mailbox > Matching fixes): gold lumps over the 12-mail window blocked the queue (Xfaction 9:05, 58 mails;
+  Horde Xria 9:13, 29; Jeder 9:14, 10, all old addon), and mails read before their subject loaded waited twice (Xria
+  Two 9:10, 4 sales). BavvbScan 1.2 (d71e0cb) + "Gold arrived: add N sales" on the trades page; Josh used it on all
+  three visits (39 Blackwater sales paired with existing overnight transfers, cuts OK) and added the 4 by hand. Visit
+  lines now go once their records are handled (87653b4). New traders: Xfaction Two (Alliance, account 1120039#2,
+  7aa2c00) and Xfaction Horde (Horde, account THOROCKTHEBOLD, 8a3c5d5); both in TRADERS and the page's KNOWN_ROLES.
+  Xfaction Two had BavvbScan disabled in its AddOns list (found from 91/Xfaction-Two/AddOns.txt; Josh enabled it,
+  nothing was collected before). All pushed and live.
 
-Where we left off (2026-11-15, signed off): the trade tracker's mailbox log is in daily use (Josh plays, logs off,
-Refreshes the trades page; only "Needs a look" and "Blackwater listings sold, no transfer yet" need him). Josh is
-short of gold on Horde and funds it with Skinning Knife sends (Horde Xria lists, Jeder buys), picking trades from the
-Faction tab's new single formula. Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on
+Where we left off (2026-11-15 morning, signed off): mailbox log fixed and in daily use with six characters (traders
+Xfaction Bavvb + Xfaction Two on Alliance, Xria Two + Xfaction Horde on Horde; transfer Jeder, Horde Xria). Page clear
+at sign-off (no visits, Needs a look or waiting). Not yet seen for real: a big sales mailbox through 1.2 ("everything
+matches (OK)"; only two purchase-only visits so far, both clean), Xfaction Bavvb / Jeder reloaded onto 1.2 (unknown at
+sign-off), Xfaction Two's and Xfaction Horde's first records (should need no role choice). From the previous session:
+Josh is short of gold on Horde and funds it with Skinning Knife sends (Horde Xria lists, Jeder buys), picking trades
+from the Faction tab's new single formula. Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on
 Refresh, a "Gold sent" History row, no knife in stock, and the seller's gold matched later (nothing left under
 "Blackwater listings sold, no transfer yet"); the Faction tab without the two checkboxes and its note "sell x 0.95 -
 buy / 0.85" (Market needs a restart: close tabs, wait 10 min, reopen). Also unconfirmed: the popup-less chat line, a
@@ -748,8 +760,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), last copy = the partial won mails version. A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks) also lived in the
-  scratchpad and is gone; rebuild it the same way before changing Sales.lua. `.gitignore` ignores `*.lua` (SavedVariables copies) with an
+  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy = 8a3c5d5 (Xfaction Horde in TRADERS). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
+  gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
+  a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
@@ -778,9 +792,11 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Mailbox log (live 2026-11-14, f6c2cae): all four roles set by GUID in Josh's trades file (Xfaction Bavvb, Xria Two
-  traders; Jeder Hillmont, Horde Xria transfer; "Xria (Alliance)" older records = none). Josh links both accounts'
-  BavvbScan.lua. BavvbScan must be enabled per character (Jeder's first Blackwater sale was collected with it off).
+- Mailbox log (live 2026-11-14, f6c2cae; 1.2 fixes 2026-11-15): six trading characters, roles built in by GUID
+  (KNOWN_ROLES) and partly also in Josh's trades file; "Xria (Alliance)" older records = none. Josh links both accounts'
+  BavvbScan.lua. BavvbScan must be enabled per character in WoW's AddOns list (Jeder's first Blackwater sale was
+  collected with it off; Xfaction Two started disabled): check `WTF/Account/<acct>/91/<First-Last>/AddOns.txt`. A new
+  character's GUID can be read from ForeverMail.lua in the account's SavedVariables. Events kept: 1000.
   If something looks wrong: read both accounts' SavedVariables (records, visits, `sales.events`) and
   data/private/trades.json (entries with `mail`, `mail.handled`, `mail.roles`); to try the page on his real data
   without touching it, run the dev server and seed a headless Chrome with copies (how it was checked this session).
