@@ -637,8 +637,22 @@ checked it on the live site ("looks good").
   one snapshot an hour (Blizzard ~:22, in Market after the :55 sync, only while the PC is on).
   Then (same day): Avg buy / Avg sell columns in both item tables, for restock prices (9dfa364), and price each on
   purchase cards (4d364fe); both pushed and live, checked in headless Chrome, not yet by Josh.
+2026-11-14 (evening, long session): mailbox log for the trade tracker (see Trade tracker > Sales from the mailbox).
+  Josh found typing scattered sales tedious and doesn't trust TSM's records, so BavvbScan 1.1 records auction sales
+  (gold-checked) and purchases (bag-checked) from the mailbox, with a report + Reload popup the moment the mailbox
+  closes; the trades page applies them by itself from character roles: purchases -> cards, a Blackwater won mail ->
+  transfer at once, seller's gold matched later, sales while in stock. Commits b05e67d .. f6c2cae, all pushed and
+  live. Found on the way: this client never sends MAIL_CLOSED (interaction events used); short names collide ("Xria" x3;
+  GUIDs used). Verified for real: sales and gold checks on Xria Two and Xfaction, and a full Horde -> Alliance
+  Pristine Leather transfer (Jeder's won mail -> transfer on the card, instant). Josh: "leave alone" the ~25c price
+  differences on his three hand-typed transfers of earlier that day.
 
-Where we left off (2026-11-13 evening, signed off): Forever Market steps 1-7 done; its new look and sales tiles are
+Where we left off (2026-11-14 evening, signed off): the trade tracker's mailbox log is done and in daily use: Josh
+plays as normal on his four characters, /reloads (popup button) and opens or Refreshes the trades page; only "Needs a
+look" and "Blackwater listings sold, no transfer yet" need him. Next: iterations from real use. Not yet seen for real:
+a seller's Blackwater gold being matched later (Horde Xria hasn't collected the Pristine Leather gold yet: expect
+nothing to show), a wrong-cut flag, and a won mail emptied across two visits (flagged noitem by design).
+Earlier state (2026-11-13 evening): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
 hours that share hours: first rough results around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20);
 Faction works now, with Steady and Sales/day firming up as data grows. Next: Josh uses Price history, Faction and
@@ -671,7 +685,9 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
+  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), last copy = the GUID version (ba22491;
+  Sales.lua unchanged since). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks) also lived in the
+  scratchpad and is gone; rebuild it the same way before changing Sales.lua. `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
 - History file names: Auctioneer scans use the server key `CAMWOWUS1Realm3PvE_Alliance`, BavvbScan uses the game's
@@ -700,12 +716,15 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Mailbox log (2026-11-14: sales confirmed in game and imported by Josh; purchases and the automatic chain not yet
-  used for real; Josh sets Jeder and Horde Xria to Transfer once they appear; Pristine Leather (Xria Two) will become a
-  Horde card, the 4 Red Linen Bags go to Needs a look): after a /reload (loads Sales.lua), Josh does a mailbox
-  visit, /reload, link the file and tick his trading character. Check: the visit line shows ✓ and the sales match. If a
-  real glitch shows up, compare the visit's gold with the records and adjust from that example. Not yet known which
-  account(s) his two trading characters are on.
+- Mailbox log (live 2026-11-14, f6c2cae): all four roles set by GUID in Josh's trades file (Xfaction Bavvb, Xria Two
+  traders; Jeder Hillmont, Horde Xria transfer; "Xria (Alliance)" older records = none). Josh links both accounts'
+  BavvbScan.lua. BavvbScan must be enabled per character (Jeder's first Blackwater sale was collected with it off).
+  If something looks wrong: read both accounts' SavedVariables (records, visits, `sales.events`) and
+  data/private/trades.json (entries with `mail`, `mail.handled`, `mail.roles`); to try the page on his real data
+  without touching it, run the dev server and seed a headless Chrome with copies (how it was checked this session).
+  When Josh can't paste from the game, ask for a screenshot (Print Screen) and read the newest file in
+  F:\World of Warcraft\_forever_\Screenshots. Known limits: a won mail emptied over two visits is flagged; a transfer
+  char buying a stranger's Blackwater item becomes a transfer; `full` names work ("Xria Two" from UnitFullName).
 - Trade tracker (stock-pool version live 2026-11-14, 8948234; per-unit transfer prices and partial card transfers,
   b2f9f9d; Avg buy / Avg sell columns 9dfa364; price each on cards 4d364fe): Josh has a real trades file in batch format (v1); the live page converts it on first load and saves v2 on
   his next change (suggested: File > Download a copy first). Not yet confirmed that his real data converted as
