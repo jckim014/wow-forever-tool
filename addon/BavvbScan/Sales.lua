@@ -460,21 +460,38 @@ local function drawPopup()
   popup:Show()
 end
 
+-- The character's name as shown in game. On Forever the short name (UnitName) is only the first word, so "Xria Two",
+-- "Xria Forever" and "Xria Blacksmith" are all "Xria" (2026-11-14); records also carry the character's GUID, which is
+-- unique. The second word is taken from UnitFullName when it isn't just the server's realm; otherwise the short name.
+local function fullName()
+  local name = UnitName("player")
+  local n, r = nil, nil
+  if UnitFullName then n, r = UnitFullName("player") end
+  local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or (GetRealmName() or ""):gsub("[%s%-]", "")
+  if n and r and r ~= "" and r ~= realm then return n .. " " .. r end
+  local g = GetUnitName and GetUnitName("player", true)
+  if type(g) == "string" and g ~= name and not g:find(realm, 1, true) then return (g:gsub("%-", " ")) end
+  return name
+end
+
 local function save(v, now)
   local records, summary = Core.finish(v, now)
   if #records == 0 and summary.goldIn == 0 then return end -- no money came in (e.g. only postage paid): keep no visit
   local s = db()
   local who = {
     char = UnitName("player"), realm = GetRealmName(), faction = UnitFactionGroup("player"),
+    guid = UnitGUID and UnitGUID("player"), full = fullName(),
   }
   local vid = who.char .. "-" .. v.t0 .. "-" .. s.next
   s.next = s.next + 1
   summary.id, summary.char, summary.realm, summary.faction = vid, who.char, who.realm, who.faction
+  summary.guid, summary.full = who.guid, who.full
   s.visits[#s.visits + 1] = summary
   for _, r in ipairs(records) do
     r.id = who.char .. "-" .. r.t .. "-" .. s.next
     s.next = s.next + 1
     r.char, r.realm, r.faction, r.visit = who.char, who.realm, who.faction, vid
+    r.guid, r.full = who.guid, who.full
     s.records[#s.records + 1] = r
   end
   -- Chat: once when the mailbox closed (the preview); again only if the final result differs from it.

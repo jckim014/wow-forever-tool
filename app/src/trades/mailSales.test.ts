@@ -167,7 +167,7 @@ describe('plan (roles)', () => {
     ])
     // Characters without a role, or marked "none", are ignored.
     expect([...p.waiting, ...p.look.map((l) => l.record)].some((r) => r.id === 'o1' || r.id === 'u1')).toBe(false)
-    expect(p.chars.find((c) => c.char === 'Stranger')?.role).toBeUndefined()
+    expect(p.chars.find((c) => c.name === 'Stranger')?.role).toBeUndefined()
     // It settles: a second pass adds nothing.
     expect(plan(p.doc, log, id).added).toEqual({ purchases: 0, transfers: 0, sales: 0 })
     // Figures: Alliance spent 80s, got 51s back from Blackwater (60s - 15%); Horde paid 60s and received 30s.
@@ -239,6 +239,43 @@ describe('plan (roles)', () => {
     expect(of(p.doc, 'purchase')).toMatchObject([{ item: 'Pristine Leather', side: 'H', qty: 100, cost: 31066 }])
   })
 
+  it('characters sharing a short name: roles per character, older records follow the only character of that name and faction', () => {
+    // Josh's case: "Xria" is Xria Two (Horde) and Xria Forever (Alliance); both ticked as "Xria" under the old list.
+    const legacy: TradesDoc = { ...emptyDoc(), entries: [
+      { kind: 'purchase', id: 'p', at: '2026-11-14T10:00:00.000Z', item: 'Silk Cloth', qty: 20, side: 'A', cost: 2000 },
+    ], mail: { chars: ['Xfaction', 'Xria'], handled: [] } }
+    const old: MailLog = { records: [
+      rec('h1', 'Boar Ribs', 5, 100, 1),
+      rec('a1', 'Silk Cloth', 5, 100, 2, { faction: 'Alliance' }), // Xria Forever: the tracker holds Silk Cloth on Alliance
+      buy('x1', 'Xfaction', 'Alliance', 'Iron Ore', 5, 500, 3),
+    ], visits: [] }
+    let p = plan(legacy, old, id)
+    // "Xria" is two characters now: neither is taken as a trader until Josh says; Xfaction still is.
+    expect(p.chars.map((c) => [c.key, c.role])).toEqual([['Xfaction|Alliance', 'trader'], ['Xria|Alliance', undefined], ['Xria|Horde', undefined]])
+    expect(of(p.doc, 'sale')).toEqual([])
+    expect(p.added.purchases).toBe(1)
+    // New records carry GUIDs and full names; the older ones join the only character of their name and faction.
+    const now: MailLog = { records: [...old.records,
+      rec('h2', 'Boar Ribs', 5, 100, 4, { guid: 'G-two', full: 'Xria Two' }),
+      rec('a2', 'Wand', 1, 100, 5, { faction: 'Alliance', guid: 'G-forever', full: 'Xria Forever' }),
+    ], visits: [] }
+    p = plan(p.doc, now, id)
+    expect(p.chars.map((c) => [c.key, c.name, c.role])).toEqual([
+      ['Xfaction|Alliance', 'Xfaction', 'trader'], ['G-forever', 'Xria Forever', undefined], ['G-two', 'Xria Two', undefined],
+    ])
+    expect(p.who(old.records[0]).key).toBe('G-two')
+    // A role set on the older records before the GUIDs came carries over to that character.
+    expect(plan(setRole(p.doc, 'Xria|Horde', 'trader'), now, id).chars.find((c) => c.key === 'G-two')?.role).toBe('trader')
+    let d = setRole(setRole(p.doc, 'G-two', 'trader'), 'G-forever', 'none')
+    p = plan(d, now, id)
+    // Xria Forever's sale of Silk Cloth on Alliance is ignored, though the tracker holds it there.
+    expect(of(p.doc, 'sale').map((e) => e.mail)).toEqual([])
+    expect(p.look.map((l) => l.record.id)).toEqual(['h1', 'h2']) // Boar Ribs: not in the tracker
+    // A third "Xria" on Horde: older Horde records no longer belong to one character.
+    const three: MailLog = { records: [...now.records, rec('h3', 'Boar Ribs', 1, 10, 6, { guid: 'G-smith', full: 'Xria Blacksmith' })], visits: [] }
+    d = p.doc
+    expect(plan(d, three, id).who(old.records[0]).key).toBe('Xria|Horde')
+  })
   it('roles and handled records survive saving and loading', () => {
     const doc = dismiss(roles(), ['r4'])
     const back = parseTradesDoc(JSON.stringify(doc))

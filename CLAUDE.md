@@ -384,9 +384,14 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   **Automatic chain with roles** (Josh, 2026-11-14; replaced the ticking): Josh's characters and strict roles:
   Alliance = Xfaction Bavvb (trader: buys/sells on the Alliance AH) + Jeder Hillmont (transfer: Blackwater), account
   THOROCKTHEBOLD; Horde = Xria Two (trader) + Horde Xria (transfer), account 1120039#2. Goods move between a faction's
-  own characters by mail (ignored: same faction stock). The addon knows characters by short name: "Xria" = Xria Two,
-  "Xfaction", and presumably "Jeder" / "Horde" (to confirm when they first record). `doc.mail.roles` (trader /
-  transfer / none; names in the old `chars` list count as traders). `plan()` in mailSales.ts applies by itself (in
+  own characters by mail (ignored: same faction stock). **Short names collide**: UnitName is only the first word, and
+  account 1120039#2 has Xria Two (Horde trader), Xria Forever (Alliance, not trading) and Xria Blacksmith, all "Xria"
+  (character folders in WTF/Account/<acct>/91/ are "First-Last"). Since 2026-11-14 records and visits carry `guid`
+  (UnitGUID) and `full` (UnitFullName's second word when it isn't the realm; unconfirmed what Forever returns).
+  Roles (`doc.mail.roles`, trader / transfer / none) are keyed by GUID; older records without one count as the only
+  GUID of that short name and faction, else as "name|faction" (`whoFinder`); a role set on "name|faction" carries over
+  to that character's GUID while it's the only one. The old name-only roles / `chars` list count only for a name that
+  is one character in the log (so "Xria" asked again; Xfaction stayed a trader). Checked on Josh's real files. `plan()` in mailSales.ts applies by itself (in
   MailPanel's effect): trader purchases -> one purchase card per item, faction and visit; a transfer char's Blackwater
   sale + the other faction's transfer char's Blackwater purchase with the same item, quantity and price -> a transfer
   (at the later time, applied to the oldest waiting cards, split across cards, rest free; cut checked at 15% +-1%);
@@ -396,7 +401,7 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (150 checks incl. the popup and purchases; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (156 checks incl. the popup, purchases and GUIDs; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the

@@ -36,6 +36,10 @@ export interface MailRecord {
   src: 'invoice' | 'subject'
   /** AH cut taken from a sale (copper), null for purchases. */
   cut: number | null
+  /** The character's GUID and name as shown in game (addon 2026-11-14 on; older records have neither: `char` is only
+   *  the first word of the name, which Xria Two, Xria Forever and Xria Blacksmith share). */
+  guid?: string
+  full?: string
 }
 
 export interface MailVisit {
@@ -54,6 +58,8 @@ export interface MailVisit {
   buys: number
   spent: number
   buyMissing: number
+  guid?: string
+  full?: string
 }
 
 export interface MailLog { records: MailRecord[]; visits: MailVisit[] }
@@ -87,6 +93,7 @@ export function readMailLog(raw: Uint8Array): MailLog {
       received: num(field(x, 'received')), money: num(field(x, 'money')),
       deposit: typeof deposit === 'number' ? deposit : null,
       cut: typeof field(x, 'cut') === 'number' ? (field(x, 'cut') as number) : null,
+      ...(str(field(x, 'guid')) ? { guid: str(field(x, 'guid')) } : {}), ...(str(field(x, 'full')) ? { full: str(field(x, 'full')) } : {}),
       status: status === 'ok' ? 'ok' : status === 'noitem' ? 'noitem' : 'nogold',
       src: field(x, 'src') === 'subject' ? 'subject' : 'invoice',
     }
@@ -97,6 +104,7 @@ export function readMailLog(raw: Uint8Array): MailLog {
     received: num(field(x, 'received')), deposits: num(field(x, 'deposits')), other: num(field(x, 'other')),
     unexplained: num(field(x, 'unexplained')), missing: num(field(x, 'missing')),
     buys: num(field(x, 'buys')), spent: num(field(x, 'spent')), buyMissing: num(field(x, 'buyMissing')),
+    ...(str(field(x, 'guid')) ? { guid: str(field(x, 'guid')) } : {}), ...(str(field(x, 'full')) ? { full: str(field(x, 'full')) } : {}),
   })).filter((x) => x.id)
   return { records, visits }
 }
@@ -122,9 +130,44 @@ export const sideOf = (faction: string): Side | null => (faction === 'Alliance' 
  */
 export type Role = 'trader' | 'transfer' | 'none'
 
-/** The role set for a character; characters ticked under the earlier "trading characters" list count as traders. */
-export const roleOf = (doc: TradesDoc, char: string): Role | undefined =>
-  doc.mail?.roles?.[char] ?? (doc.mail?.chars?.includes(char) ? 'trader' : undefined)
+/**
+ * Who made a record or visit: the character's GUID; for an older record (no GUID) the GUID of the only character with
+ * that short name on that faction, or "name|faction" when there is none or several.
+ */
+/** `pair`: "name|faction" when this character is the only one of that short name and faction (a role set on its older
+ *  records before it had a GUID still applies). */
+export interface Who { key: string; name: string; faction: string; pair?: string }
+export function whoFinder(log: MailLog) {
+  const guids = new Map<string, Set<string>>()
+  const names = new Map<string, string>()
+  for (const x of [...log.records, ...log.visits]) {
+    if (!x.guid) continue
+    const pair = `${x.char}|${x.faction}`
+    guids.set(pair, (guids.get(pair) ?? new Set()).add(x.guid))
+    if (x.full) names.set(x.guid, x.full)
+  }
+  return (x: { char: string; faction: string; guid?: string }): Who => {
+    const pair = `${x.char}|${x.faction}`
+    const only = guids.get(pair)?.size === 1 ? [...guids.get(pair)!][0] : undefined
+    const key = x.guid ?? only ?? pair
+    return { key, name: names.get(key) ?? x.char, faction: x.faction, ...(only && key === only ? { pair } : {}) }
+  }
+}
+
+/**
+ * The role set for a character (by its key). Before keys, roles were per short name and the "trading characters" list
+ * named traders: those still count, but only for a name that belongs to a single character in the log.
+ */
+export function roleOf(doc: TradesDoc, who: Who, single: (name: string) => boolean): Role | undefined {
+  const set = doc.mail?.roles?.[who.key] ?? (who.pair ? doc.mail?.roles?.[who.pair] : undefined)
+  if (set) return set
+  const short = who.key.includes('|') ? who.key.split('|')[0] : undefined
+  const legacy = (n: string) => doc.mail?.roles?.[n] ?? (doc.mail?.chars?.includes(n) ? 'trader' : undefined)
+  for (const n of [short, who.name.split(' ')[0]]) {
+    if (n && single(n)) { const r = legacy(n); if (r) return r }
+  }
+  return undefined
+}
 
 export interface LookItem { record: MailRecord; reason: string }
 
@@ -139,7 +182,9 @@ export interface Plan {
   /** Visits of the trading characters with a problem, or with records listed here, not yet dismissed. */
   visits: MailVisit[]
   /** Characters seen in the log, with their faction and role. */
-  chars: { char: string; faction: string; role: Role | undefined }[]
+  chars: { key: string; name: string; faction: string; role: Role | undefined }[]
+  /** Who made a record or visit (key and display name). */
+  who: (x: { char: string; faction: string; guid?: string }) => Who
 }
 
 const isoOf = (t: number) => new Date(t * 1000).toISOString()
@@ -167,10 +212,18 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
   const push = (es: Entry[]) => { doc = { ...doc, entries: [...doc.entries, ...es] } }
   const names = () => new Map(doc.entries.map((e) => [itemKey(e.item), e.item.trim()]))
 
+  const who = whoFinder(log)
+  const keysOf = new Map<string, Set<string>>()
+  for (const x of [...log.records, ...log.visits]) {
+    const w = who(x)
+    keysOf.set(x.char, (keysOf.get(x.char) ?? new Set()).add(w.key))
+  }
+  const single = (name: string) => (keysOf.get(name)?.size ?? 0) <= 1
+  const role = (x: { char: string; faction: string; guid?: string }) => roleOf(doc0, who(x), single)
   const open = log.records.filter((r) => {
     if (handled.has(r.id) || !sideOf(r.faction)) return false
-    const role = roleOf(doc0, r.char)
-    return role === 'trader' || role === 'transfer'
+    const rl = role(r)
+    return rl === 'trader' || rl === 'transfer'
   })
   const ok: MailRecord[] = []
   for (const r of open) {
@@ -178,7 +231,7 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
     else if (r.status === 'noitem') look.push({ record: r, reason: "the mail went but its items didn't reach the bags" })
     else ok.push(r)
   }
-  const trader = (r: MailRecord) => roleOf(doc0, r.char) === 'trader'
+  const trader = (r: MailRecord) => role(r) === 'trader'
 
   // 1. purchases
   const groups = new Map<string, MailRecord[]>()
@@ -258,14 +311,15 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
 
   if (done.length) doc = { ...doc, mail: { ...mailOf(doc), handled: [...mailOf(doc).handled, ...done] } }
   const listed = new Set([...waiting, ...look.map((l) => l.record)].map((r) => r.visit))
-  const seen = new Map<string, string>()
-  for (const r of log.records) seen.set(r.char, r.faction)
-  for (const v of log.visits) seen.set(v.char, v.faction)
-  const trading = (c: string) => { const r = roleOf(doc0, c); return r === 'trader' || r === 'transfer' }
+  const seen = new Map<string, Who>()
+  for (const x of [...log.records, ...log.visits]) { const w = who(x); seen.set(w.key, w) }
+  const trading = (x: MailVisit) => { const r = role(x); return r === 'trader' || r === 'transfer' }
   return {
     doc, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
-    visits: log.visits.filter((v) => !handled.has(v.id) && trading(v.char) && (listed.has(v.id) || !visitOk(v))).reverse(),
-    chars: [...seen].map(([char, faction]) => ({ char, faction, role: roleOf(doc0, char) })).sort((a, b) => a.char.localeCompare(b.char)),
+    visits: log.visits.filter((v) => !handled.has(v.id) && trading(v) && (listed.has(v.id) || !visitOk(v))).reverse(),
+    chars: [...seen.values()].map((w) => ({ key: w.key, name: w.name, faction: w.faction, role: roleOf(doc0, w, single) }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.faction.localeCompare(b.faction)),
+    who,
   }
 }
 
@@ -290,7 +344,8 @@ export function dismiss(doc: TradesDoc, ids: string[]): TradesDoc {
   return { ...doc, mail: { ...m, handled: [...m.handled, ...ids] } }
 }
 
-export function setRole(doc: TradesDoc, char: string, role: Role): TradesDoc {
+/** Sets a character's role, by its key (see whoFinder). */
+export function setRole(doc: TradesDoc, key: string, role: Role): TradesDoc {
   const m = mailOf(doc)
-  return { ...doc, mail: { ...m, roles: { ...(m.roles ?? {}), [char]: role } } }
+  return { ...doc, mail: { ...m, roles: { ...(m.roles ?? {}), [key]: role } } }
 }

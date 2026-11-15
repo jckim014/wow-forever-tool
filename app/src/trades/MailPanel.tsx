@@ -17,7 +17,7 @@ const ROLE_TEXT: Record<Role, string> = {
   none: 'Not a trading character',
 }
 
-function VisitLine({ v, onDismiss }: { v: MailVisit; onDismiss: () => void }) {
+function VisitLine({ v, name, onDismiss }: { v: MailVisit; name: string; onDismiss: () => void }) {
   const side = sideOf(v.faction)
   const ok = visitOk(v)
   const goldPart = v.goldIn > 0 || v.sales > 0 || v.missing > 0
@@ -25,7 +25,7 @@ function VisitLine({ v, onDismiss }: { v: MailVisit; onDismiss: () => void }) {
     <div className={`t-visit ${ok ? '' : 't-visit-bad'}`}>
       <span className={ok ? 't-pos' : 't-warn'}>{ok ? '✓' : '⚠'}</span>
       <span className="t-nowrap">{when(iso(v.t0))}</span>
-      <span>{v.char}{side && <> (<Fac s={side} />)</>}</span>
+      <span>{name}{side && <> (<Fac s={side} />)</>}</span>
       <span>
         {goldPart && <>
           gold <Money v={v.goldIn} sign /> = {plural(v.sales, 'sale')} <Money v={v.received} />
@@ -49,8 +49,8 @@ function what(r: MailRecord, role: Role | undefined) {
   return r.kind === 'sale' ? 'sold' : 'bought'
 }
 
-function RecordTable({ rows, roleOf, onAdd, onDismiss }: {
-  rows: { r: MailRecord; reason?: string }[]; roleOf: (c: string) => Role | undefined
+function RecordTable({ rows, roleOf, nameOf, onAdd, onDismiss }: {
+  rows: { r: MailRecord; reason?: string }[]; roleOf: (r: MailRecord) => Role | undefined; nameOf: (r: MailRecord) => string
   onAdd: (r: MailRecord) => void; onDismiss: (r: MailRecord) => void
 }) {
   return (
@@ -62,8 +62,8 @@ function RecordTable({ rows, roleOf, onAdd, onDismiss }: {
           return (
             <tr key={r.id}>
               <td className="t-nowrap">{when(iso(r.t))}</td>
-              <td>{r.char} (<Fac s={side} />)</td>
-              <td>{what(r, roleOf(r.char))}{reason && <div className="t-warn t-small">⚠ {reason}</div>}</td>
+              <td>{nameOf(r)} (<Fac s={side} />)</td>
+              <td>{what(r, roleOf(r))}{reason && <div className="t-warn t-small">⚠ {reason}</div>}</td>
               <td><strong>{r.item}</strong></td>
               <td className="t-r">{r.count.toLocaleString()}</td>
               <td className="t-r"><Money v={r.kind === 'buy' ? r.price : r.received} /></td>
@@ -114,7 +114,8 @@ export function MailPanel({ doc, update, link }: {
   if (!p) return null
 
   const unset = p.chars.filter((c) => c.role === undefined)
-  const roleOf = (c: string) => p.chars.find((x) => x.char === c)?.role
+  const roleOf = (r: MailRecord) => p.chars.find((x) => x.key === p.who(r).key)?.role
+  const nameOf = (r: MailRecord) => p.who(r).name
   const lastText = last && [
     last.purchases && plural(last.purchases, 'purchase'), last.transfers && plural(last.transfers, 'transfer'), last.sales && plural(last.sales, 'sale'),
   ].filter(Boolean).join(', ')
@@ -130,9 +131,9 @@ export function MailPanel({ doc, update, link }: {
           {p.chars.map((c) => {
             const side = sideOf(c.faction) as Side | null
             return (
-              <label key={c.char} className="t-char">
-                <span>{c.char}{side && <> (<Fac s={side} />)</>}</span>
-                <select value={c.role ?? ''} onChange={(e) => update((d) => setRole(d, c.char, e.target.value as Role))}>
+              <label key={c.key} className="t-char">
+                <span>{c.name}{side && <> (<Fac s={side} />)</>}{c.key.includes('|') && <span className="t-muted t-small"> · older records</span>}</span>
+                <select value={c.role ?? ''} onChange={(e) => update((d) => setRole(d, c.key, e.target.value as Role))}>
                   {c.role === undefined && <option value="">Choose…</option>}
                   {(['trader', 'transfer', 'none'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_TEXT[r]}</option>)}
                 </select>
@@ -143,26 +144,26 @@ export function MailPanel({ doc, update, link }: {
         </div>
       ) : (
         <p className="t-muted t-small">
-          {p.chars.filter((c) => c.role === 'trader' || c.role === 'transfer').map((c) => `${c.char}: ${c.role}`).join(' · ')} · <button className="t-link t-inline" onClick={() => setEditRoles(true)}>change roles</button>
+          {p.chars.filter((c) => c.role === 'trader' || c.role === 'transfer').map((c) => `${c.name} (${c.faction}): ${c.role}`).join(' · ')} · <button className="t-link t-inline" onClick={() => setEditRoles(true)}>change roles</button>
         </p>
       )}
 
       {lastText && <p className="t-added">✓ Added from the mailbox: {lastText} <span className="t-muted t-small">({last!.at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}; see History)</span></p>}
 
-      {p.visits.length > 0 && <div className="t-visits">{p.visits.map((v) => <VisitLine key={v.id} v={v} onDismiss={() => update((d) => dismiss(d, [v.id]))} />)}</div>}
+      {p.visits.length > 0 && <div className="t-visits">{p.visits.map((v) => <VisitLine key={v.id} v={v} name={p.who(v).name} onDismiss={() => update((d) => dismiss(d, [v.id]))} />)}</div>}
 
       {p.waiting.length > 0 && (
         <>
           <h3 className="t-mailsub">Waiting for the other side ({p.waiting.length})</h3>
           <p className="t-muted t-small">Half of a transfer. It's added by itself once the other character collects its mail. If someone else bought your Blackwater listing, add it as a sale.</p>
-          <RecordTable rows={p.waiting.map((r) => ({ r }))} roleOf={roleOf}
+          <RecordTable rows={p.waiting.map((r) => ({ r }))} roleOf={roleOf} nameOf={nameOf}
             onAdd={(r) => update((d) => addRecord(d, r, newId))} onDismiss={(r) => update((d) => dismiss(d, [r.id]))} />
         </>
       )}
       {p.look.length > 0 && (
         <>
           <h3 className="t-mailsub">Needs a look ({p.look.length})</h3>
-          <RecordTable rows={p.look.map((l) => ({ r: l.record, reason: l.reason }))} roleOf={roleOf}
+          <RecordTable rows={p.look.map((l) => ({ r: l.record, reason: l.reason }))} roleOf={roleOf} nameOf={nameOf}
             onAdd={(r) => update((d) => addRecord(d, r, newId))} onDismiss={(r) => update((d) => dismiss(d, [r.id]))} />
         </>
       )}
