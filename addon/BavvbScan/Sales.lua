@@ -30,11 +30,15 @@
 --   price, and units that never arrived are a "noitem" record. Records { kind = "buy", t, item, itemID, count (units
 --   in this part), price (paid for them), status "ok" / "noitem", mailCount, mailPrice (the whole mail) }; sale records
 --   carry kind = "sale" (older ones have no kind). Visits add buys (parts), spent, buyMissing.
--- Records are only ever added; fixes happen in the trade tracker. Buyer names are never read into the saved data.
+-- Records are only added, never changed; fixes happen in the trade tracker. Records and visits older than KEEP_DAYS are
+-- dropped (2026-11-14: ~0.4 KB a record would otherwise grow the file by 10-15 MB a year, slowing logins and /reload).
+-- Buyer names are never read into the saved data.
 
 local GRACE = 10     -- seconds after the mailbox closes to wait for late gold or inbox updates
 local EXPIRY_SLACK = 300 -- seconds: a won mail's expiry time, worked out from its days left, matches within this
 local CARRY_DAYS = 35  -- won mails expire after 30 days; older carry entries are dropped
+local KEEP_DAYS = 60   -- records and visits older than this are dropped (the trade tracker has long since added them;
+                       -- it ignores anything older than 70 days, so a record can't come back after it forgot it)
 local MAX_SUBSET = 12 -- waiting mails considered when matching one gold rise (a rise can pay several mails at once)
 
 -- Pure part (no WoW calls), exposed for the test harness.
@@ -558,6 +562,19 @@ local function fullName()
   return name
 end
 
+-- Drops records and visits older than KEEP_DAYS (on every save and at logout, so even a character that hasn't visited a
+-- mailbox for months writes a trimmed file).
+function Core.prune(s, now)
+  local cut = now - KEEP_DAYS * 86400
+  local function keep(list, field)
+    local out = {}
+    for _, x in ipairs(list or {}) do if (x[field] or 0) >= cut then out[#out + 1] = x end end
+    return out
+  end
+  s.records = keep(s.records, "t")
+  s.visits = keep(s.visits, "t0")
+end
+
 local function save(v, now)
   local s0 = db()
   s0.wonCarry = s0.wonCarry or {}
@@ -580,6 +597,7 @@ local function save(v, now)
     r.guid, r.full = who.guid, who.full
     s.records[#s.records + 1] = r
   end
+  Core.prune(s, now)
   -- Chat: once when the mailbox closed (the preview); again only if the final result differs from it.
   local final = reportLine(summary, true)
   if hasNews(summary) and final ~= v.reported then say(final) end
@@ -671,6 +689,7 @@ frame:SetScript("OnEvent", function(_, event, arg)
     lastMoney = now
   elseif event == "PLAYER_LOGOUT" then
     finishVisit() -- a /reload or logout with the mailbox open still saves what was matched
+    if BavvbScanDB and BavvbScanDB.sales then Core.prune(BavvbScanDB.sales, time()) end
   end
 end)
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "PLAYER_MONEY",

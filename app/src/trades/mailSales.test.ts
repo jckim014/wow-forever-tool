@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addRecord, dismiss, mergeLogs, plan, readMailLog, setRole, visitOk, type MailLog, type MailRecord } from './mailSales'
+import { addRecord, dismiss, idTime, mergeLogs, plan as planAt, readMailLog, setRole, visitOk, type MailLog, type MailRecord } from './mailSales'
 import { emptyDoc, leftToTransfer, ledger, parseTradesDoc, type Purchase, type TradesDoc, type Transfer } from './model'
 
 /** BavvbScan.lua as WoW writes SavedVariables, with a scan and a sales log. */
@@ -76,6 +76,8 @@ BavvbScanDB = {
 /** Times in the tests are seconds after this (after the purchase and transfer below). */
 const T0 = Date.parse('2026-11-14T12:00:00Z') / 1000
 const bytes = (s: string) => new TextEncoder().encode(s)
+/** plan at a fixed time (a day after T0), so the tests don't depend on today's date. */
+const plan = (d: TradesDoc, l: MailLog, i: () => string, now = T0 + 86400) => planAt(d, l, i, now)
 
 const rec = (id: string, item: string, count: number, received: number, t: number, extra: Partial<MailRecord> = {}): MailRecord => ({
   kind: 'sale', price: received, id, t: T0 + t, char: 'Xria', faction: 'Horde', visit: 'v1', item, count, received, money: received,
@@ -297,6 +299,23 @@ describe('plan (roles)', () => {
     const three: MailLog = { records: [...now.records, rec('h3', 'Boar Ribs', 1, 10, 6, { guid: 'G-smith', full: 'Xria Blacksmith' })], visits: [] }
     d = p.doc
     expect(plan(d, three, id).who(old.records[0]).key).toBe('Xria|Horde')
+  })
+  it('records older than 70 days are left alone; handled ids older than 75 days are forgotten', () => {
+    const lg: MailLog = { records: [
+      buy('old', 'Xfaction', 'Alliance', 'Silk Cloth', 20, 4000, -71 * 86400),
+      buy('new', 'Xfaction', 'Alliance', 'Silk Cloth', 20, 4000, 0),
+    ], visits: [] }
+    const p = plan(roles(), lg, id)
+    expect(of(p.doc, 'purchase').map((e) => e.mail)).toEqual([['new']])
+    expect([...p.waiting, ...p.look.map((l) => l.record)]).toEqual([])
+    const t = T0
+    const doc = { ...roles(), mail: { ...roles().mail!, handled: [`Xria-${t - 80 * 86400}-1`, `Xria-${t - 10 * 86400}-2`, 'other-id'] } }
+    const q = plan(doc, { records: [], visits: [] }, id, T0)
+    expect(q.changed).toBe(true)
+    expect(q.doc.mail?.handled).toEqual([`Xria-${t - 10 * 86400}-2`, 'other-id'])
+    expect(plan(q.doc, { records: [], visits: [] }, id, T0).changed).toBe(false)
+    expect(idTime('Horde-1794716194-39')).toBe(1794716194)
+    expect(idTime('e12')).toBeNull()
   })
   it('roles and handled records survive saving and loading', () => {
     const doc = dismiss(roles(), ['r4'])

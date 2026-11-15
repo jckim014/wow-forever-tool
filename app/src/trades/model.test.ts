@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { awaitingTransfer, leftToTransfer, emptyDoc, history, ledger, parseMoney, parseTradesDoc, totals, type Entry, type TradesDoc } from './model'
+import { awaitingTransfer, leftToTransfer, emptyDoc, history, ledger, parseMoney, parseTradesDoc, totals, type Entry, type TradesDoc, historyDays } from './model'
 
 const g = 10000
 const at = (h: number) => `2026-11-14T${String(h).padStart(2, '0')}:00:00.000Z`
@@ -149,5 +149,27 @@ describe('trade tracker figures', () => {
     expect(parseMoney('-50g')).toBe(-500000)
     expect(parseMoney('abc')).toBeNull()
     expect(parseMoney('')).toBeNull()
+  })
+})
+
+describe('historyDays', () => {
+  it('groups by day, newest first, with each day\'s gold change and trading profit', () => {
+    const d: TradesDoc = {
+      ...emptyDoc(), start: { A: 1000, H: 0, at: '2026-11-12T08:00:00.000Z' },
+      entries: [
+        { kind: 'purchase', id: 'p', at: '2026-11-12T10:00:00.000Z', item: 'Silk', qty: 10, side: 'A', cost: 1000 },
+        { kind: 'transfer', id: 't', at: '2026-11-13T10:00:00.000Z', item: 'Silk', qty: 10, from: 'A', price: 2000, purchase: 'p' },
+        { kind: 'sale', id: 's', at: '2026-11-13T12:00:00.000Z', item: 'Silk', qty: 10, side: 'H', received: 3000 },
+      ],
+      adjustments: [{ id: 'a', side: 'A', amount: -50, note: 'repairs', at: '2026-11-13T13:00:00.000Z' }],
+    }
+    const days = historyDays(history(d), ledger(d), (iso) => iso.slice(0, 10))
+    expect(days.map((x) => [x.day, x.events.map((e) => e.kind), x.delta, x.profit, x.trades])).toEqual([
+      // transfer: Alliance +2000 - 300, Horde -2000; sale: Horde +3000; adjustment: Alliance -50.
+      // profit: the sale made 3000 - 1000 = 2000, Blackwater kept 300.
+      ['2026-11-13', ['adjustment', 'sale', 'transfer'], { A: 1650, H: 1000 }, 1700, true],
+      ['2026-11-12', ['purchase', 'start'], { A: -1000, H: 0 }, 0, false],
+    ])
+    expect(days.reduce((n, x) => n + x.profit, 0)).toBe(totals(d).profit)
   })
 })

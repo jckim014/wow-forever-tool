@@ -415,7 +415,7 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (177 checks incl. the popup, purchases, partial won mails and GUIDs; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (181 checks incl. the popup, purchases, partial won mails, GUIDs and the 60-day limit; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
@@ -425,8 +425,20 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   Josh confirmed); trading profit = received - cost of units sold - transfer loss, per item and overall (= total +
   tied up - starting gold - adjustments, tested).
 - Storage like the shuffle app's edits but separate keys: file picked once (File > Create/Open trades file;
-  Josh's planned file `data/private/trades.json`), IndexedDB key `tradesFile`, browser copy in localStorage
-  `wow-forever-shuffle:trades:v1`; newer savedAt wins; format `forever-trades` v2 (v1 read and converted). File > Download a copy.
+  Josh's file `data/private/trades.json`), IndexedDB key `tradesFile`; browser copy in IndexedDB `tradesCopy` (since
+  2026-11-14; was localStorage `wow-forever-shuffle:trades:v1`, ~5 MB per site shared with the shuffle app, read once
+  and removed after the first IndexedDB write; localStorage only if IndexedDB fails); newer savedAt wins; format
+  `forever-trades` v2 (v1 read and converted). File > Download a copy.
+- **Growth and speed** (measured 2026-11-14: 87 entries on day one, 19 KB; a simulated year at 90 entries/day =
+  33k entries, ~5 MB): totals/ledger ~17 ms, mailbox plan ~27 ms, history ~9 ms. The waiting-cards calculation was
+  quadratic (1.4 s a year in) and now goes through `movedFromCards` in one pass. The addon keeps 60 days of records
+  and visits (KEEP_DAYS, pruned on save and at logout); the page ignores records older than 70 days (IGNORE_DAYS) and
+  drops handled ids older than 75 (FORGET_DAYS; the time is in the id). So Josh must open the page at least every
+  ~2 months; raw per-mail detail older than 60 days is gone by design (Josh: fine, no archive).
+- **History grouped by day** (Josh, 2026-11-14: "just a huge long list"): today open, older days one line (entries,
+  each faction's gold change, trading profit = sales' profit - Blackwater cut on that day's transfers;
+  `historyDays` in model.ts, local days), click to open; a search box filters by item (or adjustment note) across
+  all days, matching days open. Only open days draw rows.
 
 ## Model (must match the workbook)
 

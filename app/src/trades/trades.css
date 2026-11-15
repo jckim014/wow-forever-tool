@@ -129,3 +129,11 @@ h2 .t-link { font-size: 15px; font-weight: 600; color: var(--t-text); }
 .t-roles .t-char { gap: 8px; }
 .t-roles select { font: inherit; border: 1px solid var(--t-line); border-radius: 6px; padding: 3px 6px; background: var(--t-panel); color: var(--t-text); }
 .t-added { color: var(--t-pos); margin: 6px 0; font-size: 13px; }
+
+/* History grouped by day */
+.t-histbar { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; }
+.t-search { border: 1px solid var(--t-line); border-radius: 6px; padding: 6px 9px; background: var(--t-panel); width: 260px; }
+.t-dayrow td { background: var(--t-bg); cursor: pointer; user-select: none; }
+.t-dayrow:hover td { background: var(--t-line); }
+.t-daytoggle { display: inline-block; width: 1em; color: var(--t-muted); }
+.t-hist tbody + tbody .t-dayrow td { border-top: 1px solid var(--t-line); }

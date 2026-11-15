@@ -1,7 +1,7 @@
 // The trade tracker page (trades.html): balances, items in stock, history. Figures from model.ts.
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transfersOf, leftToTransfer,
+  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transfersOf, leftToTransfer, movedFromCards, historyDays, localDay,
   type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc, type Transfer,
 } from './model'
 import { useTradesStore, type TradesStatus } from './store'
@@ -456,45 +456,88 @@ function ItemDialog({ itemKey: key, doc, l, update, open, close }: {
   )
 }
 
+const entries = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'entry' : 'entries'}`
+
+/** "Today (Nov 14)", "Yesterday (Nov 13)" or "Nov 12" for a local day "YYYY-MM-DD". */
+function dayLabel(day: string) {
+  const [y, m, d] = day.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const short = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(y !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
+  const today = localDay(new Date().toISOString())
+  const yesterday = localDay(new Date(Date.now() - 86400000).toISOString())
+  return day === today ? `Today (${short})` : day === yesterday ? `Yesterday (${short})` : short
+}
+
+/** History grouped by day: today open, older days one summary line each; a search shows one item's entries. */
 function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; open: (o: Open) => void; update: Update }) {
-  const ev = history(doc)
+  const [q, setQ] = useState('')
+  const [opened, setOpened] = useState<Set<string>>(() => new Set([localDay(new Date().toISOString())]))
+  const ev = useMemo(() => history(doc), [doc])
+  const query = q.trim().toLowerCase().replace(/\s+/g, ' ')
+  const days = useMemo(() => historyDays(
+    query ? ev.filter((e) => (e.entry && itemKey(e.entry.item).includes(query)) || (e.adjustment && e.adjustment.note.toLowerCase().includes(query))) : ev, l,
+  ), [ev, l, query])
   if (!ev.length) return <p className="t-muted">Nothing recorded yet.</p>
   const delEntry = (e: Entry) => deleteEntry(doc, update, e)
   const edit = (e: Entry) => editEntry(doc, open, e)
   const delAdj = (a: Adjustment) => {
     if (confirm('Delete this adjustment?')) update((d) => ({ ...d, adjustments: d.adjustments.filter((x) => x.id !== a.id) }))
   }
+  const toggle = (day: string) => setOpened((o) => { const n = new Set(o); if (n.has(day)) n.delete(day); else n.add(day); return n })
+  const row = (e: HistoryEvent, i: number) => {
+    const en = e.entry
+    const short = en ? l.short[en.id] : undefined
+    return (
+      <tr key={en?.id ?? e.adjustment?.id ?? `s${i}`} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
+        <td className="t-nowrap">{when(e.at)}</td>
+        <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
+        <td>
+          {e.kind === 'start' && 'Starting gold'}
+          {en && <>{en.item} · {plural(en.qty, 'unit')}</>}
+          {en?.kind === 'transfer' && <> to <Fac s={other(en.from)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(en.price)} />)</span></>}
+          {en?.kind === 'sale' && l.saleProfit[en.id] !== undefined && <span className="t-muted"> · profit <Profit v={l.saleProfit[en.id]} /></span>}
+          {(en?.kind === 'sale' || en?.kind === 'purchase') && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, en.kind === 'sale' ? 'mailbox sale' : 'won auction')}`}> · from mailbox</span>}
+          {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
+          {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
+        </td>
+        {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{e.delta[s] !== undefined ? <Money v={e.delta[s]!} sign={e.kind !== 'start'} /> : ''}</td>)}
+        <td className="t-rowbtns">
+          {e.kind === 'start' && <button onClick={() => open({ kind: 'start' })}>Edit</button>}
+          {en && <><button onClick={() => edit(en)}>Edit</button><button className="t-del" onClick={() => delEntry(en)}>{en.kind === 'transfer' && en.purchase ? 'Undo' : 'Delete'}</button></>}
+          {e.adjustment && <><button onClick={() => open({ kind: 'adjust', adj: e.adjustment })}>Edit</button><button className="t-del" onClick={() => delAdj(e.adjustment!)}>Delete</button></>}
+        </td>
+      </tr>
+    )
+  }
   return (
-    <table className="t-hist">
-      <thead><tr><th>When</th><th>What</th><th>Details</th><th className="t-r">Alliance</th><th className="t-r">Horde</th><th /></tr></thead>
-      <tbody>
-        {ev.map((e, i) => {
-          const en = e.entry
-          const short = en ? l.short[en.id] : undefined
-          return (
-            <tr key={en?.id ?? e.adjustment?.id ?? `s${i}`} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
-              <td className="t-nowrap">{when(e.at)}</td>
-              <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
-              <td>
-                {e.kind === 'start' && 'Starting gold'}
-                {en && <>{en.item} · {plural(en.qty, 'unit')}</>}
-                {en?.kind === 'transfer' && <> to <Fac s={other(en.from)} /> <span className="t-muted">(Blackwater kept <Money v={transferLoss(en.price)} />)</span></>}
-                {en?.kind === 'sale' && l.saleProfit[en.id] !== undefined && <span className="t-muted"> · profit <Profit v={l.saleProfit[en.id]} /></span>}
-                {(en?.kind === 'sale' || en?.kind === 'purchase') && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, en.kind === 'sale' ? 'mailbox sale' : 'won auction')}`}> · from mailbox</span>}
-                {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
-                {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
-              </td>
-              {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{e.delta[s] !== undefined ? <Money v={e.delta[s]!} sign={e.kind !== 'start'} /> : ''}</td>)}
-              <td className="t-rowbtns">
-                {e.kind === 'start' && <button onClick={() => open({ kind: 'start' })}>Edit</button>}
-                {en && <><button onClick={() => edit(en)}>Edit</button><button className="t-del" onClick={() => delEntry(en)}>{en.kind === 'transfer' && en.purchase ? 'Undo' : 'Delete'}</button></>}
-                {e.adjustment && <><button onClick={() => open({ kind: 'adjust', adj: e.adjustment })}>Edit</button><button className="t-del" onClick={() => delAdj(e.adjustment!)}>Delete</button></>}
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <>
+      <div className="t-histbar">
+        <input className="t-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search item…" />
+        {query && <span className="t-muted t-small">{entries(days.reduce((n, d) => n + d.events.length, 0))} for “{q.trim()}” · <button className="t-link t-inline" onClick={() => setQ('')}>clear</button></span>}
+      </div>
+      {days.length === 0 ? <p className="t-muted">No entries for “{q.trim()}”.</p> : (
+        <table className="t-hist">
+          <thead><tr><th>When</th><th>What</th><th>Details</th><th className="t-r">Alliance</th><th className="t-r">Horde</th><th /></tr></thead>
+          {days.map((d) => {
+            const isOpen = query !== '' || opened.has(d.day)
+            return (
+              <tbody key={d.day}>
+                <tr className="t-dayrow" onClick={() => toggle(d.day)}>
+                  <td colSpan={3}>
+                    <span className="t-daytoggle">{isOpen ? '▾' : '▸'}</span> <strong>{dayLabel(d.day)}</strong>
+                    <span className="t-muted"> · {entries(d.events.length)}</span>
+                    {d.trades && <span className="t-muted"> · profit <Profit v={d.profit} /></span>}
+                  </td>
+                  {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{d.delta[s] ? <Money v={d.delta[s]} sign /> : ''}</td>)}
+                  <td />
+                </tr>
+                {isOpen && d.events.map(row)}
+              </tbody>
+            )
+          })}
+        </table>
+      )}
+    </>
   )
 }
 
@@ -511,6 +554,7 @@ export function Trades() {
   const soldOut = newestFirst.filter((it) => !(it.stock.A.units > 0 || it.stock.H.units > 0))
   const close = () => setDlg(null)
   const waiting = awaitingTransfer(doc, l).reverse()
+  const moved = movedFromCards(doc)
   const deletePurchase = (p: Purchase) => {
     const ts = new Set(transfersOf(doc, p).map((x) => x.id))
     const withT = ts.size === 0 ? '' : ts.size === 1 ? ', with its transfer' : `, with its ${ts.size} transfers`
@@ -550,7 +594,7 @@ export function Trades() {
       <MailPanel doc={doc} update={update} link={mail} />
 
       <h2>Waiting for transfer</h2>
-      {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} left={leftToTransfer(doc, p)} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
+      {waiting.length ? waiting.map((p) => <PurchaseCard key={p.id} p={p} left={p.qty - (moved.get(p.id) ?? 0)} open={setDlg} onDelete={() => deletePurchase(p)} />) : <p className="t-muted">None. Record a purchase to start one.</p>}
 
       <h2>Items in stock</h2>
       {inStock.length ? <ItemsTable items={inStock} open={setDlg} /> : <p className="t-muted">None yet.</p>}

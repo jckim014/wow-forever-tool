@@ -1,13 +1,17 @@
-// Saving for the trade tracker, the same way as the shuffle app's edits: a file on Josh's disk (File System Access
-// API, handle kept in IndexedDB) is the primary store, auto-saved on every change; the browser copy (localStorage)
-// is the cache and fallback. On start the newer savedAt wins. A file that isn't a trades file is never overwritten.
-// Separate keys from the shuffle app, so the two never touch each other's data.
+// Saving for the trade tracker, like the shuffle app's edits: a file on Josh's disk (File System Access API, handle
+// kept in IndexedDB) is the primary store, auto-saved on every change; the browser copy is the cache and fallback. On
+// start the newer savedAt wins. A file that isn't a trades file is never overwritten. Separate keys from the shuffle
+// app, so the two never touch each other's data.
+// The browser copy lives in IndexedDB (key `tradesCopy`) since 2026-11-14: localStorage holds ~5 MB per site, shared
+// with the shuffle app, and the trades file grows ~5 MB a year. The old localStorage copy is read once, and removed
+// after the first IndexedDB write; localStorage is used only if IndexedDB fails.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { idbDelete, idbGet, idbSet } from '../storage/idb'
 import { fileApiSupported, hasPermission, isAbort, readHandle, writeHandle, type FileHandle } from '../storage/fileStore'
 import { emptyDoc, parseTradesDoc, type TradesDoc } from './model'
 
 const LOCAL_KEY = 'wow-forever-shuffle:trades:v1'
+const COPY_KEY = 'tradesCopy'
 const HANDLE_KEY = 'tradesFile'
 const TYPES = [{ description: 'Trades', accept: { 'application/json': ['.json'] } }]
 
@@ -28,8 +32,24 @@ function readLocal(): TradesDoc | null {
     return null
   }
 }
+async function readCopy(): Promise<TradesDoc | null> {
+  try {
+    const t = await idbGet<string>(COPY_KEY)
+    return t ? parseTradesDoc(t) : null
+  } catch {
+    return null
+  }
+}
+/** The newer of two copies (by savedAt; a copy without one counts as oldest). */
+const newer = (a: TradesDoc | null, b: TradesDoc | null) => (!a ? b : !b ? a : (b.savedAt ?? '') > (a.savedAt ?? '') ? b : a)
+// Writes run one after another, so an older copy never lands after a newer one.
+let copyChain: Promise<void> = Promise.resolve()
 function writeLocal(d: TradesDoc) {
-  try { localStorage.setItem(LOCAL_KEY, text(d)) } catch { /* the file is still written */ }
+  const t = text(d)
+  copyChain = copyChain.then(() => idbSet(COPY_KEY, t)).then(
+    () => { try { localStorage.removeItem(LOCAL_KEY) } catch { /* nothing to remove */ } },
+    () => { try { localStorage.setItem(LOCAL_KEY, t) } catch { /* the file is still written */ } },
+  )
 }
 interface Picker { showOpenFilePicker(o: object): Promise<FileHandle[]>; showSaveFilePicker(o: object): Promise<FileHandle> }
 const picker = () => window as unknown as Picker
@@ -76,6 +96,10 @@ export function useTradesStore() {
     if (started.current) return
     started.current = true
     ;(async () => {
+      // The browser copy: IndexedDB, or the older localStorage one if that is newer (first start after the move).
+      const copy = newer(await readCopy(), readLocal())
+      const best = newer(current.current.savedAt ? current.current : null, copy)
+      if (best && best !== current.current) { current.current = best; setDoc(best) }
       if (!fileApiSupported()) return setStatus({ kind: 'browser-only', fileApi: false })
       let h: FileHandle | undefined
       try { h = await idbGet<FileHandle>(HANDLE_KEY) } catch { /* none */ }

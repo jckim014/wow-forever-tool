@@ -9,7 +9,7 @@
 // record he adds or dismisses is remembered in the trades file (doc.mail.handled), so it never comes back. Only
 // records from his trading characters (doc.mail.chars) are listed. Pure; tested.
 import { field, indexOf, Reader, type Lua } from '../prices/auctioneer'
-import { BLACKWATER_CUT, awaitingTransfer, itemKey, leftToTransfer, onHand, other, type Entry, type Side, type TradesDoc } from './model'
+import { BLACKWATER_CUT, awaitingTransfer, itemKey, movedFromCards, onHand, other, type Entry, type Side, type TradesDoc } from './model'
 
 export interface MailRecord {
   /** "buy": an auction won (price = total paid); "sale" (older records have no kind: sales). */
@@ -130,6 +130,12 @@ export const sideOf = (faction: string): Side | null => (faction === 'Alliance' 
  */
 export type Role = 'trader' | 'transfer' | 'none'
 
+/** Records older than this many days are ignored (the addon keeps 60), and handled ids older than FORGET_DAYS dropped. */
+export const IGNORE_DAYS = 70
+export const FORGET_DAYS = 75
+/** The time in an addon id ("<char>-<unix time>-<counter>"), or null for an id of another shape. */
+export const idTime = (id: string) => { const m = /-(\d{9,})-\d+$/.exec(id); return m ? Number(m[1]) : null }
+
 /**
  * Who made a record or visit: the character's GUID; for an older record (no GUID) the GUID of the only character with
  * that short name on that faction, or "name|faction" when there is none or several.
@@ -205,8 +211,11 @@ export const blackwaterCutOk = (r: MailRecord) =>
  * Anything amber, a sale beyond the stock or of an item the tracker doesn't know, and a Blackwater cut that isn't 15%
  * goes to `look`. Pure; tested.
  */
-export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
+export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = Date.now() / 1000): Plan {
   const handled = new Set(doc0.mail?.handled ?? [])
+  // The addon keeps 60 days of records; anything older than 70 days is left alone here (so a record dropped from the
+  // handled list below can never come back as new), and handled ids older than 75 days are dropped.
+  const fresh = (t: number) => t >= now - IGNORE_DAYS * 86400
   const look: LookItem[] = []
   const added = { purchases: 0, transfers: 0, sales: 0 }
   const done: string[] = []
@@ -223,6 +232,7 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
   const single = (name: string) => (keysOf.get(name)?.size ?? 0) <= 1
   const role = (x: { char: string; faction: string; guid?: string }) => roleOf(doc0, who(x), single)
   const open = log.records.filter((r) => {
+    if (!fresh(r.t)) return false
     if (handled.has(r.id) || !sideOf(r.faction)) return false
     const rl = role(r)
     return rl === 'trader' || rl === 'transfer'
@@ -263,10 +273,11 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
     // Oldest waiting cards of this item on the sending side first.
     let left = rcv.count
     const parts: { qty: number; purchase?: string }[] = []
+    const moved = movedFromCards(doc)
     for (const p of awaitingTransfer(doc)) {
       if (left <= 0) break
       if (p.side !== from || itemKey(p.item) !== itemKey(item)) continue
-      const n = Math.min(left, leftToTransfer(doc, p))
+      const n = Math.min(left, p.qty - (moved.get(p.id) ?? 0))
       if (n > 0) { parts.push({ qty: n, purchase: p.id }); left -= n }
     }
     if (left > 0) parts.push({ qty: left })
@@ -320,13 +331,15 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string): Plan {
   }
 
   if (done.length) doc = { ...doc, mail: { ...mailOf(doc), handled: [...mailOf(doc).handled, ...done] } }
+  const kept = mailOf(doc).handled.filter((id) => { const t = idTime(id); return t === null || t >= now - FORGET_DAYS * 86400 })
+  if (kept.length !== mailOf(doc).handled.length) doc = { ...doc, mail: { ...mailOf(doc), handled: kept } }
   const listed = new Set([...waiting, ...look.map((l) => l.record)].map((r) => r.visit))
   const seen = new Map<string, Who>()
   for (const x of [...log.records, ...log.visits]) { const w = who(x); seen.set(w.key, w) }
   const trading = (x: MailVisit) => { const r = role(x); return r === 'trader' || r === 'transfer' }
   return {
     doc, changed: doc !== doc0, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
-    visits: log.visits.filter((v) => !handled.has(v.id) && trading(v) && (listed.has(v.id) || !visitOk(v))).reverse(),
+    visits: log.visits.filter((v) => fresh(v.t0) && !handled.has(v.id) && trading(v) && (listed.has(v.id) || !visitOk(v))).reverse(),
     chars: [...seen.values()].map((w) => ({ key: w.key, name: w.name, faction: w.faction, role: roleOf(doc0, w, single) }))
       .sort((a, b) => a.name.localeCompare(b.name) || a.faction.localeCompare(b.faction)),
     who,

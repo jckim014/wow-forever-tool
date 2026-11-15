@@ -167,7 +167,16 @@ export const leftToTransfer = (d: TradesDoc, p: Purchase) => p.qty - transfersOf
  */
 export function awaitingTransfer(d: TradesDoc, l: Ledger = ledger(d)): Purchase[] {
   const held = new Map(l.items.map((it) => [it.key, it.stock]))
-  return ordered(d.entries).filter((e): e is Purchase => e.kind === 'purchase' && leftToTransfer(d, e) > 0 && (held.get(itemKey(e.item))?.[e.side].units ?? 0) > 0)
+  const moved = movedFromCards(d)
+  return ordered(d.entries).filter((e): e is Purchase => e.kind === 'purchase' && e.qty - (moved.get(e.id) ?? 0) > 0 && (held.get(itemKey(e.item))?.[e.side].units ?? 0) > 0)
+}
+
+/** Units moved from each purchase's card by its transfers, in one pass (leftToTransfer per card would go over all
+ *  entries for every card: ~1.4 s a year in). */
+export function movedFromCards(d: TradesDoc): Map<string, number> {
+  const moved = new Map<string, number>()
+  for (const e of d.entries) if (e.kind === 'transfer' && e.purchase) moved.set(e.purchase, (moved.get(e.purchase) ?? 0) + e.qty)
+  return moved
 }
 
 /** Change to each side's balance from one entry. */
@@ -218,6 +227,41 @@ export function history(d: TradesDoc): HistoryEvent[] {
   ordered(d.entries).forEach((e) => ev.push({ kind: e.kind, at: e.at, entry: e, delta: entryDelta(e) }))
   // Newest first; equal times keep the reverse of the applied order.
   return ev.map((x, i) => ({ x, i })).sort((a, b) => (a.x.at < b.x.at ? 1 : a.x.at > b.x.at ? -1 : b.i - a.i)).map((a) => a.x)
+}
+
+/** An ISO time -> its local calendar day, "YYYY-MM-DD". */
+export const localDay = (iso: string) => {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export interface HistoryDay {
+  /** Local day, "YYYY-MM-DD". */
+  day: string
+  /** That day's events, newest first. */
+  events: HistoryEvent[]
+  /** Change to each side's balance that day (starting gold left out). */
+  delta: Record<Side, number>
+  /** Trading profit made that day: its sales' profit minus Blackwater's cut on its transfers. */
+  profit: number
+  /** The day has sales or transfers (else there is no profit to show). */
+  trades: boolean
+}
+
+/** History grouped by local day, newest day first (Josh, 2026-11-14: the flat list got too long). */
+export function historyDays(events: HistoryEvent[], l: Ledger, dayOf: (iso: string) => string = localDay): HistoryDay[] {
+  const days = new Map<string, HistoryDay>()
+  for (const e of events) {
+    const day = dayOf(e.at)
+    let d = days.get(day)
+    if (!d) { d = { day, events: [], delta: { A: 0, H: 0 }, profit: 0, trades: false }; days.set(day, d) }
+    d.events.push(e)
+    if (e.kind !== 'start') for (const [s, v] of Object.entries(e.delta) as [Side, number][]) d.delta[s] += v
+    const en = e.entry
+    if (en?.kind === 'sale') { d.profit += l.saleProfit[en.id] ?? 0; d.trades = true }
+    if (en?.kind === 'transfer') { d.profit -= transferLoss(en.price); d.trades = true }
+  }
+  return [...days.values()].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0))
 }
 
 /**
