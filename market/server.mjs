@@ -221,12 +221,16 @@ function faction(daysParam) {
       const hist = new Map();
       for (const [ts, s] of series.get(item) ?? []) hist.set(ts, { cheap: s[cheapH], dear: s[dearH] });
       const it = byId.get(item);
+      // Gold sent back (the tab's switch): only Alliance -> Horde leaves the gold on Horde; Horde -> Alliance is unchanged.
+      const toA = cheapH === 114;
+      const steady = steadiness(hist);
       rows.push({
         item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, icon: it?.icon ?? null, from: cheapH, to: dearH,
         buy: r.buy, sell: r.sell, profit: r.profit, margin: r.margin, outlier: r.outlier, thin: r.thin,
         cheapUnits: cheap.units, dearListings: dear.listings, dearUnits: dear.units,
         oursPerDay: ours[dearH].get(item) ?? null, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
-        steady: steadiness(hist),
+        steady, profitBack: toA ? r.profit : r.profitBack, marginBack: toA ? r.margin : r.marginBack,
+        steadyBack: toA ? steady : steadiness(hist, true),
       });
     }
   }

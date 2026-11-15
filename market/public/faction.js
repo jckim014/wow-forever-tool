@@ -12,6 +12,7 @@ const f = {
   minSold: prefs.minSold ?? '', steady: prefs.steady ?? '0', hideThin: prefs.hideThin ?? true,
   sort: prefs.sort ?? 'profit', sortDir: prefs.sortDir ?? -1,
   days: prefs.days ?? 3, // steadiness and sales window
+  goldBack: prefs.goldBack ?? false, // Josh, 2026-11-14: profit after sending Horde's gold back to Alliance (a junk item)
 };
 const WINDOWS = [3, 7, 30];
 const save = () => { try { const { search, ...rest } = f; localStorage.setItem(PREFS_KEY, JSON.stringify(rest)); } catch { /* convenience only */ } };
@@ -20,14 +21,18 @@ let data = null;
 let openItem = () => {};
 let loadedFor = null;
 
-const steadyShare = (r) => (r.steady.seen ? r.steady.profitable / r.steady.seen : 0);
+// With "Send the gold back" on, profit, margin and Steady are the after-sending-back figures (faction.mjs, profitBack).
+const profitOf = (r) => (f.goldBack ? r.profitBack : r.profit);
+const marginOf = (r) => (f.goldBack ? r.marginBack : r.margin);
+const steadyOf = (r) => (f.goldBack ? r.steadyBack : r.steady);
+const steadyShare = (r) => { const s = steadyOf(r); return s.seen ? s.profitable / s.seen : 0; };
 const COLS = [
   ['name', 'Item', (r) => r.name, 'mleft'],
   ['dir', 'Direction', (r) => r.from, 'mleft'],
   ['buy', 'Buy', (r) => r.buy, 'Cheap side: average of the cheapest 15% of units'],
   ['sell', 'Sell', (r) => r.sell, 'Expensive side: lowest listing (or its cheapest-15% average when the lowest is a lone outlier)'],
-  ['profit', 'Profit / unit', (r) => r.profit, 'Sell x 0.95 (AH cut) - buy x 1.15 (15% Blackwater cut on a transfer listed at the buy price)'],
-  ['margin', 'Margin', (r) => r.margin, 'Profit as a share of the buy price'],
+  ['profit', 'Profit / unit', profitOf, 'Sell x 0.95 (AH cut) - buy x 1.15 (15% Blackwater cut on a transfer listed at the buy price). With the gold sent back, Alliance -> Horde: sell x 0.95 x 0.85 - buy'],
+  ['margin', 'Margin', marginOf, 'Profit as a share of the buy price'],
   ['cheapUnits', 'Units to buy', (r) => r.cheapUnits, 'Units listed on the cheap side'],
   ['ours', () => ({ 111: 'Horde sales / day*', 114: 'Alliance sales / day*' })[f.dir] ?? 'Sales / day* (where sold)', (r) => r.oursPerDay ?? -1, 'Faction you sell on, NA PvE: estimated units sold per day over the window (see the note below the filters)'],
   ['tsm', 'TSM sales / day', (r) => r.tsmPerDay ?? -1, 'TSM: sold per day across the whole Forever-US region (TSM users only)'],
@@ -59,10 +64,11 @@ function filtered() {
   const minS = f.minSold === '' ? null : Number(f.minSold);
   const minSteady = Number(f.steady) / 100;
   const rows = data.rows.filter((r) =>
-    (f.dir === 'both' || String(r.from) === f.dir)
+    profitOf(r) > 0
+    && (f.dir === 'both' || String(r.from) === f.dir)
     && (!q || r.name.toLowerCase().includes(q))
-    && (minP === null || r.profit >= minP)
-    && (minM === null || r.margin >= minM)
+    && (minP === null || profitOf(r) >= minP)
+    && (minM === null || marginOf(r) >= minM)
     && (minS === null || Math.max(r.tsmPerDay ?? 0, r.oursPerDay ?? 0) >= minS)
     && (!f.hideThin || !r.thin)
     && (minSteady === 0 || (r.steady.seen > 0 && steadyShare(r) >= minSteady)));
@@ -93,11 +99,12 @@ function render() {
       </span>
       <span id="f-custom" hidden><input id="f-days" type="number" min="1" max="365" step="1" value="${f.days}"> days <button id="f-days-apply" class="mbtn">Apply</button></span></span>
       <label class="field">Steady <select id="f-steady">${[['0', 'any'], ['50', '50%+'], ['75', '75%+'], ['100', 'always']].map(([v, l]) => `<option value="${v}"${f.steady === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="field" title="Alliance -> Horde leaves the gold on Horde. On: profit after also sending that gold back to Alliance through Blackwater (a junk item; another 15% cut). Horde -> Alliance rows are unchanged."><input id="f-back" type="checkbox"${f.goldBack ? ' checked' : ''}> Send the gold back to Alliance</label>
       <label class="field" title="Cheap side with 2 or fewer units, or expensive side with 2 or fewer listings"><input id="f-thin" type="checkbox"${f.hideThin ? ' checked' : ''}> Hide thin markets</label>
-      <span class="count">${rows.length.toLocaleString()} of ${data.rows.length.toLocaleString()} profitable${rows.length > shown.length ? `, first ${shown.length} shown` : ''}</span>
+      <span class="count">${rows.length.toLocaleString()} of ${data.rows.filter((r) => profitOf(r) > 0).length.toLocaleString()} profitable${rows.length > shown.length ? `, first ${shown.length} shown` : ''}</span>
     </div>
     <p class="mhint2">Profit per unit = sell × 0.95 − buy × 1.15 (AH cut on the sale; 15% Blackwater cut on a transfer listed at the buy price;
-      deposits left out). Latest snapshot ${esc(new Date(data.latest * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))};
+      deposits left out).${f.goldBack ? ' <strong>Gold sent back:</strong> Alliance → Horde rows also pay 15% on the Horde gold sent back to Alliance (sell × 0.95 × 0.85 − buy; break-even ~24% above buy).' : ''} Latest snapshot ${esc(new Date(data.latest * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))};
       Steady and Sales / day over the last ${data.days} day${data.days === 1 ? '' : 's'} (${data.snapshots} hourly snapshots). Click a row to see the item in Price history.<br>
       * Sales / day is estimated from hourly listings: it includes some cancellations and misses items bought within the hour. See Method check.</p>
     <div class="mfaction">
@@ -110,9 +117,9 @@ function render() {
           <td class="mleft">${iconHtml(r.icon)}<span class="q${r.quality ?? 1}">${esc(r.name)}</span>${r.outlier ? ' <span class="mflag" title="The expensive side\'s lowest listing was far below the rest (bait?), so its cheapest-15% average is used">outlier ignored</span>' : ''}${r.thin ? ' <span class="mflag">thin</span>' : ''}</td>
           <td class="mleft">${factionHtml(r.from)} → ${factionHtml(r.to)}</td>
           <td>${moneyHtml(r.buy)}</td><td>${moneyHtml(r.sell)}</td>
-          <td><strong>${moneyHtml(r.profit)}</strong></td><td>${Math.round(r.margin * 100)}%</td>
+          <td><strong>${moneyHtml(profitOf(r))}</strong></td><td>${Math.round(marginOf(r) * 100)}%</td>
           <td>${r.cheapUnits.toLocaleString()}</td><td>${n(r.oursPerDay)}</td><td>${n(r.tsmPerDay)}</td>
-          <td>${r.steady.seen ? `${Math.round(steadyShare(r) * 100)}% <span class="mest-sub">(${r.steady.profitable}/${r.steady.seen})</span>` : '<span class="blank">—</span>'}</td>
+          <td>${steadyOf(r).seen ? `${Math.round(steadyShare(r) * 100)}% <span class="mest-sub">(${steadyOf(r).profitable}/${steadyOf(r).seen})</span>` : '<span class="blank">—</span>'}</td>
         </tr>`).join('')}
       </table>
     </div>`;
@@ -134,6 +141,7 @@ function render() {
   const applyDays = () => { const d = Math.round(Number($('#f-days').value)); if (d >= 1 && d <= 365) setDays(d); };
   $('#f-days-apply').addEventListener('click', applyDays);
   $('#f-days').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyDays(); });
+  $('#f-back').addEventListener('change', (e) => { f.goldBack = e.target.checked; rerender(); });
   $('#f-thin').addEventListener('change', (e) => { f.hideThin = e.target.checked; rerender(); });
   $('#f-dir').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { f.dir = b.dataset.v; rerender(); } });
   box.querySelector('.mft').addEventListener('click', (e) => {

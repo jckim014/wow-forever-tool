@@ -4,6 +4,9 @@
 //   sell = dear side's lowest listing, unless it is under 80% of the dear side's cheapest-15% average (a lone outlier,
 //          e.g. a bait auction): then that average, and the row says the outlier was ignored
 //   profit per unit = sell x 0.95 - buy x 1.15  (deposits left out: they come back when the item sells)
+//   with the gold sent back (Josh, 2026-11-14; the Faction tab's switch, Alliance -> Horde only): the Horde gold left
+//   after the sale (sell x 0.95 - buy) also crosses Blackwater, by a junk item listed by the Alliance side, so all of
+//   the sale money crosses once: profitBack = sell x 0.95 x 0.85 - buy (break-even ~24% above buy instead of ~21%).
 // Pure; tested in faction.test.mjs.
 
 export const AH_CUT = 0.05;
@@ -18,23 +21,24 @@ export function trade(cheap, dear) {
   const outlier = dear.cheapest15 > 0 && dear.lowest < OUTLIER_RATIO * dear.cheapest15;
   const sell = outlier ? dear.cheapest15 : dear.lowest;
   const profit = sell * (1 - AH_CUT) - buy * (1 + TRANSFER_CUT);
+  const profitBack = sell * (1 - AH_CUT) * (1 - TRANSFER_CUT) - buy;
   return {
-    buy, sell, profit, margin: profit / buy, outlier,
+    buy, sell, profit, margin: profit / buy, profitBack, marginBack: profitBack / buy, outlier,
     thin: (cheap.units ?? 0) <= THIN_UNITS || (dear.listings ?? 0) <= THIN_UNITS,
   };
 }
 
 /**
  * Steadiness over a window: of the snapshots where both sides had the item, the share where this direction was
- * profitable. series: Map(t -> { cheap, dear }). Returns { profitable, seen } (counts).
+ * profitable (with back: after sending the gold back). series: Map(t -> { cheap, dear }). Returns { profitable, seen }.
  */
-export function steadiness(series) {
+export function steadiness(series, back = false) {
   let profitable = 0, seen = 0;
   for (const { cheap, dear } of series.values()) {
     const r = trade(cheap, dear);
     if (!r) continue;
     seen++;
-    if (r.profit > 0) profitable++;
+    if ((back ? r.profitBack : r.profit) > 0) profitable++;
   }
   return { profitable, seen };
 }
