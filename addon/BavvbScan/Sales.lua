@@ -310,13 +310,55 @@ local function finishVisit()
   end
 end
 
-frame:SetScript("OnEvent", function(_, event)
+-- The mailbox opening and closing. The Forever client (like TSM, which reads the same) reports them as
+-- PLAYER_INTERACTION_MANAGER_FRAME_SHOW / _HIDE with the type MailInfo; MAIL_SHOW / MAIL_CLOSED are used only where
+-- those don't exist. First real try (2026-11-14): visits ended with no gold seen while relying on MAIL_CLOSED.
+local function mailType()
+  return Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.MailInfo
+end
+
+local function opened()
+  closing = nil -- reopened within the grace time: same visit
+  if not visit then visit = Core.newVisit(time()) end
+  lastMoney = GetMoney()
+end
+
+local function closed()
+  if visit and not closing then
+    local token = {}
+    closing = token
+    C_Timer.After(GRACE, function()
+      if closing == token then finishVisit() end
+    end)
+  end
+end
+
+-- Diagnostics: the last 120 mailbox-related events (name, time, mails in the inbox, gold, visit open), saved with
+-- the log so a visit that goes wrong can be read back from the file. No mail contents.
+local function note(event, arg)
+  local s = db()
+  s.events = s.events or {}
+  local n = GetInboxNumItems and GetInboxNumItems() or -1
+  s.events[#s.events + 1] = string.format("%d %s %s n=%d m=%d v=%s c=%s", time(), event, tostring(arg), n, GetMoney(),
+    visit and "1" or "0", closing and "1" or "0")
+  while #s.events > 120 do table.remove(s.events, 1) end
+end
+
+frame:SetScript("OnEvent", function(_, event, arg)
+  if event ~= "PLAYER_LOGIN" and event ~= "PLAYER_ENTERING_WORLD" and event ~= "PLAYER_LOGOUT"
+    and (event ~= "PLAYER_MONEY" or visit) then
+    note(event, arg)
+  end
   if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
     lastMoney = GetMoney()
+  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+    if arg == mailType() then opened() end
+  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+    if arg == mailType() then closed() end
   elseif event == "MAIL_SHOW" then
-    closing = nil -- reopened within the grace time: same visit
-    if not visit then visit = Core.newVisit(time()) end
-    lastMoney = GetMoney()
+    opened()
+  elseif event == "MAIL_CLOSED" then
+    if not mailType() then closed() end
   elseif event == "MAIL_INBOX_UPDATE" then
     -- Not after closing: the client may then report an empty inbox, which would look like every mail leaving.
     if visit and not closing then Core.inbox(visit, readInbox(), time()) end
@@ -324,21 +366,13 @@ frame:SetScript("OnEvent", function(_, event)
     local now = GetMoney()
     if visit and lastMoney then Core.money(visit, now - lastMoney, time()) end
     lastMoney = now
-  elseif event == "MAIL_CLOSED" then
-    if visit and not closing then
-      local token = {}
-      closing = token
-      C_Timer.After(GRACE, function()
-        if closing == token then finishVisit() end
-      end)
-    end
   elseif event == "PLAYER_LOGOUT" then
     finishVisit() -- a /reload or logout with the mailbox open still saves what was matched
   end
 end)
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "PLAYER_MONEY",
-  "MAIL_CLOSED", "PLAYER_LOGOUT" }) do
-  frame:RegisterEvent(e)
+  "MAIL_CLOSED", "PLAYER_LOGOUT", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
+  pcall(frame.RegisterEvent, frame, e) -- an event this client doesn't know is skipped
 end
 
 -- /bscan sales: the last few sales and the last mailbox check.
