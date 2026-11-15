@@ -380,7 +380,19 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   (BAG_UPDATE_DELAYED, C_Item.GetItemCount) must cover its quantity; units from other mails of the same item count
   first. Records kind "buy" (price = total paid, itemID, status ok / noitem); visits buys / spent / buyMissing. A won
   mail emptied over two visits is flagged noitem (known limit). Tracker: Purchases table under Sales; ticked when the
-  tracker already knows the item, new items unticked; added as purchase entries (cards under Waiting for transfer). `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
+  tracker already knows the item, new items unticked; added as purchase entries (cards under Waiting for transfer).
+  **Automatic chain with roles** (Josh, 2026-11-14; replaced the ticking): Josh's characters and strict roles:
+  Alliance = Xfaction Bavvb (trader: buys/sells on the Alliance AH) + Jeder Hillmont (transfer: Blackwater), account
+  THOROCKTHEBOLD; Horde = Xria Two (trader) + Horde Xria (transfer), account 1120039#2. Goods move between a faction's
+  own characters by mail (ignored: same faction stock). The addon knows characters by short name: "Xria" = Xria Two,
+  "Xfaction", and presumably "Jeder" / "Horde" (to confirm when they first record). `doc.mail.roles` (trader /
+  transfer / none; names in the old `chars` list count as traders). `plan()` in mailSales.ts applies by itself (in
+  MailPanel's effect): trader purchases -> one purchase card per item, faction and visit; a transfer char's Blackwater
+  sale + the other faction's transfer char's Blackwater purchase with the same item, quantity and price -> a transfer
+  (at the later time, applied to the oldest waiting cards, split across cards, rest free; cut checked at 15% +-1%);
+  trader sales -> one sale per item, faction and visit while the faction holds the units. Unpaired halves wait
+  ("Waiting for the other side", Add as sale/purchase for a stranger's buy); amber records, sales beyond stock or of
+  unknown items, wrong cut -> "Needs a look" (Add / Dismiss). `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
@@ -678,7 +690,9 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Mailbox sales (2026-11-14, recording works in game; tracker import not yet tried by Josh): after a /reload (loads Sales.lua), Josh does a mailbox
+- Mailbox log (2026-11-14: sales confirmed in game and imported by Josh; purchases and the automatic chain not yet
+  used for real; Josh sets Jeder and Horde Xria to Transfer once they appear; Pristine Leather (Xria Two) will become a
+  Horde card, the 4 Red Linen Bags go to Needs a look): after a /reload (loads Sales.lua), Josh does a mailbox
   visit, /reload, link the file and tick his trading character. Check: the visit line shows ✓ and the sales match. If a
   real glitch shows up, compare the visit's gold with the records and adjust from that example. Not yet known which
   account(s) his two trading characters are on.

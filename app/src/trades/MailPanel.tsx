@@ -1,16 +1,21 @@
-// "From the mailbox": suggestions from BavvbScan's sales log (mailSales.ts). Sales are ticked by default where the
-// tracker holds the item; purchases where the tracker already knows the item. Josh checks them and adds them as sale
-// and purchase entries (a purchase becomes a card under "Waiting for transfer").
+// "From the mailbox": BavvbScan's mailbox log (mailSales.ts) applied by itself, given each character's role (Josh,
+// 2026-11-14): trader purchases become cards, Blackwater sale + purchase pairs become transfers, trader sales are added
+// while the faction holds the units. What can't be applied waits here: transfer halves without their other half, and
+// records that need a look (Add / Dismiss).
 import { useEffect, useMemo, useState } from 'react'
 import { newId, type Side, type TradesDoc } from './model'
-import { addSales, dismiss, setChars, sideOf, suggestions, visitOk, type MailRecord, type MailVisit, type Suggestion } from './mailSales'
+import { addRecord, dismiss, plan, setRole, sideOf, visitOk, type MailRecord, type MailVisit, type Role } from './mailSales'
 import type { MailLinkState } from './mailLink'
 import { Fac, Money, plural, when } from './parts'
 
 type Update = (fn: (d: TradesDoc) => TradesDoc) => void
 const iso = (t: number) => new Date(t * 1000).toISOString()
-/** The gold a record adds to its entry: received for a sale, paid for a purchase. */
-const amount = (r: MailRecord) => (r.kind === 'buy' ? r.price : r.received)
+
+const ROLE_TEXT: Record<Role, string> = {
+  trader: 'Trader: buys and sells on its own auction house',
+  transfer: 'Transfer: lists on and buys from Blackwater',
+  none: 'Not a trading character',
+}
 
 function VisitLine({ v, onDismiss }: { v: MailVisit; onDismiss: () => void }) {
   const side = sideOf(v.faction)
@@ -38,49 +43,39 @@ function VisitLine({ v, onDismiss }: { v: MailVisit; onDismiss: () => void }) {
   )
 }
 
-function GroupRows({ g, ticked, toggle, onDismiss }: {
-  g: Suggestion; ticked: Set<string>; toggle: (ids: string[], on: boolean) => void; onDismiss: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const on = g.records.filter((r) => ticked.has(r.id))
-  const all = on.length === g.records.length, none = on.length === 0
-  const units = on.reduce((n, r) => n + r.count, 0)
-  const unitsAll = g.records.reduce((n, r) => n + r.count, 0)
-  const sale = g.kind === 'sale'
-  const over = sale && unitsAll > g.held
-  const flagged = g.records.some((r) => r.status !== 'ok') || over
-  return (
-    <>
-      <tr className={none ? 't-off' : ''}>
-        <td><input type="checkbox" checked={all} ref={(el) => { if (el) el.indeterminate = !all && !none }} onChange={() => toggle(g.records.map((r) => r.id), !all)} /></td>
-        <td><strong>{g.item}</strong></td>
-        <td><Fac s={g.side} /></td>
-        <td className="t-r">{none ? plural(unitsAll, 'unit') : units === unitsAll ? plural(units, 'unit') : `${units} of ${plural(unitsAll, 'unit')}`}</td>
-        <td className="t-r"><Money v={(none ? g.records : on).reduce((n, r) => n + amount(r), 0)} /></td>
-        <td className={`t-r ${over ? 't-warn' : 't-muted'}`}>{g.tracked ? `holds ${g.held}` : sale ? '' : 'new item'}</td>
-        <td className="t-rowbtns">
-          <button className="t-link t-inline" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'} {plural(g.records.length, sale ? 'sale' : 'purchase')}{flagged && !open ? ' ⚠' : ''}</button>
-          <button onClick={onDismiss}>Dismiss</button>
-        </td>
-      </tr>
-      {open && g.records.map((r) => <RecordRow key={r.id} r={r} on={ticked.has(r.id)} toggle={(v) => toggle([r.id], v)} />)}
-    </>
-  )
+/** What a record is, in the words of the chain. */
+function what(r: MailRecord, role: Role | undefined) {
+  if (role === 'transfer') return r.kind === 'sale' ? 'Blackwater listing sold' : 'bought on Blackwater'
+  return r.kind === 'sale' ? 'sold' : 'bought'
 }
 
-function RecordRow({ r, on, toggle }: { r: MailRecord; on: boolean; toggle: (on: boolean) => void }) {
+function RecordTable({ rows, roleOf, onAdd, onDismiss }: {
+  rows: { r: MailRecord; reason?: string }[]; roleOf: (c: string) => Role | undefined
+  onAdd: (r: MailRecord) => void; onDismiss: (r: MailRecord) => void
+}) {
   return (
-    <tr className={`t-sub ${on ? '' : 't-off'}`}>
-      <td><input type="checkbox" checked={on} onChange={(e) => toggle(e.target.checked)} /></td>
-      <td className="t-nowrap" colSpan={2}>{when(iso(r.t))} · {r.char}</td>
-      <td className="t-r">{plural(r.count, 'unit')}</td>
-      <td className="t-r"><Money v={amount(r)} /></td>
-      <td colSpan={2} className="t-small">
-        {r.status === 'nogold' && <span className="t-warn">⚠ the mail went but no matching gold came</span>}
-        {r.status === 'noitem' && <span className="t-warn">⚠ the mail went but its items didn't reach the bags</span>}
-        {r.src === 'subject' && <span className="t-warn">⚠ deposit unknown: amount is the whole mail</span>}
-      </td>
-    </tr>
+    <table className="t-hist t-mailtable">
+      <thead><tr><th>When</th><th>Character</th><th>What</th><th>Item</th><th className="t-r">Quantity</th><th className="t-r">Gold</th><th /></tr></thead>
+      <tbody>
+        {rows.map(({ r, reason }) => {
+          const side = sideOf(r.faction) as Side
+          return (
+            <tr key={r.id}>
+              <td className="t-nowrap">{when(iso(r.t))}</td>
+              <td>{r.char} (<Fac s={side} />)</td>
+              <td>{what(r, roleOf(r.char))}{reason && <div className="t-warn t-small">⚠ {reason}</div>}</td>
+              <td><strong>{r.item}</strong></td>
+              <td className="t-r">{r.count.toLocaleString()}</td>
+              <td className="t-r"><Money v={r.kind === 'buy' ? r.price : r.received} /></td>
+              <td className="t-rowbtns">
+                <button onClick={() => onAdd(r)} title={r.kind === 'buy' ? 'Add it as a purchase' : 'Add it as a sale'}>Add as {r.kind === 'buy' ? 'purchase' : 'sale'}</button>
+                <button onClick={() => onDismiss(r)}>Dismiss</button>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
@@ -89,12 +84,18 @@ export function MailPanel({ doc, update, link }: {
   link: { state: MailLinkState; link: () => void; unlinkAll: () => void; refresh: () => void }
 }) {
   const st = link.state
-  const s = useMemo(() => (st.kind === 'ok' ? suggestions(doc, st.log) : null), [doc, st])
-  const defaults = useMemo(() => new Set(s ? [...s.tracked, ...s.other, ...s.buys].flatMap((g) => g.ticked) : []), [s])
-  const [ticked, setTicked] = useState(defaults)
-  useEffect(() => setTicked(defaults), [defaults])
-  const [showOther, setShowOther] = useState(false)
-  const [editChars, setEditChars] = useState(false)
+  const p = useMemo(() => (st.kind === 'ok' ? plan(doc, st.log, newId) : null), [doc, st])
+  const [last, setLast] = useState<{ purchases: number; transfers: number; sales: number; at: Date } | null>(null)
+  const [editRoles, setEditRoles] = useState(false)
+
+  // Apply what can be applied, once per new read or change (the records it adds are marked handled, so this settles).
+  const total = p ? p.added.purchases + p.added.transfers + p.added.sales : 0
+  useEffect(() => {
+    if (!p || total === 0 || st.kind !== 'ok') return
+    const log = st.log
+    update((d) => plan(d, log, newId).doc)
+    setLast({ ...p.added, at: new Date() })
+  }, [p, total, st, update])
 
   if (st.kind === 'none') return null
   const head = (
@@ -110,75 +111,62 @@ export function MailPanel({ doc, update, link }: {
   if (st.kind === 'needs-permission') {
     return <section className="t-mail">{head}<button className="t-primary" onClick={link.refresh}>Allow reading BavvbScan.lua ({plural(st.files, 'file')})</button></section>
   }
-  if (!s) return null
+  if (!p) return null
 
-  const chosen = new Set(doc.mail?.chars ?? [])
-  const toggle = (ids: string[], on: boolean) => setTicked((t) => {
-    const n = new Set(t)
-    for (const id of ids) if (on) n.add(id); else n.delete(id)
-    return n
-  })
-  const groups = [...s.tracked, ...s.other, ...s.buys]
-  const chosenGroups = groups.filter((g) => g.records.some((r) => ticked.has(r.id)))
-  const nSales = chosenGroups.filter((g) => g.kind === 'sale').length
-  const nBuys = chosenGroups.length - nSales
-  const addLabel = [nSales && plural(nSales, 'sale'), nBuys && plural(nBuys, 'purchase')].filter(Boolean).join(' and ')
-  const rows = (gs: Suggestion[]) => gs.map((g) => (
-    <GroupRows key={g.key} g={g} ticked={ticked} toggle={toggle} onDismiss={() => update((d) => dismiss(d, g.records.map((r) => r.id)))} />
-  ))
-  const table = (gs: Suggestion[], buy = false) => (
-    <table className="t-hist t-mailtable">
-      <thead><tr><th /><th>Item</th><th>{buy ? 'Bought on' : 'Sold on'}</th><th className="t-r">Quantity</th><th className="t-r">{buy ? 'Paid' : 'Received'}</th><th className="t-r">In stock</th><th /></tr></thead>
-      <tbody>{rows(gs)}</tbody>
-    </table>
-  )
+  const unset = p.chars.filter((c) => c.role === undefined)
+  const roleOf = (c: string) => p.chars.find((x) => x.char === c)?.role
+  const lastText = last && [
+    last.purchases && plural(last.purchases, 'purchase'), last.transfers && plural(last.transfers, 'transfer'), last.sales && plural(last.sales, 'sale'),
+  ].filter(Boolean).join(', ')
 
   return (
     <section className="t-mail">
       {head}
       {st.errors.map((e) => <p key={e} className="t-err t-small">{e}</p>)}
 
-      {(chosen.size === 0 || editChars) ? (
-        <div className="t-chars">
-          <span>{chosen.size === 0 ? 'Which characters make your trades? Other characters are ignored.' : 'Trading characters:'}</span>
-          {s.chars.length === 0 && <span className="t-muted">Nothing recorded yet. Collect auction mail at a mailbox, then /reload and Refresh.</span>}
-          {s.chars.map((c) => {
+      {(unset.length > 0 || editRoles) ? (
+        <div className="t-chars t-roles">
+          <span>{unset.length ? 'What does each character do? Mail from characters without a role is ignored.' : 'Character roles:'}</span>
+          {p.chars.map((c) => {
             const side = sideOf(c.faction) as Side | null
             return (
               <label key={c.char} className="t-char">
-                <input type="checkbox" checked={chosen.has(c.char)} onChange={(e) => {
-                  const next = e.target.checked ? [...chosen, c.char] : [...chosen].filter((x) => x !== c.char)
-                  update((d) => setChars(d, next))
-                }} /><span>{c.char}{side && <> (<Fac s={side} />)</>}</span>
+                <span>{c.char}{side && <> (<Fac s={side} />)</>}</span>
+                <select value={c.role ?? ''} onChange={(e) => update((d) => setRole(d, c.char, e.target.value as Role))}>
+                  {c.role === undefined && <option value="">Choose…</option>}
+                  {(['trader', 'transfer', 'none'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_TEXT[r]}</option>)}
+                </select>
               </label>
             )
           })}
-          {chosen.size > 0 && <button className="t-link t-inline" onClick={() => setEditChars(false)}>Done</button>}
+          {unset.length === 0 && <button className="t-link t-inline" onClick={() => setEditRoles(false)}>Done</button>}
         </div>
       ) : (
-        <p className="t-muted t-small">Trading characters: {[...chosen].join(', ')} · <button className="t-link t-inline" onClick={() => setEditChars(true)}>change</button></p>
+        <p className="t-muted t-small">
+          {p.chars.filter((c) => c.role === 'trader' || c.role === 'transfer').map((c) => `${c.char}: ${c.role}`).join(' · ')} · <button className="t-link t-inline" onClick={() => setEditRoles(true)}>change roles</button>
+        </p>
       )}
 
-      {s.visits.length > 0 && <div className="t-visits">{s.visits.map((v) => <VisitLine key={v.id} v={v} onDismiss={() => update((d) => dismiss(d, [v.id]))} />)}</div>}
+      {lastText && <p className="t-added">✓ Added from the mailbox: {lastText} <span className="t-muted t-small">({last!.at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}; see History)</span></p>}
 
-      {chosen.size > 0 && <h3 className="t-mailsub">Sales</h3>}
-      {chosen.size > 0 && (s.tracked.length ? table(s.tracked) : <p className="t-muted">No new sales of items in your tracker.</p>)}
-      {s.other.length > 0 && (
+      {p.visits.length > 0 && <div className="t-visits">{p.visits.map((v) => <VisitLine key={v.id} v={v} onDismiss={() => update((d) => dismiss(d, [v.id]))} />)}</div>}
+
+      {p.waiting.length > 0 && (
         <>
-          <p><button className="t-link" onClick={() => setShowOther(!showOther)}>{showOther ? '▾' : '▸'} Sales not in your tracker ({s.other.length})</button></p>
-          {showOther && table(s.other)}
+          <h3 className="t-mailsub">Waiting for the other side ({p.waiting.length})</h3>
+          <p className="t-muted t-small">Half of a transfer. It's added by itself once the other character collects its mail. If someone else bought your Blackwater listing, add it as a sale.</p>
+          <RecordTable rows={p.waiting.map((r) => ({ r }))} roleOf={roleOf}
+            onAdd={(r) => update((d) => addRecord(d, r, newId))} onDismiss={(r) => update((d) => dismiss(d, [r.id]))} />
         </>
       )}
-      {chosen.size > 0 && <h3 className="t-mailsub">Purchases</h3>}
-      {chosen.size > 0 && (s.buys.length ? table(s.buys, true) : <p className="t-muted">No new purchases.</p>)}
-      {chosen.size > 0 && groups.length > 0 && (
-        <div className="t-bar">
-          <button className="t-primary" disabled={!chosenGroups.length} onClick={() => update((d) => addSales(d, groups, ticked, newId))}>
-            Add {addLabel || 'ticked'}
-          </button>
-          <span className="t-muted t-small">One entry per item and faction; purchases become cards under "Waiting for transfer". Unticked ones stay here for later; Dismiss hides them for good.</span>
-        </div>
+      {p.look.length > 0 && (
+        <>
+          <h3 className="t-mailsub">Needs a look ({p.look.length})</h3>
+          <RecordTable rows={p.look.map((l) => ({ r: l.record, reason: l.reason }))} roleOf={roleOf}
+            onAdd={(r) => update((d) => addRecord(d, r, newId))} onDismiss={(r) => update((d) => dismiss(d, [r.id]))} />
+        </>
       )}
+      {p.waiting.length === 0 && p.look.length === 0 && unset.length === 0 && <p className="t-muted">Nothing waiting. Everything from the mailbox has been added.</p>}
     </section>
   )
 }

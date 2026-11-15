@@ -22,7 +22,7 @@ interface EntryBase { id: string; at: string; item: string; qty: number }
 export interface Purchase extends EntryBase { kind: 'purchase'; side: Side; cost: number; mail?: string[] }
 /** `purchase`: the purchase this transfer moved units of (made from its card; a purchase can be moved in several
  *  parts); a free transfer has none. */
-export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; price: number; purchase?: string }
+export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; price: number; purchase?: string; mail?: string[] }
 /** `mail`: the BavvbScan sales-log records it was added from (mailSales.ts); typed sales have none. */
 export interface Sale extends EntryBase { kind: 'sale'; side: Side; received: number; mail?: string[] }
 export type Entry = Purchase | Transfer | Sale
@@ -37,7 +37,7 @@ export interface TradesDoc {
   entries: Entry[]
   adjustments: Adjustment[]
   /** Sales from the mailbox (mailSales.ts): the trading characters, and the log records / visits added or dismissed. */
-  mail?: { chars: string[]; handled: string[] }
+  mail?: { chars: string[]; handled: string[]; roles?: Record<string, 'trader' | 'transfer' | 'none'> }
 }
 
 export const emptyDoc = (): TradesDoc => ({ format: 'forever-trades', version: 2, start: { A: 0, H: 0, at: null }, entries: [], adjustments: [] })
@@ -63,7 +63,7 @@ export function parseTradesDoc(text: string): TradesDoc {
   const d = JSON.parse(text)
   if (d?.format !== 'forever-trades' || (d.version !== 1 && d.version !== 2)) throw new Error('not a trades file')
   const entries: Entry[] = d.version === 1 ? fromV1(d.batches ?? []) : d.entries ?? []
-  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [] } } : {}) }
+  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [], ...(d.mail.roles ? { roles: d.mail.roles } : {}) } } : {}) }
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
