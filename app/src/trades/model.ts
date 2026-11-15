@@ -11,6 +11,9 @@
 //   - that cost.
 // Entries are applied in time order. Taking more units than a pool holds is allowed but flagged (the extra units cost
 // nothing). Adjustments change a balance for anything outside the trades and never count as trading profit.
+// Gold sent (Josh, 2026-11-14): gold moved between the factions with a junk item (GOLD_ITEM) listed on Blackwater by
+// the receiving side and bought by the other: the payer loses the price, the receiver gets it minus 15%. The 15% is a
+// cost of trading (it counts against trading profit); no item or stock is involved.
 
 export type Side = 'A' | 'H'
 export const other = (s: Side): Side => (s === 'A' ? 'H' : 'A')
@@ -26,6 +29,10 @@ export interface Transfer extends EntryBase { kind: 'transfer'; from: Side; pric
 /** `mail`: the BavvbScan sales-log records it was added from (mailSales.ts); typed sales have none. */
 export interface Sale extends EntryBase { kind: 'sale'; side: Side; received: number; mail?: string[] }
 export type Entry = Purchase | Transfer | Sale
+/** Gold moved to `to` by a GOLD_ITEM listing on Blackwater: the other faction paid `price`, `to` got price - 15%. */
+export interface GoldSent { id: string; at: string; to: Side; price: number; mail?: string[] }
+/** The junk item used only for sending gold through Blackwater (Josh, 2026-11-14). */
+export const GOLD_ITEM = 'Skinning Knife'
 export type EntryKind = Entry['kind']
 
 export interface Adjustment { id: string; side: Side; amount: number; note: string; at: string }
@@ -36,6 +43,8 @@ export interface TradesDoc {
   start: { A: number; H: number; at: string | null }
   entries: Entry[]
   adjustments: Adjustment[]
+  /** Gold moved between the factions with GOLD_ITEM (absent in older files). */
+  gold?: GoldSent[]
   /** Sales from the mailbox (mailSales.ts): the trading characters, and the log records / visits added or dismissed. */
   mail?: { chars: string[]; handled: string[]; roles?: Record<string, 'trader' | 'transfer' | 'none'> }
 }
@@ -63,7 +72,7 @@ export function parseTradesDoc(text: string): TradesDoc {
   const d = JSON.parse(text)
   if (d?.format !== 'forever-trades' || (d.version !== 1 && d.version !== 2)) throw new Error('not a trades file')
   const entries: Entry[] = d.version === 1 ? fromV1(d.batches ?? []) : d.entries ?? []
-  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [], ...(d.mail.roles ? { roles: d.mail.roles } : {}) } } : {}) }
+  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(Array.isArray(d.gold) && d.gold.length ? { gold: d.gold } : {}), ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [], ...(d.mail.roles ? { roles: d.mail.roles } : {}) } } : {}) }
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -186,13 +195,18 @@ export function entryDelta(e: Entry): Partial<Record<Side, number>> {
   return { [e.side]: e.received }
 }
 
+/** Change to each side's balance from gold sent. */
+export const goldDelta = (g: GoldSent): Partial<Record<Side, number>> => ({ [g.to]: g.price - transferLoss(g.price), [other(g.to)]: -g.price })
+
 export interface Totals {
   balance: Record<Side, number>
   total: number
   /** Purchase cost of the units still held. */
   tiedUp: number
-  /** Total gold + tied up - starting gold - adjustments = the sum of the items' profit. */
+  /** Total gold + tied up - starting gold - adjustments = the sum of the items' profit - Blackwater's cut on gold sent. */
   profit: number
+  /** Blackwater's cut on gold sent (in the profit). */
+  goldLoss: number
   itemsInStock: number
 }
 
@@ -200,21 +214,27 @@ export function totals(d: TradesDoc, l: Ledger = ledger(d)): Totals {
   const balance: Record<Side, number> = { A: d.start.A, H: d.start.H }
   for (const a of d.adjustments) balance[a.side] += a.amount
   for (const e of d.entries) for (const [s, v] of Object.entries(entryDelta(e)) as [Side, number][]) balance[s] += v
-  let tied = 0, profit = 0, inStock = 0
+  let goldLoss = 0
+  for (const g of d.gold ?? []) {
+    for (const [s, v] of Object.entries(goldDelta(g)) as [Side, number][]) balance[s] += v
+    goldLoss += transferLoss(g.price)
+  }
+  let tied = 0, profit = -goldLoss, inStock = 0
   for (const it of l.items) {
     tied += it.stock.A.cost + it.stock.H.cost
     profit += it.profit
     if (it.stock.A.units > 0 || it.stock.H.units > 0) inStock++
   }
-  return { balance, total: balance.A + balance.H, tiedUp: tied, profit, itemsInStock: inStock }
+  return { balance, total: balance.A + balance.H, tiedUp: tied, profit, goldLoss, itemsInStock: inStock }
 }
 
-export type EventKind = 'start' | EntryKind | 'adjustment'
+export type EventKind = 'start' | EntryKind | 'adjustment' | 'gold'
 export interface HistoryEvent {
   kind: EventKind
   at: string
   entry?: Entry
   adjustment?: Adjustment
+  gold?: GoldSent
   /** Change to each side's balance. */
   delta: Partial<Record<Side, number>>
 }
@@ -224,6 +244,7 @@ export function history(d: TradesDoc): HistoryEvent[] {
   const ev: HistoryEvent[] = []
   if (d.start.at) ev.push({ kind: 'start', at: d.start.at, delta: { A: d.start.A, H: d.start.H } })
   for (const a of d.adjustments) ev.push({ kind: 'adjustment', at: a.at, adjustment: a, delta: { [a.side]: a.amount } })
+  for (const g of d.gold ?? []) ev.push({ kind: 'gold', at: g.at, gold: g, delta: goldDelta(g) })
   ordered(d.entries).forEach((e) => ev.push({ kind: e.kind, at: e.at, entry: e, delta: entryDelta(e) }))
   // Newest first; equal times keep the reverse of the applied order.
   return ev.map((x, i) => ({ x, i })).sort((a, b) => (a.x.at < b.x.at ? 1 : a.x.at > b.x.at ? -1 : b.i - a.i)).map((a) => a.x)
@@ -242,9 +263,9 @@ export interface HistoryDay {
   events: HistoryEvent[]
   /** Change to each side's balance that day (starting gold left out). */
   delta: Record<Side, number>
-  /** Trading profit made that day: its sales' profit minus Blackwater's cut on its transfers. */
+  /** Trading profit made that day: its sales' profit minus Blackwater's cut on its transfers and gold sent. */
   profit: number
-  /** The day has sales or transfers (else there is no profit to show). */
+  /** The day has sales, transfers or gold sent (else there is no profit to show). */
   trades: boolean
 }
 
@@ -260,6 +281,7 @@ export function historyDays(events: HistoryEvent[], l: Ledger, dayOf: (iso: stri
     const en = e.entry
     if (en?.kind === 'sale') { d.profit += l.saleProfit[en.id] ?? 0; d.trades = true }
     if (en?.kind === 'transfer') { d.profit -= transferLoss(en.price); d.trades = true }
+    if (e.gold) { d.profit -= transferLoss(e.gold.price); d.trades = true }
   }
   return [...days.values()].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0))
 }

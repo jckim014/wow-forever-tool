@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addRecord, dismiss, idTime, mergeLogs, plan as planAt, readMailLog, setRole, visitOk, type MailLog, type MailRecord } from './mailSales'
-import { emptyDoc, leftToTransfer, ledger, parseTradesDoc, type Purchase, type TradesDoc, type Transfer } from './model'
+import { emptyDoc, leftToTransfer, ledger, parseTradesDoc, totals, type Purchase, type TradesDoc, type Transfer } from './model'
 
 /** BavvbScan.lua as WoW writes SavedVariables, with a scan and a sales log. */
 const FILE = `
@@ -154,7 +154,7 @@ describe('plan (roles)', () => {
 
   it('adds purchases, paired transfers and covered sales by itself; leaves the rest', () => {
     const p = plan(roles(), log, id)
-    expect(p.added).toEqual({ purchases: 1, transfers: 1, sales: 1 })
+    expect(p.added).toEqual({ purchases: 1, transfers: 1, sales: 1, gold: 0 })
     const [card] = of(p.doc, 'purchase') as Purchase[]
     expect(card).toMatchObject({ item: 'Silk Cloth', side: 'A', qty: 40, cost: 8000, mail: ['b1'] })
     const [t] = of(p.doc, 'transfer') as Transfer[]
@@ -180,7 +180,7 @@ describe('plan (roles)', () => {
     const first = plan(roles(), log, id).doc
     const later = { ...log, records: [...log.records, buy('r2', 'Horde', 'Horde', 'Silk Cloth', 20, 6000, 60)] }
     const p = plan(first, later, id)
-    expect(p.added).toEqual({ purchases: 0, transfers: 1, sales: 1 })
+    expect(p.added).toEqual({ purchases: 0, transfers: 1, sales: 1, gold: 0 })
     const card = of(p.doc, 'purchase')[0] as Purchase
     expect(leftToTransfer(p.doc, card)).toBe(0)
     expect(p.waiting).toEqual([])
@@ -233,11 +233,11 @@ describe('plan (roles)', () => {
   it('the seller gold collected hours later is matched to the transfer already made', () => {
     const won: MailLog = { records: [buy('b1', 'Xfaction', 'Alliance', 'Silk Cloth', 20, 4000, 1), buy('r', 'Horde', 'Horde', 'Silk Cloth', 20, 6000, 2)], visits: [] }
     const p1 = plan(roles(), won, id)
-    expect(p1.added).toEqual({ purchases: 1, transfers: 1, sales: 0 })
+    expect(p1.added).toEqual({ purchases: 1, transfers: 1, sales: 0, gold: 0 })
     expect(leftToTransfer(p1.doc, of(p1.doc, 'purchase')[0] as Purchase)).toBe(0)
     const later: MailLog = { records: [...won.records, bwSale('s', 'Jeder', 'Alliance', 'Silk Cloth', 20, 6000, 9 * 3600)], visits: [] }
     const p2 = plan(p1.doc, later, id)
-    expect(p2.added).toEqual({ purchases: 0, transfers: 0, sales: 0 })
+    expect(p2.added).toEqual({ purchases: 0, transfers: 0, sales: 0, gold: 0 })
     expect(p2.changed).toBe(true) // saved, though nothing new was added
     expect(p2.waiting).toEqual([])
     expect(p2.look).toEqual([])
@@ -245,6 +245,29 @@ describe('plan (roles)', () => {
     expect(p2.doc.mail?.handled).toContain('s')
     expect(plan(p2.doc, later, id).changed).toBe(false) // settled
   })
+  it("a Skinning Knife bought on Blackwater is gold sent at once, no item; the seller's gold is matched later", () => {
+    // Horde -> Alliance: Jeder lists the knife at 100g, Horde Xria buys it; Jeder collects 85g hours later.
+    const won: MailLog = { records: [buy('k', 'Horde', 'Horde', 'Skinning Knife', 1, 1000000, 1)], visits: [] }
+    const p1 = plan(roles(), won, id)
+    expect(p1.added).toEqual({ purchases: 0, transfers: 0, sales: 0, gold: 1 })
+    expect(p1.doc.entries).toEqual([])
+    expect(p1.doc.gold).toMatchObject([{ to: 'A', price: 1000000, mail: ['k'] }])
+    expect(totals(p1.doc)).toMatchObject({ balance: { A: 850000, H: -1000000 }, profit: -150000, goldLoss: 150000, tiedUp: 0 })
+    expect(plan(p1.doc, won, id).changed).toBe(false)
+    const later: MailLog = { records: [...won.records, bwSale('ks', 'Jeder', 'Alliance', 'Skinning Knife', 1, 1000000, 9 * 3600)], visits: [] }
+    const p2 = plan(p1.doc, later, id)
+    expect(p2.waiting).toEqual([])
+    expect(p2.look).toEqual([])
+    expect(p2.doc.gold![0].mail).toEqual(['k', 'ks'])
+    expect(plan(p2.doc, later, id).changed).toBe(false)
+    // A knife listing sold with no gold sent for that price waits (a stranger bought it).
+    const stranger: MailLog = { records: [bwSale('x', 'Jeder', 'Alliance', 'Skinning Knife', 1, 500000, 5)], visits: [] }
+    expect(plan(roles(), stranger, id).waiting.map((r) => r.id)).toEqual(['x'])
+    // And the other way: Jeder buys Horde Xria's knife -> gold to Horde.
+    const back = plan(roles(), { records: [buy('k2', 'Jeder', 'Alliance', 'skinning knife', 1, 200000, 1)], visits: [] }, id)
+    expect(back.doc.gold).toMatchObject([{ to: 'H', price: 200000 }])
+  })
+
   it('Add and Dismiss take a record out for good', () => {
     const p = plan(roles(), log, id)
     let d = addRecord(p.doc, p.look[1].record, id) // the Red Linen Bag, as a sale

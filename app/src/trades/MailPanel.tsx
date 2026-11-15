@@ -85,11 +85,11 @@ export function MailPanel({ doc, update, link }: {
 }) {
   const st = link.state
   const p = useMemo(() => (st.kind === 'ok' ? plan(doc, st.log, newId) : null), [doc, st])
-  const [last, setLast] = useState<{ purchases: number; transfers: number; sales: number; at: Date } | null>(null)
+  const [last, setLast] = useState<{ purchases: number; transfers: number; sales: number; gold: number; at: Date } | null>(null)
   const [editRoles, setEditRoles] = useState(false)
 
   // Apply what can be applied, once per new read or change (the records it adds are marked handled, so this settles).
-  const total = p ? p.added.purchases + p.added.transfers + p.added.sales : 0
+  const total = p ? p.added.purchases + p.added.transfers + p.added.sales + p.added.gold : 0
   useEffect(() => {
     if (!p || !p.changed || st.kind !== 'ok') return
     const log = st.log
@@ -118,6 +118,7 @@ export function MailPanel({ doc, update, link }: {
   const nameOf = (r: MailRecord) => p.who(r).name
   const lastText = last && [
     last.purchases && plural(last.purchases, 'purchase'), last.transfers && plural(last.transfers, 'transfer'), last.sales && plural(last.sales, 'sale'),
+    last.gold && `${last.gold} gold sent`,
   ].filter(Boolean).join(', ')
 
   return (

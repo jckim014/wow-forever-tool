@@ -79,6 +79,7 @@ h2 .t-link { font-size: 15px; font-weight: 600; color: var(--t-text); }
 .t-rowbtns button { padding: 2px 8px; font-size: 12px; margin-left: 4px; }
 .t-tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 10px; background: var(--t-bg); border: 1px solid var(--t-line); white-space: nowrap; }
 .t-tag-sale { color: var(--t-pos); } .t-tag-purchase { color: var(--t-accent); }
+.t-tag-gold { color: var(--t-accent); }
 .t-tag-adjustment { color: var(--t-warn); background: var(--t-warn-bg); border-color: transparent; }
 
 .t-overlay { position: fixed; inset: 0; background: rgb(0 0 0 / 0.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; z-index: 10; }

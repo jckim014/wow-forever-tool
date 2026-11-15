@@ -9,7 +9,7 @@
 // record he adds or dismisses is remembered in the trades file (doc.mail.handled), so it never comes back. Only
 // records from his trading characters (doc.mail.chars) are listed. Pure; tested.
 import { field, indexOf, Reader, type Lua } from '../prices/auctioneer'
-import { BLACKWATER_CUT, awaitingTransfer, itemKey, movedFromCards, onHand, other, type Entry, type Side, type TradesDoc } from './model'
+import { BLACKWATER_CUT, GOLD_ITEM, awaitingTransfer, itemKey, movedFromCards, onHand, other, type Entry, type GoldSent, type Side, type TradesDoc } from './model'
 
 export interface MailRecord {
   /** "buy": an auction won (price = total paid); "sale" (older records have no kind: sales). */
@@ -182,7 +182,7 @@ export interface Plan {
   doc: TradesDoc
   /** doc differs from the one given (something to save: entries added or a seller's gold matched). */
   changed: boolean
-  added: { purchases: number; transfers: number; sales: number }
+  added: { purchases: number; transfers: number; sales: number; gold: number }
   /** Transfer halves whose other half hasn't been collected yet (or never will be: someone else bought it). */
   waiting: MailRecord[]
   /** Records that need Josh's decision: Add or Dismiss. */
@@ -217,7 +217,7 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
   // handled list below can never come back as new), and handled ids older than 75 days are dropped.
   const fresh = (t: number) => t >= now - IGNORE_DAYS * 86400
   const look: LookItem[] = []
-  const added = { purchases: 0, transfers: 0, sales: 0 }
+  const added = { purchases: 0, transfers: 0, sales: 0, gold: 0 }
   const done: string[] = []
   let doc = doc0
   const push = (es: Entry[]) => { doc = { ...doc, entries: [...doc.entries, ...es] } }
@@ -267,7 +267,16 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
   // collected, is matched to it (same item, quantity and price) and its 15% cut checked; a sale with no such transfer
   // waits (the buyer hasn't collected yet, or a stranger bought the listing).
   const log2 = new Map(log.records.map((r) => [r.id, r]))
-  for (const rcv of ok.filter((r) => !trader(r) && r.kind === 'buy')) {
+  // Gold sent (Josh, 2026-11-14): a transfer character buying GOLD_ITEM on Blackwater pays gold to the other faction
+  // (whose transfer character listed it). Recorded at once, like a transfer, but with no item or stock.
+  const isGold = (r: MailRecord) => itemKey(r.item) === itemKey(GOLD_ITEM)
+  for (const rcv of ok.filter((r) => !trader(r) && r.kind === 'buy' && isGold(r))) {
+    const g: GoldSent = { id: newId(), at: isoOf(rcv.t), to: other(sideOf(rcv.faction)!), price: rcv.price, mail: [rcv.id] }
+    doc = { ...doc, gold: [...(doc.gold ?? []), g] }
+    added.gold++
+    done.push(rcv.id)
+  }
+  for (const rcv of ok.filter((r) => !trader(r) && r.kind === 'buy' && !isGold(r))) {
     const from = other(sideOf(rcv.faction)!)
     const item = names().get(itemKey(rcv.item)) ?? rcv.item
     // Oldest waiting cards of this item on the sending side first.
@@ -293,6 +302,19 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
   const waiting: MailRecord[] = []
   for (const snd of ok.filter((r) => !trader(r) && r.kind === 'sale')) {
     const from = sideOf(snd.faction)!
+    if (isGold(snd)) {
+      // The listing side's gold: matched to gold sent to it for the same price.
+      const g = (doc.gold ?? []).find((x) => {
+        if (x.to !== from || x.mail?.length !== 1) return false
+        const r = log2.get(x.mail[0])
+        return !!r && r.kind === 'buy' && r.count === snd.count && r.price === snd.price
+      })
+      if (!g) { waiting.push(snd); continue }
+      if (!blackwaterCutOk(snd)) { look.push({ record: snd, reason: `Blackwater took ${snd.cut}c, not 15% of the price: check this gold sent` }); continue }
+      doc = { ...doc, gold: doc.gold!.map((x) => (x.id === g.id ? { ...x, mail: [x.mail![0], snd.id] } : x)) }
+      done.push(snd.id)
+      continue
+    }
     // A transfer from this side made from a won mail of the same item, quantity and price, not yet matched to a sale.
     const match = doc.entries.find((e) => {
       if (e.kind !== 'transfer' || e.from !== from || !e.mail || e.mail.length !== 1) return false

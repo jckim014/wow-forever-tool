@@ -297,7 +297,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Profit/unit = sell x 0.95 - buy x 1.15 (break-even: dear side > ~21% above buy). Rows: every item and direction with
   profit > 0 at the latest snapshot; thin = cheap side <= 2 units or dear side <= 2 listings (hidden by default);
   "Steady" = share of snapshots in the window where the trade was profitable (information + optional filter, it
-  doesn't change the profit). Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
+  doesn't change the profit).
+  **Send the gold back to Alliance** (checkbox, Josh, 2026-11-14, remembered): Alliance -> Horde leaves the gold on Horde;
+  with it on, those rows assume Horde's gold after the sale (sell x 0.95 - buy) is sent back through Blackwater by a
+  junk item the Alliance transfer char lists (another 15%), so all the sale money crosses once: profit = sell x 0.95 x
+  0.85 - buy (break-even ~24% above buy instead of ~21%). Profit, Margin, Steady, the filters and the count use it;
+  Horde -> Alliance rows are unchanged (their gold already lands on Alliance). `profitBack` in faction.mjs. Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,
   cached per window); it also sets the period of "Sales / day*" (dear side = the faction sold on, our estimate) next to "TSM sales / day".
   That header names the faction from the Direction filter (Josh, 2026-11-14): "Horde sales / day*" for Alliance -> Horde,
   "Alliance sales / day*" for Horde -> Alliance, "Sales / day* (where sold)" for Both. Filters remembered per browser; a
@@ -421,6 +426,14 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
   tracker holds the units on that faction (nogold and untracked items unticked); Add makes one sale per item+faction
   (`mail`: record ids), added or dismissed ids go in `doc.mail.handled` and never return. Visit checks show ✓ or amber.
+- **Gold sent** (Josh, 2026-11-14): gold moved between the factions with a junk item, `GOLD_ITEM` = Skinning Knife
+  (model.ts; Josh's choice, used for nothing else). The receiving side's transfer char lists it on Blackwater at the
+  amount to send, the other side's transfer char buys it. Stored apart from the item entries (`doc.gold`: id, at, to,
+  price, mail): the payer -price, `to` +price - 15%; the 15% counts against trading profit (`totals().goldLoss`,
+  history days); no item, no stock. From the mailbox: a transfer char's Blackwater won mail of the knife -> gold sent at
+  once; the listing side's Blackwater sale of it is matched later (same price and count, cut checked); one with no
+  match waits like other Blackwater sales (a stranger bought it). Toolbar "Send gold" types one by hand; history rows
+  "Gold sent" with Edit/Delete. Pairs with Forever Market's "Send the gold back to Alliance" switch (Faction tab).
 - Figures: balances per faction and total gold = liquid gold only; tied up = cost of units held (not in the total;
   Josh confirmed); trading profit = received - cost of units sold - transfer loss, per item and overall (= total +
   tied up - starting gold - adjustments, tested).

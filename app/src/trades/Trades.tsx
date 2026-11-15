@@ -1,8 +1,8 @@
 // The trade tracker page (trades.html): balances, items in stock, history. Figures from model.ts.
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  SIDE_NAME, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transfersOf, leftToTransfer, movedFromCards, historyDays, localDay,
-  type Adjustment, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc, type Transfer,
+  SIDE_NAME, GOLD_ITEM, awaitingTransfer, entryDelta, history, itemKey, ordered, ledger, newId, onHand, other, parseMoney, totals, transferLoss, transfersOf, leftToTransfer, movedFromCards, historyDays, localDay,
+  type Adjustment, type GoldSent, type Entry, type EntryKind, type HistoryEvent, type ItemSummary, type Ledger, type Purchase, type Side, type TradesDoc, type Transfer,
 } from './model'
 import { useTradesStore, type TradesStatus } from './store'
 import { Fac, Money, Profit, plural, when } from './parts'
@@ -75,6 +75,7 @@ type Open =
   | { kind: 'item'; key: string }
   | { kind: 'transfer' | 'sale'; entry?: Entry; item?: string; side?: Side }
   | { kind: 'adjust'; adj?: Adjustment }
+  | { kind: 'gold'; gold?: GoldSent }
 
 type Update = (fn: (d: TradesDoc) => TradesDoc) => void
 
@@ -301,6 +302,34 @@ function AdjustDialog({ adj, update, close }: { adj?: Adjustment; update: Update
   )
 }
 
+/** Gold sent between the factions with the junk item (Josh, 2026-11-14). Usually added from the mailbox; typed here
+ *  when the addon missed it. */
+function GoldDialog({ gold, update, close }: { gold?: GoldSent; update: Update; close: () => void }) {
+  const [to, setTo] = useState<Side>(gold?.to ?? 'A')
+  const [price, setPrice] = useState(gold ? moneyText(gold.price) : '')
+  const initialWhen = useMemo(() => toLocalInput(gold?.at ?? new Date().toISOString()), [gold])
+  const [whenText, setWhen] = useState(initialWhen)
+  const v = parseMoney(price)
+  const whenOk = whenText !== '' && !Number.isNaN(new Date(whenText).getTime())
+  const ok = v !== null && v > 0 && whenOk
+  return (
+    <Dialog title={gold ? 'Edit gold sent' : 'Send gold'} onClose={close} canSave={ok} onSave={() => {
+      const at = whenText === initialWhen ? gold?.at ?? new Date().toISOString() : new Date(whenText).toISOString()
+      const g: GoldSent = { ...(gold ?? {}), id: gold?.id ?? newId(), at, to, price: v! }
+      update((d) => ({ ...d, gold: gold ? (d.gold ?? []).map((x) => (x.id === gold.id ? g : x)) : [...(d.gold ?? []), g] }))
+      close()
+    }}>
+      <p className="t-hint">Gold moved with a {GOLD_ITEM}: the receiving faction's transfer character lists it on Blackwater, the other buys it. Added by itself from the mailbox; type it here only if that was missed.</p>
+      <SidePick label="Gold goes to" value={to} onChange={setTo} />
+      <MoneyInput label={`${GOLD_ITEM} listed on Blackwater for`} value={price} onChange={setPrice} autoFocus />
+      {ok && <p className="t-hint"><Fac s={other(to)} /> pays <Money v={v!} />. Blackwater keeps 15% (<Money v={transferLoss(v!)} />), so <Fac s={to} /> gets <Money v={v! - transferLoss(v!)} />.</p>}
+      <label className="t-field"><span>When</span>
+        <input type="datetime-local" value={whenText} onChange={(e) => setWhen(e.target.value)} />
+      </label>
+    </Dialog>
+  )
+}
+
 // ---- page parts ----
 
 function StatusLine({ status, s, mail }: { status: TradesStatus; s: ReturnType<typeof useTradesStore>; mail: ReturnType<typeof useMailLink> }) {
@@ -374,7 +403,7 @@ function ItemsTable({ items, open }: { items: ItemSummary[]; open: (o: Open) => 
   )
 }
 
-const KIND_LABEL: Record<HistoryEvent['kind'], string> = { start: 'Start', purchase: 'Purchase', transfer: 'Transfer', sale: 'Sale', adjustment: 'Adjustment' }
+const KIND_LABEL: Record<HistoryEvent['kind'], string> = { start: 'Start', purchase: 'Purchase', transfer: 'Transfer', sale: 'Sale', adjustment: 'Adjustment', gold: 'Gold sent' }
 
 /** Delete one entry (a purchase takes its card transfer with it; a card transfer is "undone"). */
 function deleteEntry(doc: TradesDoc, update: Update, e: Entry) {
@@ -475,7 +504,8 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
   const ev = useMemo(() => history(doc), [doc])
   const query = q.trim().toLowerCase().replace(/\s+/g, ' ')
   const days = useMemo(() => historyDays(
-    query ? ev.filter((e) => (e.entry && itemKey(e.entry.item).includes(query)) || (e.adjustment && e.adjustment.note.toLowerCase().includes(query))) : ev, l,
+    query ? ev.filter((e) => (e.entry && itemKey(e.entry.item).includes(query)) || (e.adjustment && e.adjustment.note.toLowerCase().includes(query))
+      || (e.gold && ('gold sent'.includes(query) || itemKey(GOLD_ITEM).includes(query)))) : ev, l,
   ), [ev, l, query])
   if (!ev.length) return <p className="t-muted">Nothing recorded yet.</p>
   const delEntry = (e: Entry) => deleteEntry(doc, update, e)
@@ -483,12 +513,15 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
   const delAdj = (a: Adjustment) => {
     if (confirm('Delete this adjustment?')) update((d) => ({ ...d, adjustments: d.adjustments.filter((x) => x.id !== a.id) }))
   }
+  const delGold = (g: GoldSent) => {
+    if (confirm('Delete this gold sent?')) update((d) => ({ ...d, gold: (d.gold ?? []).filter((x) => x.id !== g.id) }))
+  }
   const toggle = (day: string) => setOpened((o) => { const n = new Set(o); if (n.has(day)) n.delete(day); else n.add(day); return n })
   const row = (e: HistoryEvent, i: number) => {
     const en = e.entry
     const short = en ? l.short[en.id] : undefined
     return (
-      <tr key={en?.id ?? e.adjustment?.id ?? `s${i}`} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
+      <tr key={en?.id ?? e.adjustment?.id ?? e.gold?.id ?? `s${i}`} className={e.kind === 'adjustment' ? 't-adjrow' : ''}>
         <td className="t-nowrap">{when(e.at)}</td>
         <td><span className={`t-tag t-tag-${e.kind}`}>{KIND_LABEL[e.kind]}</span></td>
         <td>
@@ -499,12 +532,14 @@ function HistoryTable({ doc, l, open, update }: { doc: TradesDoc; l: Ledger; ope
           {(en?.kind === 'sale' || en?.kind === 'purchase') && en.mail && <span className="t-muted" title={`Added from ${plural(en.mail.length, en.kind === 'sale' ? 'mailbox sale' : 'won auction')}`}> · from mailbox</span>}
           {short ? <div className="t-warn t-small">⚠ {plural(short, 'unit')} more than {SIDE_NAME[en!.kind === 'transfer' ? en!.from : (en as { side: Side }).side]} held at the time (counted at no cost)</div> : null}
           {e.kind === 'adjustment' && <>“{e.adjustment!.note}”</>}
+          {e.gold && <>to <Fac s={e.gold.to} /> with a {GOLD_ITEM} <span className="t-muted">(Blackwater kept <Money v={transferLoss(e.gold.price)} />)</span>{e.gold.mail && <span className="t-muted"> · from mailbox</span>}</>}
         </td>
         {(['A', 'H'] as Side[]).map((s) => <td key={s} className="t-r">{e.delta[s] !== undefined ? <Money v={e.delta[s]!} sign={e.kind !== 'start'} /> : ''}</td>)}
         <td className="t-rowbtns">
           {e.kind === 'start' && <button onClick={() => open({ kind: 'start' })}>Edit</button>}
           {en && <><button onClick={() => edit(en)}>Edit</button><button className="t-del" onClick={() => delEntry(en)}>{en.kind === 'transfer' && en.purchase ? 'Undo' : 'Delete'}</button></>}
           {e.adjustment && <><button onClick={() => open({ kind: 'adjust', adj: e.adjustment })}>Edit</button><button className="t-del" onClick={() => delAdj(e.adjustment!)}>Delete</button></>}
+          {e.gold && <><button onClick={() => open({ kind: 'gold', gold: e.gold })}>Edit</button><button className="t-del" onClick={() => delGold(e.gold!)}>Delete</button></>}
         </td>
       </tr>
     )
@@ -581,13 +616,14 @@ export function Trades() {
         <div className="t-tile t-total"><span>Total gold</span><b><Money v={t.total} /></b></div>
         <div className="t-tile"><span>Tied up in items</span><b><Money v={t.tiedUp} /></b><small>{plural(t.itemsInStock, 'item')} in stock, not in the total</small></div>
         <div className="t-tile"><span>Trading profit</span><b className={t.profit >= 0 ? 't-pos' : 't-neg'}><Money v={t.profit} sign /></b>
-          <small title="Gold received, minus what the sold units cost (at the item's average cost), minus Blackwater's cut. Unsold items count at what you paid. Adjustments are left out.">sold units only ⓘ</small></div>
+          <small title={`Gold received, minus what the sold units cost (at the item's average cost), minus Blackwater's cut (on transfers and on gold sent${t.goldLoss ? `: ${moneyText(t.goldLoss)} on gold sent` : ''}). Unsold items count at what you paid. Adjustments are left out.`}>sold units only ⓘ</small></div>
       </section>
 
       <div className="t-bar">
         <button className="t-primary" onClick={() => setDlg({ kind: 'purchase' })}>+ Purchase</button>
         <button className="t-primary" onClick={() => setDlg({ kind: 'sale' })}>+ Sale</button>
         <button onClick={() => setDlg({ kind: 'adjust' })}>Adjust balance</button>
+        <button onClick={() => setDlg({ kind: 'gold' })}>Send gold</button>
         {doc.start.at && <button className="t-link" onClick={() => setDlg({ kind: 'start' })}>Starting gold: <Money v={doc.start.A} /> / <Money v={doc.start.H} /></button>}
       </div>
 
@@ -617,6 +653,7 @@ export function Trades() {
         <EntryDialog kind={dlg.kind} entry={dlg.entry} item={dlg.item} side={dlg.side} doc={doc} update={update} close={close} />
       )}
       {dlg?.kind === 'adjust' && <AdjustDialog adj={dlg.adj} update={update} close={close} />}
+      {dlg?.kind === 'gold' && <GoldDialog gold={dlg.gold} update={update} close={close} />}
     </div>
   )
 }

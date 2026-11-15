@@ -86,6 +86,23 @@ describe('trade tracker figures', () => {
     identity(d)
   })
 
+  it("count Blackwater's cut on gold sent against trading profit, with no stock", () => {
+    const d = doc(buy, move, sale('s1', 4, 200, 150))
+    d.gold = [{ id: 'g', at: at(5), to: 'A', price: 40 * g }]
+    const t = totals(d)
+    expect(t.balance).toEqual({ A: (1000 - 100 + 85 + 34) * g, H: (1000 - 100 + 150 - 40) * g })
+    expect(t.goldLoss).toBe(6 * g)
+    expect(t.profit).toBe((150 - 100 - 15 - 6) * g)
+    identity(d)
+    expect(ledger(d).items).toHaveLength(1)
+    const ev = history(d)
+    expect(ev[0]).toMatchObject({ kind: 'gold', delta: { A: 34 * g, H: -40 * g } })
+    expect(historyDays(ev, ledger(d), () => 'day')[0].profit).toBe((50 - 15 - 6) * g)
+    // saved and read back
+    expect(parseTradesDoc(JSON.stringify(d)).gold).toEqual(d.gold)
+    expect(parseTradesDoc(JSON.stringify(doc())).gold).toBeUndefined()
+  })
+
   it('list the history newest first with each side\'s change', () => {
     const d = doc(buy, move, sale('s', 4, 10, 7))
     expect(history(d).map((e) => [e.kind, e.delta])).toEqual([
