@@ -4,7 +4,7 @@
 // records that need a look (Add / Dismiss).
 import { useEffect, useMemo, useState } from 'react'
 import { newId, type Side, type TradesDoc } from './model'
-import { addRecord, dismiss, plan, setRole, sideOf, visitOk, type MailRecord, type MailVisit, type Role } from './mailSales'
+import { addRecord, dismiss, markPaid, plan, setRole, sideOf, visitOk, type MailRecord, type MailVisit, type Role } from './mailSales'
 import type { MailLinkState } from './mailLink'
 import { Fac, Money, plural, when } from './parts'
 
@@ -17,7 +17,7 @@ const ROLE_TEXT: Record<Role, string> = {
   none: 'Not a trading character',
 }
 
-function VisitLine({ v, name, onDismiss }: { v: MailVisit; name: string; onDismiss: () => void }) {
+function VisitLine({ v, name, onDismiss, cover, onCover }: { v: MailVisit; name: string; onDismiss: () => void; cover?: number; onCover: () => void }) {
   const side = sideOf(v.faction)
   const ok = visitOk(v)
   const goldPart = v.goldIn > 0 || v.sales > 0 || v.missing > 0
@@ -38,6 +38,9 @@ function VisitLine({ v, name, onDismiss }: { v: MailVisit; name: string; onDismi
         {v.buys > 0 && <>{plural(v.buys, 'purchase')} <Money v={v.spent} />, items arrived</>}
         {v.buyMissing > 0 && <>{v.buys > 0 && ' · '}<b className="t-warn">{plural(v.buyMissing, 'won mail')} left without {v.buyMissing === 1 ? 'its' : 'their'} items reaching the bags</b></>}
       </span>
+      {cover !== undefined && <button className="t-link t-inline" onClick={onCover}
+        title="The gold that came in this visit covers these sale mails; the addon just couldn't tell which gold paid which mail. They are added like any other sales (per item, while in stock).">
+        Gold arrived: add {plural(cover, 'sale')}</button>}
       {!ok && <button className="t-link t-inline" onClick={onDismiss}>Dismiss</button>}
     </div>
   )
@@ -151,7 +154,8 @@ export function MailPanel({ doc, update, link }: {
 
       {lastText && <p className="t-added">✓ Added from the mailbox: {lastText} <span className="t-muted t-small">({last!.at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}; see History)</span></p>}
 
-      {p.visits.length > 0 && <div className="t-visits">{p.visits.map((v) => <VisitLine key={v.id} v={v} name={p.who(v).name} onDismiss={() => update((d) => dismiss(d, [v.id]))} />)}</div>}
+      {p.visits.length > 0 && <div className="t-visits">{p.visits.map((v) => <VisitLine key={v.id} v={v} name={p.who(v).name} onDismiss={() => update((d) => dismiss(d, [v.id]))}
+        cover={p.coverable.get(v.id)} onCover={() => update((d) => markPaid(d, v.id))} />)}</div>}
 
       {p.waiting.length > 0 && (
         <>

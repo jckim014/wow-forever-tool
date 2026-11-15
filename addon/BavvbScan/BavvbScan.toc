@@ -2,7 +2,7 @@
 ## Title: BavvbScan
 ## Notes: Full auction house scans on request (/bscan) and a log of auction sales collected at the mailbox, for the shuffle app and trade tracker.
 ## Author: Bavvb
-## Version: 1.1
+## Version: 1.2
 ## SavedVariables: BavvbScanDB
 
 BavvbScan.lua

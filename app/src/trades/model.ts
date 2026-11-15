@@ -46,7 +46,12 @@ export interface TradesDoc {
   /** Gold moved between the factions with GOLD_ITEM (absent in older files). */
   gold?: GoldSent[]
   /** Sales from the mailbox (mailSales.ts): the trading characters, and the log records / visits added or dismissed. */
-  mail?: { chars: string[]; handled: string[]; roles?: Record<string, 'trader' | 'transfer' | 'none'> }
+  mail?: {
+    chars: string[]; handled: string[]; roles?: Record<string, 'trader' | 'transfer' | 'none'>
+    /** Mailbox visits whose gold Josh confirmed covers their sale mails ("Gold arrived" on a visit the addon couldn't
+     *  match, 2026-11-15): their "no gold" sale records count as paid. */
+    paid?: string[]
+  }
 }
 
 export const emptyDoc = (): TradesDoc => ({ format: 'forever-trades', version: 2, start: { A: 0, H: 0, at: null }, entries: [], adjustments: [] })
@@ -72,7 +77,7 @@ export function parseTradesDoc(text: string): TradesDoc {
   const d = JSON.parse(text)
   if (d?.format !== 'forever-trades' || (d.version !== 1 && d.version !== 2)) throw new Error('not a trades file')
   const entries: Entry[] = d.version === 1 ? fromV1(d.batches ?? []) : d.entries ?? []
-  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(Array.isArray(d.gold) && d.gold.length ? { gold: d.gold } : {}), ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [], ...(d.mail.roles ? { roles: d.mail.roles } : {}) } } : {}) }
+  return { format: 'forever-trades', version: 2, savedAt: d.savedAt, start: { ...emptyDoc().start, ...d.start }, entries, adjustments: d.adjustments ?? [], ...(Array.isArray(d.gold) && d.gold.length ? { gold: d.gold } : {}), ...(d.mail ? { mail: { chars: d.mail.chars ?? [], handled: d.mail.handled ?? [], ...(d.mail.roles ? { roles: d.mail.roles } : {}), ...(d.mail.paid?.length ? { paid: d.mail.paid } : {}) } } : {}) }
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)

@@ -191,6 +191,8 @@ export interface Plan {
   visits: MailVisit[]
   /** Characters seen in the log, with their faction and role. */
   chars: { key: string; name: string; faction: string; role: Role | undefined }[]
+  /** Visits whose unmatched gold covers their "no gold" sale mails: visit id -> number of such mails. */
+  coverable: Map<string, number>
   /** Who made a record or visit (key and display name). */
   who: (x: { char: string; faction: string; guid?: string }) => Who
 }
@@ -238,8 +240,23 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
     return rl === 'trader' || rl === 'transfer'
   })
   const ok: MailRecord[] = []
+  // A visit the addon couldn't match rise by rise (2026-11-15: 58 sale mails emptied in 6 s, none matched though the
+  // gold was all there): when its unmatched gold covers its "no gold" sale mails, Josh can confirm it (markPaid).
+  const paid = new Set(doc0.mail?.paid ?? [])
+  const coverable = new Map<string, number>()
+  const unpaid = new Map<string, { n: number; money: number }>()
   for (const r of open) {
-    if (r.status === 'nogold') look.push({ record: r, reason: 'the mail went but no matching gold came' })
+    if (r.status !== 'nogold' || r.kind !== 'sale' || paid.has(r.visit)) continue
+    const u = unpaid.get(r.visit) ?? { n: 0, money: 0 }
+    unpaid.set(r.visit, { n: u.n + 1, money: u.money + r.money })
+  }
+  for (const v of log.visits) {
+    const u = unpaid.get(v.id)
+    if (u && v.unexplained >= u.money) coverable.set(v.id, u.n)
+  }
+  for (const r of open) {
+    if (r.status === 'nogold' && r.kind === 'sale' && paid.has(r.visit)) ok.push(r)
+    else if (r.status === 'nogold') look.push({ record: r, reason: 'the mail went but no matching gold came' })
     else if (r.status === 'noitem') look.push({ record: r, reason: "the mail went but its items didn't reach the bags" })
     else ok.push(r)
   }
@@ -361,7 +378,8 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
   const trading = (x: MailVisit) => { const r = role(x); return r === 'trader' || r === 'transfer' }
   return {
     doc, changed: doc !== doc0, added, waiting, look: look.sort((a, b) => a.record.t - b.record.t),
-    visits: log.visits.filter((v) => fresh(v.t0) && !handled.has(v.id) && trading(v) && (listed.has(v.id) || !visitOk(v))).reverse(),
+    visits: log.visits.filter((v) => fresh(v.t0) && !handled.has(v.id) && trading(v) && (listed.has(v.id) || (!visitOk(v) && !paid.has(v.id)))).reverse(),
+    coverable,
     chars: [...seen.values()].map((w) => ({ key: w.key, name: w.name, faction: w.faction, role: roleOf(doc0, w, single) }))
       .sort((a, b) => a.name.localeCompare(b.name) || a.faction.localeCompare(b.faction)),
     who,
@@ -372,7 +390,16 @@ export function plan(doc0: TradesDoc, log: MailLog, newId: () => string, now = D
  *  left without its items. */
 export const visitOk = (v: MailVisit) => v.unexplained === 0 && v.missing === 0 && v.buyMissing === 0
 
-const mailOf = (doc: TradesDoc) => ({ chars: doc.mail?.chars ?? [], handled: doc.mail?.handled ?? [], ...(doc.mail?.roles ? { roles: doc.mail.roles } : {}) })
+const mailOf = (doc: TradesDoc) => ({
+  chars: doc.mail?.chars ?? [], handled: doc.mail?.handled ?? [],
+  ...(doc.mail?.roles ? { roles: doc.mail.roles } : {}), ...(doc.mail?.paid?.length ? { paid: doc.mail.paid } : {}),
+})
+
+/** Josh confirms the gold of a visit arrived (Plan.coverable): its "no gold" sale records count as paid from now on. */
+export function markPaid(doc: TradesDoc, visitId: string): TradesDoc {
+  const m = mailOf(doc)
+  return { ...doc, mail: { ...m, paid: [...(m.paid ?? []), visitId] } }
+}
 
 /** Adds one record as it is (a sale or a purchase), for "Add" on a record that needed a look or never got its other half. */
 export function addRecord(doc: TradesDoc, r: MailRecord, newId: () => string): TradesDoc {

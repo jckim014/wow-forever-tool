@@ -4,8 +4,9 @@
 -- Why gold and not clicks: a mail can glitch (money taken but the mail stays, or it seems to come twice), and the
 -- money can be collected by anything (by hand, Open All, TSM's mailbox). So the inbox is watched instead: when a mail
 -- with money leaves the inbox (or its money goes), it waits; when the character's gold rises, the rise is matched to
--- waiting mails whose money adds up to exactly that amount. Only matched auction-sale mails become sales. A mail that
--- comes back cancels its wait. Nothing is clicked, opened or sent: the addon only reads.
+-- waiting mails whose money adds up to exactly that amount; when rises can't be told apart (a big mailbox emptied
+-- fast), the gold not yet matched equalling the waiting mails to the copper pays them all. Only matched auction-sale
+-- mails become sales. A mail that comes back cancels its wait. Nothing is clicked, opened or sent: the addon only reads.
 --
 -- Saved layout (in BavvbScanDB, the same file as the scans):
 --   sales = { format = "bavvbsales", version = 1, next = <counter for ids>,
@@ -39,7 +40,8 @@ local EXPIRY_SLACK = 300 -- seconds: a won mail's expiry time, worked out from i
 local CARRY_DAYS = 35  -- won mails expire after 30 days; older carry entries are dropped
 local KEEP_DAYS = 60   -- records and visits older than this are dropped (the trade tracker has long since added them;
                        -- it ignores anything older than 70 days, so a record can't come back after it forgot it)
-local MAX_SUBSET = 12 -- waiting mails considered when matching one gold rise (a rise can pay several mails at once)
+local MAX_SUBSET = 12 -- waiting mails tried in combinations when matching one gold rise (a rise can pay several mails)
+local EVENTS_KEPT = 1000 -- mailbox events kept for diagnosis (120 until 2026-11-15: one big mailbox pushed them all out)
 
 -- Pure part (no WoW calls), exposed for the test harness.
 local Core = {}
@@ -181,8 +183,11 @@ local function buyParts(r, at)
   return parts, partPrice
 end
 
--- The subset of v.pending (first MAX_SUBSET, earliest preferred) whose money sums to amount, as a list of indexes.
+-- The subset of v.pending whose money sums to amount, as a list of indexes: one mail of exactly that amount (any of
+-- them, earliest first), else all of them, else a combination of the first MAX_SUBSET (earliest preferred).
 local function subset(pending, amount)
+  local all, sum = {}, 0
+  for i = 1, #pending do all[i] = i; sum = sum + pending[i].mail.money end
   local n = math.min(#pending, MAX_SUBSET)
   local pick = {}
   local function dfs(i, left)
@@ -197,11 +202,20 @@ local function subset(pending, amount)
     return dfs(i + 1, left)
   end
   -- A single exact match first (the usual case), then combinations.
-  for i = 1, n do
+  for i = 1, #pending do
     if pending[i].mail.money == amount then return { i } end
   end
+  if #pending > 0 and sum == amount then return all end
   if dfs(1, amount) then return pick end
   return nil
+end
+
+local function take(v, p, now)
+  if p.mail.kind == "seller" then
+    v.confirmed[#v.confirmed + 1] = { mail = p.mail, at = now }
+  else
+    v.other = v.other + p.mail.money
+  end
 end
 
 local function match(v, now)
@@ -212,18 +226,20 @@ local function match(v, now)
       table.sort(pick, function(a, b) return a > b end)
       local got = {}
       for _, k in ipairs(pick) do got[#got + 1] = table.remove(v.pending, k) end
-      for k = #got, 1, -1 do
-        local p = got[k]
-        if p.mail.kind == "seller" then
-          v.confirmed[#v.confirmed + 1] = { mail = p.mail, at = now }
-        else
-          v.other = v.other + p.mail.money
-        end
-      end
+      for k = #got, 1, -1 do take(v, got[k], now) end
       table.remove(v.rises, i)
     else
       i = i + 1
     end
+  end
+  -- The gold not yet matched equals the waiting mails to the copper: they are all paid, even if no single rise could be
+  -- told apart (2026-11-15: 58 sale mails emptied in 6 s on Xfaction, none matched rise by rise, the gold all there).
+  local risen, owed = 0, 0
+  for _, r in ipairs(v.rises) do risen = risen + r.amount end
+  for _, p in ipairs(v.pending) do owed = owed + p.mail.money end
+  if #v.rises > 0 and #v.pending > 0 and risen == owed then
+    for _, p in ipairs(v.pending) do take(v, p, now) end
+    v.pending, v.rises = {}, {}
   end
 end
 
@@ -236,19 +252,37 @@ function Core.inbox(v, list, now)
     -- Keep the fullest details seen for a mail (sale details can load after the subject).
     if not old or old.src ~= "invoice" or m.src == "invoice" then v.info[m.sig] = m end
   end
+  local leaving, arriving = {}, {}
   for sig, n in pairs(v.present) do
-    for _ = 1, n - (counts[sig] or 0) do
-      v.pending[#v.pending + 1] = { mail = v.info[sig], at = now }
-    end
+    for _ = 1, n - (counts[sig] or 0) do leaving[#leaving + 1] = sig end
   end
   for sig, n in pairs(counts) do
-    for _ = 1, n - (v.present[sig] or 0) do
-      -- A mail that comes back (a refresh that briefly dropped it) cancels its wait.
-      for k = #v.pending, 1, -1 do
-        if v.pending[k].mail.sig == sig then
-          table.remove(v.pending, k)
+    for _ = 1, n - (v.present[sig] or 0) do arriving[#arriving + 1] = sig end
+  end
+  -- A mail first read before its subject and sale details loaded has another sig ("nil|<money>", kind "other"); when
+  -- they load it seems to leave and a new mail to arrive in the same read. Same money = the same mail, not a departure
+  -- (2026-11-15: 4 sale mails on Xria Two waited twice, the gold went to the "other" copy, the sales got no gold).
+  for i = #leaving, 1, -1 do
+    local old = v.info[leaving[i]]
+    if old and old.src ~= "invoice" then
+      for j = #arriving, 1, -1 do
+        if v.info[arriving[j]].money == old.money and arriving[j] ~= leaving[i] then
+          table.remove(leaving, i)
+          table.remove(arriving, j)
           break
         end
+      end
+    end
+  end
+  for _, sig in ipairs(leaving) do
+    v.pending[#v.pending + 1] = { mail = v.info[sig], at = now }
+  end
+  for _, sig in ipairs(arriving) do
+    -- A mail that comes back (a refresh that briefly dropped it) cancels its wait.
+    for k = #v.pending, 1, -1 do
+      if v.pending[k].mail.sig == sig then
+        table.remove(v.pending, k)
+        break
       end
     end
   end
@@ -588,7 +622,7 @@ local function closed()
   end
 end
 
--- Diagnostics: the last 120 mailbox-related events (name, time, mails in the inbox, gold, visit open), saved with
+-- Diagnostics: the last EVENTS_KEPT mailbox-related events (name, time, mails in the inbox, gold, visit open), saved with
 -- the log so a visit that goes wrong can be read back from the file. No mail contents.
 local function note(event, arg)
   local s = db()
@@ -596,7 +630,7 @@ local function note(event, arg)
   local n = GetInboxNumItems and GetInboxNumItems() or -1
   s.events[#s.events + 1] = string.format("%d %s %s n=%d m=%d v=%s c=%s", time(), event, tostring(arg), n, GetMoney(),
     visit and "1" or "0", closing and "1" or "0")
-  while #s.events > 120 do table.remove(s.events, 1) end
+  while #s.events > EVENTS_KEPT do table.remove(s.events, 1) end
 end
 
 -- Which characters record their mail (Josh, 2026-11-14: the report showed on all his other characters). By default only

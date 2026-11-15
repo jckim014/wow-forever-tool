@@ -422,6 +422,16 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   cut. Only Josh's four trading characters record (Josh, 2026-11-14: the popup showed on all his alts): their GUIDs are built in (`TRADERS` in Sales.lua: Xfaction Player-6925-03AADB1A, Jeder Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D); `/bscan mail on|off` changes it per character (BavvbScanDB.mailChars, by GUID); a new trading character needs `/bscan mail on` (and a role on the page). Chat line after each visit (a popup with a Reload button was dropped 2026-11-14 at
   Josh's request: logging off writes SavedVariables too, so his routine is just to log off; the risk is a crash,
   which loses that session's records since the mails are gone); `/bscan sales`. Tested in a fengari harness (192 checks incl. the popup, purchases, partial won mails, GUIDs, the 60-day limit and per-character switch; scratchpad, gone).
+  **Matching fixes (BavvbScan 1.2, 2026-11-15)** after two bad visits that morning: (1) 58 sale mails emptied in 6 s on
+  Xfaction, none matched (the gold came in lumps over more than the 12-mail combination window, and unmatched mails at
+  the queue's front blocked every later rise): now a single exact match searches every waiting mail, a rise equal to
+  all waiting mails takes them all, and whenever the unmatched gold equals the waiting mails to the copper they are all
+  paid. (2) 4 sale mails on Xria Two counted twice (first read before the subject loaded: sig "nil|money", kind other;
+  the gold went to that copy): a mail without sale details "leaving" in the same read as a same-money mail arriving is
+  the same mail. Events kept: 1000 (was 120). Checked in a fengari harness (10 scenarios, 31 checks; the old code fails
+  15 of them; scratchpad). Trades page: a visit whose unmatched gold covers its "no gold" sale mails shows "Gold
+  arrived: add N sales" (`markPaid`, `doc.mail.paid` = visit ids; those records then go through the normal sale path,
+  per item and in stock).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the

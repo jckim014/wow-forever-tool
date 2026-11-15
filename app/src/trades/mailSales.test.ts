@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addRecord, dismiss, idTime, mergeLogs, plan as planAt, readMailLog, setRole, visitOk, type MailLog, type MailRecord } from './mailSales'
+import { addRecord, dismiss, idTime, markPaid, mergeLogs, plan as planAt, readMailLog, setRole, visitOk, type MailLog, type MailRecord } from './mailSales'
 import { emptyDoc, leftToTransfer, ledger, parseTradesDoc, totals, type Purchase, type TradesDoc, type Transfer } from './model'
 
 /** BavvbScan.lua as WoW writes SavedVariables, with a scan and a sales log. */
@@ -339,6 +339,37 @@ describe('plan (roles)', () => {
     expect(plan(q.doc, { records: [], visits: [] }, id, T0).changed).toBe(false)
     expect(idTime('Horde-1794716194-39')).toBe(1794716194)
     expect(idTime('e12')).toBeNull()
+  })
+  it('a visit whose unmatched gold covers its "no gold" sale mails: Gold arrived adds them as sales', () => {
+    const visit = (id: string, unexplained: number, missing: number) => ({
+      id, t0: T0 + 100, t1: T0 + 140, char: 'Xfaction', faction: 'Alliance', goldIn: unexplained, sales: 0, received: 0,
+      deposits: 0, other: 0, unexplained, missing, buys: 0, spent: 0, buyMissing: 0,
+    })
+    const ng = (rid: string, v: string, count: number, money: number, t: number) =>
+      rec(rid, 'Silk Cloth', count, money, t, { char: 'Xfaction', faction: 'Alliance', visit: v, status: 'nogold' })
+    const lg: MailLog = {
+      records: [
+        buy('b1', 'Xfaction', 'Alliance', 'Silk Cloth', 40, 8000, 10, { visit: 'va' }),
+        // vb: 3 sale mails (600) + an 18g-style other mail in the gold (100): covered. vc: 50 missing: not covered.
+        ng('g1', 'vb', 5, 200, 110), ng('g2', 'vb', 5, 200, 111), ng('g3', 'vb', 30, 200, 112),
+        ng('g4', 'vc', 5, 300, 120),
+      ],
+      visits: [visit('vb', 700, 3), visit('vc', 250, 1)],
+    }
+    const before = plan(roles(), lg, id)
+    expect([...before.coverable]).toEqual([['vb', 3]])
+    expect(before.look.map((l) => l.record.id)).toEqual(['g1', 'g2', 'g3', 'g4'])
+    expect(before.visits.map((v) => v.id).sort()).toEqual(['vb', 'vc'])
+    const after = plan(markPaid(before.doc, 'vb'), lg, id)
+    // Added like any sales: one per item and visit, while in stock (30 of 40 left after the first two: all fit).
+    expect(of(after.doc, 'sale')).toMatchObject([{ item: 'Silk Cloth', side: 'A', qty: 40, received: 600, mail: ['g1', 'g2', 'g3'] }])
+    expect(after.look.map((l) => l.record.id)).toEqual(['g4'])
+    expect(after.visits.map((v) => v.id)).toEqual(['vc'])
+    expect(after.coverable.size).toBe(0)
+    expect(parseTradesDoc(JSON.stringify(after.doc)).mail?.paid).toEqual(['vb'])
+    // A covered visit whose sales go beyond stock still lists those, with the real reason.
+    const over = plan(markPaid(roles(), 'vb'), { ...lg, records: lg.records.filter((r) => r.id !== 'b1') }, id)
+    expect(over.look.filter((l) => l.record.visit === 'vb').map((l) => l.reason)).toEqual(['not in your tracker', 'not in your tracker', 'not in your tracker'])
   })
   it('roles and handled records survive saving and loading', () => {
     const doc = dismiss(roles(), ['r4'])
