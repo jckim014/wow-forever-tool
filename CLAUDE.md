@@ -370,12 +370,14 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   chose this over the full mail gold; past typed entries used the full mail gold), status ok / nogold = mail left but no
   gold came, src invoice / subject) and one visit line per mailbox opening (goldIn, sales, deposits, other mail money,
   unexplained gold, missing). Mailbox open/close from PLAYER_INTERACTION_MANAGER_FRAME_SHOW/_HIDE (type MailInfo),
-  as TSM reads them; MAIL_CLOSED only as a fallback (first real try: visits ended with no gold, likely a stray
-  MAIL_CLOSED; unconfirmed). `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
+  as TSM reads them; MAIL_CLOSED only as a fallback (confirmed from the event log 2026-11-14: this client never sends
+  MAIL_CLOSED, so the first version only saved visits on /reload). The report (chat + popup) comes the moment the
+  mailbox closes (Josh asked); the visit stays open 10 s more for late gold and the report is corrected only if that
+  changes it. First real visits 2026-11-14: 4 sales on Xria (Horde), gold check OK. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
   cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
   visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
-  `/bscan sales`. Tested in a fengari harness (97 checks incl. the popup; scratchpad, gone).
+  `/bscan sales`. Tested in a fengari harness (107 checks incl. the popup; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
@@ -669,7 +671,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Mailbox sales (2026-11-14, first real try pending): after a /reload (loads Sales.lua), Josh does a mailbox
+- Mailbox sales (2026-11-14, recording works in game; tracker import not yet tried by Josh): after a /reload (loads Sales.lua), Josh does a mailbox
   visit, /reload, link the file and tick his trading character. Check: the visit line shows ✓ and the sales match. If a
   real glitch shows up, compare the visit's gold with the records and adjust from that example. Not yet known which
   account(s) his two trading characters are on.

@@ -214,20 +214,63 @@ local frame = CreateFrame("Frame")
 local visit, closing
 local lastMoney
 
--- A small popup near the top of the screen after a mailbox visit with sales: what was recorded, whether the gold
--- matched, and a Reload button (WoW writes the file on /reload). Visits add up until it is closed or reloaded. Stays
--- until clicked; no sound. Never saved, so a /reload removes it.
-local popup
-local shown = { sales = 0, received = 0, issues = {} }
-
-local function showPopup(summary)
-  shown.sales = shown.sales + summary.sales
-  shown.received = shown.received + summary.received
-  if summary.missing > 0 then
-    shown.issues[#shown.issues + 1] = summary.missing .. " sale mail" .. (summary.missing == 1 and "" or "s") .. " left without "
-      .. (summary.missing == 1 and "its" or "their") .. " gold"
+-- What a visit has recorded so far, for the report the moment the mailbox closes (the visit itself stays open
+-- GRACE seconds longer for gold that arrives late; the report is corrected if that changes anything).
+function Core.preview(v)
+  local p = { sales = 0, received = 0, waiting = 0, unexplained = 0, missing = 0 }
+  for _, c in ipairs(v.confirmed) do
+    p.sales = p.sales + 1
+    p.received = p.received + (c.mail.money - (c.mail.deposit or 0))
   end
-  if summary.unexplained > 0 then shown.issues[#shown.issues + 1] = coins(summary.unexplained) .. " gold no mail accounts for" end
+  for _, q in ipairs(v.pending) do
+    if q.mail.kind == "seller" then p.waiting = p.waiting + 1 end
+  end
+  for _, r in ipairs(v.rises) do p.unexplained = p.unexplained + r.amount end
+  return p
+end
+
+local function plural(n, word) return n .. " " .. word .. (n == 1 and "" or "s") end
+
+-- Problems in a summary (finished visit), as short phrases.
+local function issuesOf(x)
+  local out = {}
+  if (x.missing or 0) > 0 then
+    out[#out + 1] = plural(x.missing, "sale mail") .. " left without " .. (x.missing == 1 and "its" or "their") .. " gold"
+  end
+  if (x.unexplained or 0) > 0 then out[#out + 1] = coins(x.unexplained) .. " gold no mail accounts for" end
+  return out
+end
+
+-- One line for chat and the popup: sales, gold, and either "gold OK", "waiting for gold" or the problems.
+local function reportLine(x, chat)
+  local line = plural(x.sales, "sale") .. " recorded (" .. coins(x.received) .. ")"
+  local issues = issuesOf(x)
+  if #issues > 0 then
+    return line .. (chat and ". " or "\n") .. "|cffffb000Check in the tracker: " .. table.concat(issues, "; ") .. "|r"
+  elseif (x.waiting or 0) > 0 then
+    return line .. (chat and ", " or "  ") .. "|cffffff80waiting for the gold of " .. plural(x.waiting, "mail") .. "...|r"
+  end
+  return line .. (chat and ", mailbox gold matches " or "  ") .. "|cff40ff40" .. (chat and "(OK)" or "gold OK") .. "|r"
+end
+
+local function hasNews(x) return x.sales > 0 or (x.missing or 0) > 0 or (x.unexplained or 0) > 0 or (x.waiting or 0) > 0 end
+
+-- A small popup near the top of the screen after a mailbox visit with sales: what was recorded, whether the gold
+-- matched, and a Reload button (WoW writes the file on /reload). Visits add up until it is closed or reloaded; the
+-- visit just closed counts from its preview until it is final. Stays until clicked; no sound. Never saved, so a
+-- /reload removes it.
+local popup
+local shown = { sales = 0, received = 0, missing = 0, unexplained = 0 }
+local live -- preview of the visit just closed, until it is saved
+
+local function drawPopup()
+  local x = { sales = shown.sales, received = shown.received, missing = shown.missing, unexplained = shown.unexplained,
+    waiting = 0 }
+  if live then
+    x.sales, x.received = x.sales + live.sales, x.received + live.received
+    x.unexplained, x.waiting = x.unexplained + live.unexplained, live.waiting
+  end
+  if not hasNews(x) then return end
   if not popup then
     local p = CreateFrame("Frame", "BavvbScanSalesPopup", UIParent)
     p:SetSize(520, 84)
@@ -253,25 +296,19 @@ local function showPopup(summary)
     p.close:SetPoint("TOPRIGHT", 0, 0)
     p.close:SetScript("OnClick", function()
       p:Hide()
-      shown = { sales = 0, received = 0, issues = {} }
+      shown = { sales = 0, received = 0, missing = 0, unexplained = 0 }
     end)
     popup = p
   end
-  local ok = #shown.issues == 0
-  local text = "BavvbScan: " .. shown.sales .. " sale" .. (shown.sales == 1 and "" or "s") .. " recorded (" .. coins(shown.received) .. ")"
-  if ok then
-    text = text .. "  |cff40ff40gold OK|r"
-    popup.edge:SetColorTexture(0.25, 1, 0.25, 1)
-  else
-    text = text .. "\n|cffffb000Check in the tracker: " .. table.concat(shown.issues, "; ") .. "|r"
-    popup.edge:SetColorTexture(1, 0.7, 0.1, 1)
-  end
-  popup.line:SetText(text)
+  local bad = #issuesOf(x) > 0
+  popup.edge:SetColorTexture(bad and 1 or 0.25, bad and 0.7 or 1, bad and 0.1 or 0.25, 1)
+  popup.line:SetText("BavvbScan: " .. reportLine(x, false))
   popup:Show()
 end
 
 local function save(v, now)
   local records, summary = Core.finish(v, now)
+  if #records == 0 and summary.goldIn == 0 then return end -- no money came in (e.g. only postage paid): keep no visit
   local s = db()
   local who = {
     char = UnitName("player"), realm = GetRealmName(), faction = UnitFactionGroup("player"),
@@ -279,7 +316,6 @@ local function save(v, now)
   local vid = who.char .. "-" .. v.t0 .. "-" .. s.next
   s.next = s.next + 1
   summary.id, summary.char, summary.realm, summary.faction = vid, who.char, who.realm, who.faction
-  if #records == 0 and summary.goldIn == 0 then return end -- no money came in (e.g. only postage paid): keep no visit
   s.visits[#s.visits + 1] = summary
   for _, r in ipairs(records) do
     r.id = who.char .. "-" .. r.t .. "-" .. s.next
@@ -287,19 +323,13 @@ local function save(v, now)
     r.char, r.realm, r.faction, r.visit = who.char, who.realm, who.faction, vid
     s.records[#s.records + 1] = r
   end
-  if summary.sales > 0 or summary.missing > 0 or summary.unexplained > 0 then
-    local line = summary.sales .. " sale" .. (summary.sales == 1 and "" or "s") .. " recorded (" .. coins(summary.received) .. ")"
-    if summary.missing > 0 or summary.unexplained > 0 then
-      local issues = {}
-      if summary.missing > 0 then issues[#issues + 1] = summary.missing .. " sale mail(s) left without their gold" end
-      if summary.unexplained > 0 then issues[#issues + 1] = coins(summary.unexplained) .. " gold no mail accounts for" end
-      line = line .. ". |cffffb000Check in the tracker:|r " .. table.concat(issues, "; ") .. "."
-    else
-      line = line .. ", mailbox gold matches |cff40ff40(OK)|r"
-    end
-    say(line)
-    showPopup(summary)
-  end
+  -- Chat: once when the mailbox closed (the preview); again only if the final result differs from it.
+  local final = reportLine(summary, true)
+  if hasNews(summary) and final ~= v.reported then say(final) end
+  shown.sales, shown.received = shown.sales + summary.sales, shown.received + summary.received
+  shown.missing, shown.unexplained = shown.missing + summary.missing, shown.unexplained + summary.unexplained
+  live = nil
+  drawPopup()
 end
 
 local function finishVisit()
@@ -325,6 +355,13 @@ end
 
 local function closed()
   if visit and not closing then
+    -- Report at once what is recorded so far.
+    live = Core.preview(visit)
+    if hasNews(live) then
+      visit.reported = reportLine(live, true)
+      say(visit.reported)
+      drawPopup()
+    end
     local token = {}
     closing = token
     C_Timer.After(GRACE, function()
