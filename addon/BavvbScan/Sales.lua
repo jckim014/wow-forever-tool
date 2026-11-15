@@ -214,6 +214,62 @@ local frame = CreateFrame("Frame")
 local visit, closing
 local lastMoney
 
+-- A small popup near the top of the screen after a mailbox visit with sales: what was recorded, whether the gold
+-- matched, and a Reload button (WoW writes the file on /reload). Visits add up until it is closed or reloaded. Stays
+-- until clicked; no sound. Never saved, so a /reload removes it.
+local popup
+local shown = { sales = 0, received = 0, issues = {} }
+
+local function showPopup(summary)
+  shown.sales = shown.sales + summary.sales
+  shown.received = shown.received + summary.received
+  if summary.missing > 0 then
+    shown.issues[#shown.issues + 1] = summary.missing .. " sale mail" .. (summary.missing == 1 and "" or "s") .. " left without "
+      .. (summary.missing == 1 and "its" or "their") .. " gold"
+  end
+  if summary.unexplained > 0 then shown.issues[#shown.issues + 1] = coins(summary.unexplained) .. " gold no mail accounts for" end
+  if not popup then
+    local p = CreateFrame("Frame", "BavvbScanSalesPopup", UIParent)
+    p:SetSize(520, 84)
+    p:SetPoint("TOP", UIParent, "TOP", 0, -110)
+    p:SetFrameStrata("DIALOG")
+    p.bg = p:CreateTexture(nil, "BACKGROUND")
+    p.bg:SetAllPoints()
+    p.bg:SetColorTexture(0, 0, 0, 0.8)
+    p.edge = p:CreateTexture(nil, "BORDER")
+    p.edge:SetPoint("TOPLEFT")
+    p.edge:SetPoint("BOTTOMLEFT")
+    p.edge:SetWidth(4)
+    p.line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    p.line:SetPoint("TOPLEFT", 16, -12)
+    p.line:SetPoint("RIGHT", -36, 0)
+    p.line:SetJustifyH("LEFT")
+    p.reload = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
+    p.reload:SetSize(110, 26)
+    p.reload:SetPoint("BOTTOMRIGHT", -12, 10)
+    p.reload:SetText("Reload")
+    p.reload:SetScript("OnClick", function() ReloadUI() end)
+    p.close = CreateFrame("Button", nil, p, "UIPanelCloseButton")
+    p.close:SetPoint("TOPRIGHT", 0, 0)
+    p.close:SetScript("OnClick", function()
+      p:Hide()
+      shown = { sales = 0, received = 0, issues = {} }
+    end)
+    popup = p
+  end
+  local ok = #shown.issues == 0
+  local text = "BavvbScan: " .. shown.sales .. " sale" .. (shown.sales == 1 and "" or "s") .. " recorded (" .. coins(shown.received) .. ")"
+  if ok then
+    text = text .. "  |cff40ff40gold OK|r"
+    popup.edge:SetColorTexture(0.25, 1, 0.25, 1)
+  else
+    text = text .. "\n|cffffb000Check in the tracker: " .. table.concat(shown.issues, "; ") .. "|r"
+    popup.edge:SetColorTexture(1, 0.7, 0.1, 1)
+  end
+  popup.line:SetText(text)
+  popup:Show()
+end
+
 local function save(v, now)
   local records, summary = Core.finish(v, now)
   local s = db()
@@ -242,6 +298,7 @@ local function save(v, now)
       line = line .. ", mailbox gold matches |cff40ff40(OK)|r"
     end
     say(line)
+    showPopup(summary)
   end
 end
 

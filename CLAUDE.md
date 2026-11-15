@@ -371,7 +371,9 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   gold came, src invoice / subject) and one visit line per mailbox opening (goldIn, sales, deposits, other mail money,
   unexplained gold, missing). Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
-  cut. Chat line after each visit; `/bscan sales`. Tested in a fengari harness (89 checks; scratchpad, gone).
+  cut. Chat line after each visit, plus a small popup at the top of the screen (sales and gold check summed over
+  visits until closed, green/amber edge, Reload and close buttons, no sound; Josh asked for it: "don't go overboard");
+  `/bscan sales`. Tested in a fengari harness (95 checks incl. the popup; scratchpad, gone).
   Tracker side (`mailSales.ts` tested, `mailLink.ts`, `MailPanel.tsx`): File > Link BavvbScan.lua (mailbox sales), one
   or more files (Josh has two accounts, 1120039#2 and THOROCKTHEBOLD), read on open and Refresh. Josh ticks his
   trading characters once (`doc.mail.chars`); suggestions grouped per item and faction, ticked in time order while the
@@ -634,7 +636,8 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   a request inside the window gets no answer. Diagnose with `/run print(C_AuctionHouse.GetNumReplicateItems())`
   (0 = the server sent nothing; Josh's `/dump` attempt gave a parse error, `/run print(...)` worked).
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
-  any change to `addon/BavvbScan/` (a changed .lua loads on `/reload`; a new file or .toc change needs a WoW restart).
+  any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
+  Josh, 2026-11-14; no restart needed).
   Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
   exception `!addon/**/*.lua`. Addon logic tests: a fengari harness with a simulated AH (11 scenarios: scans, failures, combat, the panel's states,
   the demo) lived in the session scratchpad and is gone; rebuild it (npm fengari, mock C_AuctionHouse/C_Timer/frames) if the addon changes.
@@ -664,7 +667,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Mailbox sales (2026-11-14, first real try pending): Josh needs a full WoW restart (new Sales.lua), then a mailbox
+- Mailbox sales (2026-11-14, first real try pending): after a /reload (loads Sales.lua), Josh does a mailbox
   visit, /reload, link the file and tick his trading character. Check: the visit line shows ✓ and the sales match. If a
   real glitch shows up, compare the visit's gold with the records and adjust from that example. Not yet known which
   account(s) his two trading characters are on.
