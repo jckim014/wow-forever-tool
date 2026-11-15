@@ -170,6 +170,7 @@ export const KNOWN_ROLES: Record<string, Role> = {
   'Player-6925-03AADB1A': 'trader', // Xfaction Bavvb (Alliance)
   'Player-6921-03DDDF8A': 'trader', // Xfaction Two (Alliance)
   'Player-6921-0308022D': 'trader', // Xria Two (Horde)
+  'Player-6925-03DF8156': 'trader', // Xfaction Horde (Horde)
   'Player-6925-037750ED': 'transfer', // Jeder Hillmont (Alliance, Blackwater)
   'Player-6921-0306E8F7': 'transfer', // Horde Xria (Horde, Blackwater)
   'Xfaction|Alliance': 'trader',

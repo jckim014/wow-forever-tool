@@ -642,6 +642,7 @@ local TRADERS = {
   ["Player-6921-0306E8F7"] = "Horde Xria",
   ["Player-6921-0308022D"] = "Xria Two",
   ["Player-6921-03DDDF8A"] = "Xfaction Two", -- second Alliance seller, account 1120039#2 (2026-11-15)
+  ["Player-6925-03DF8156"] = "Xfaction Horde", -- second Horde seller, account THOROCKTHEBOLD (2026-11-15)
 }
 function Core.recording(guid, choices)
   local c = choices and guid and choices[guid]
