@@ -2,7 +2,7 @@
 // read-only, its handle kept in IndexedDB like the price history folder's.
 import type { ApiPrices } from '../model'
 import { idbDelete, idbGet, idbSet } from '../storage/idb'
-import { datedFolders, pricesFromSummary, snapshotFiles } from './read'
+import { datedFolders, pricesFromSummary, salesFromText, snapshotFiles, type SalesData } from './read'
 
 /** The parts of FileSystemDirectoryHandle used here (declared locally: not in every DOM typing). */
 export interface ReadDir {
@@ -51,6 +51,18 @@ async function names(dir: ReadDir): Promise<string[]> {
 async function gunzipText(file: File): Promise<string> {
   const stream = file.stream().pipeThrough(new DecompressionStream('gzip'))
   return new Response(stream).text()
+}
+
+/** sales.json from the folder: null when it isn't there yet; "unchanged" when its time is `haveAt`. */
+export async function readSales(root: ReadDir, haveAt: number | null): Promise<{ data: SalesData; modified: number } | 'unchanged' | null> {
+  let file: File
+  try {
+    file = await (await root.getFileHandle('sales.json')).getFile()
+  } catch {
+    return null
+  }
+  if (file.lastModified === haveAt) return 'unchanged'
+  return { data: salesFromText(await file.text()), modified: file.lastModified }
 }
 
 /**

@@ -96,6 +96,7 @@ export interface Segment {
   from: number
   to: number
   action: Action
+  /** safe = how many to queue: covers the safety share of runs, at least the mean rounded up */
   crafts: { mean: number; safe: number }
   makerCrafts: { recipe: LvRecipe; mean: number; safe: number }[]
   /** expected gold spent on reagents minus the vendor value of the products */
@@ -372,8 +373,10 @@ export function plan(input: PlanInput): Plan {
 
   const segments: Segment[] = segActs.map((g, i) => {
     const a = g.action
-    const crafts = { mean: mean(tops[i]), safe: quantile(tops[i], safety) }
-    const makerCrafts = a.crafted.map((c, ci) => ({ recipe: c.maker, mean: mean(mk[i][ci]), safe: quantile(mk[i][ci], safety) }))
+    // the amount to queue: covers `safety` of runs, and never less than the average rounded up
+    const safeOf = (xs: number[]) => Math.max(quantile(xs, safety), Math.ceil(mean(xs) - 1e-9))
+    const crafts = { mean: mean(tops[i]), safe: safeOf(tops[i]) }
+    const makerCrafts = a.crafted.map((c, ci) => ({ recipe: c.maker, mean: mean(mk[i][ci]), safe: safeOf(mk[i][ci]) }))
     const shop = new Map<number, ReagentLine>()
     const add = (id: number, m: number, sf: number, price: Money) => {
       const l = shop.get(id) ?? { item: id, qtyMean: 0, qtySafe: 0, price }
@@ -406,3 +409,19 @@ function bestOf(id: number, input: PlanInput): Money {
   return input.intermediates.get(id)?.best ?? input.price(id).reagent
 }
 const boughtCost = (a: Action) => a.bought.reduce((t, b) => t + b.qty * b.price, 0)
+
+export interface RouteItem { item: number; qty: number; price: Money; vendor: boolean; recipe: boolean; /** recipe items only (not in the game data) */ name?: string }
+
+/** Everything to buy for the whole route: each stretch's reagents (its shown, rounded-up amounts, summed) and the AH
+ *  recipe items. vendor = a vendor sells it (curated vendor buy price): left out of the Auctionator list. */
+export function routeItems(p: Plan, price: (id: number) => PriceInfo): RouteItem[] {
+  const out = new Map<number, RouteItem>()
+  const add = (item: number, qty: number, unit: Money, name?: string) => {
+    const cur = out.get(item)
+    if (cur) cur.qty += qty
+    else out.set(item, { item, qty, price: unit, vendor: price(item).vendorBuy != null, recipe: name != null, ...(name != null ? { name } : {}) })
+  }
+  for (const l of p.learn) if (l.access === 'ah' && l.recipeItem) add(l.recipeItem.id, 1, l.cost, l.recipeItem.name)
+  for (const s of p.segments) for (const l of s.shopping) add(l.item, Math.ceil(l.qtySafe - 1e-9), l.price)
+  return [...out.values()].filter((x) => x.qty > 0)
+}

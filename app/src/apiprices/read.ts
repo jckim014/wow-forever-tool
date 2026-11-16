@@ -40,6 +40,27 @@ export function pricesFromSummary(text: string, house: number): ApiPrices | null
   return { house, snapshot: s.snapshot!, at, rows }
 }
 
+/** Our sale-rate estimate (sales.json in the auction data folder, collector/salesFile.mjs): units sold per day. */
+export interface SalesData {
+  at: string
+  days: number
+  /** house -> hours of hourly snapshot pairs behind it, and item -> units per day */
+  houses: Record<number, { hours: number; items: Map<number, number> }>
+}
+
+/** Throws on a file that isn't the collector's sales.json. */
+export function salesFromText(text: string): SalesData {
+  const s = JSON.parse(text) as { format?: string; version?: number; at?: string; days?: number; houses?: Record<string, { hours?: number; items?: Record<string, number> }> }
+  if (s.format !== 'forever-sales' || s.version !== 1 || typeof s.at !== 'string') throw new Error('not the collector\'s sales.json (format forever-sales v1)')
+  const houses: SalesData['houses'] = {}
+  for (const [h, v] of Object.entries(s.houses ?? {})) {
+    const items = new Map<number, number>()
+    for (const [id, n] of Object.entries(v.items ?? {})) if (typeof n === 'number') items.set(Number(id), n)
+    houses[Number(h)] = { hours: v.hours ?? 0, items }
+  }
+  return { at: s.at, days: s.days ?? 7, houses }
+}
+
 /** "47 min ago", "2.5 h ago", "3 days ago". */
 export function ageText(iso: string, now: number): string {
   const min = Math.max(0, (now - Date.parse(iso)) / 60000)

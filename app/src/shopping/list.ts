@@ -85,7 +85,7 @@ const clean = (s: string) => s.replace(/[\^;"\r\n]/g, ' ').trim()
  * 14 fields split by ";" (Source/Search/Advanced.lua): exact name in quotes, ..., tier "#" (none), expansion, quantity.
  * Ticked lines only; an item on several ticked lines gets their sum.
  */
-export function auctionatorImport(listName: string, lines: ShopLine[]): string {
+export function auctionatorImport(listName: string, lines: Pick<ShopLine, 'item' | 'name' | 'qty' | 'ticked'>[]): string {
   const qty = new Map<number, { name: string; qty: number }>()
   for (const l of lines) {
     if (!l.ticked || l.qty <= 0) continue

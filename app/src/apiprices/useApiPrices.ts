@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ApiPrices } from '../model'
-import { canRead, folderSupported, forgetFolder, loadFolder, newestPrices, pickFolder, saveFolder, type ReadDir } from './folder'
+import { canRead, folderSupported, forgetFolder, loadFolder, newestPrices, pickFolder, readSales, saveFolder, type ReadDir } from './folder'
+import type { SalesData } from './read'
 
 /** While the app is open, the folder is looked at this often (the PC sync adds a snapshot about hourly). */
 const POLL_MS = 10 * 60 * 1000
@@ -15,6 +16,8 @@ export function useApiPrices(house: number, onMessage: (m: string) => void) {
   const [data, setData] = useState<ApiPrices | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [sales, setSales] = useState<SalesData | null>(null)
+  const salesModified = useRef<number | null>(null)
   const folderRef = useRef<ReadDir | null>(null)
   const dataRef = useRef<ApiPrices | null>(null)
   const houseRef = useRef(house)
@@ -40,6 +43,17 @@ export function useApiPrices(house: number, onMessage: (m: string) => void) {
         return
       }
       setNeedsPermission(false)
+      // our sale-rate estimate (sales.json, written by the sync); a broken file only loses the sales column
+      try {
+        const s = await readSales(h, salesModified.current)
+        if (s !== 'unchanged') {
+          salesModified.current = s?.modified ?? null
+          setSales(s?.data ?? null)
+        }
+      } catch {
+        salesModified.current = null
+        setSales(null)
+      }
       const have = dataRef.current?.house === houseRef.current ? dataRef.current.snapshot : null
       const p = await newestPrices(h, houseRef.current, have)
       if (p === 'unchanged') return
@@ -90,6 +104,8 @@ export function useApiPrices(house: number, onMessage: (m: string) => void) {
     const name = folderRef.current?.name
     setFolder(null)
     setPrices(null)
+    setSales(null)
+    salesModified.current = null
     setNeedsPermission(false)
     setError(null)
     await forgetFolder()
@@ -101,6 +117,8 @@ export function useApiPrices(house: number, onMessage: (m: string) => void) {
     folder: folder?.name ?? null,
     needsPermission,
     data,
+    /** our sale-rate estimate from sales.json, or null */
+    sales,
     error,
     now,
     choose, stop,

@@ -23,6 +23,7 @@ import {
 } from './syncLib.mjs';
 import { openDb, insertSummary } from './marketDb.mjs';
 import { updateDepartures } from './departuresUpdate.mjs';
+import { writeSalesFile } from './salesFile.mjs';
 
 const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
@@ -329,6 +330,14 @@ if (!dryRun && stored > 0) {
   } catch (e) {
     events.push({ title: 'Auction sync: sale estimate not updated', message: `${e.message}. Run node collector/build_departures.mjs to catch up.`, url: ACTIONS_URL });
     log(`departures: ${e.message}`);
+  }
+  // sales.json for the shuffle app (salesFile.mjs)
+  try {
+    const n = writeSalesFile(marketDb, dataRoot);
+    log(`sales.json: ${Object.entries(n).map(([h, c]) => `${h} ${c}`).join(', ')} items`);
+  } catch (e) {
+    events.push({ title: 'Auction sync: sales.json not written', message: `${e.message}. Run node collector/write_sales.mjs to catch up.`, url: ACTIONS_URL });
+    log(`sales.json: ${e.message}`);
   }
 }
 try { marketDb?.close(); } catch { /* ignore */ }

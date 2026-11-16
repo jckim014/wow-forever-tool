@@ -218,6 +218,13 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   `item_ids`). Indexes `prices_by_time (house, t)` and `departures_by_time` (for the Faction tab);
   `journal_size_limit` 4 MB keeps the WAL file small. Size: prices ~1.3 MB per snapshot + index ~0.6 MB + estimate
   ~0.2 MB, about 19 GB/year. Names stay in items.json, not the DB.
+- **sales.json** (2026-11-15, for the shuffle app's Leveling view): `F:\ForeverAuctionData\sales.json`, format
+  `forever-sales` v1 `{at, days: 7, houses: {111|114: {hours, items: {id: units/day}}}}` = Forever Market's estimate
+  (certain + probable over the last 7 days, scaled by the snapshot-pair hours). Written by the sync after each
+  departures update (`collector/salesFile.mjs`; failure = toast) and by `node collector/write_sales.mjs`. The app reads
+  it with the API prices (`readSales` in apiprices/folder.ts; only when its lastModified changes). First write: 6,550
+  items Alliance, 6,450 Horde, 78 h of pairs, ~3 s. Cheap relisted items look high (Linen Bag ~425/day, Red Linen Bag
+  ~900/day): the estimate counts some cancels/reposts as sales.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
@@ -552,7 +559,17 @@ Cheapest route to level a profession with the app's prices. Pure code in `app/sr
   that doesn't pay for its training cost, repeat. "Saves" = total without it - total with it.
 - **Quantities**: the route is simulated with dice rolls (2,000 runs, seeded): expected crafts and the 90% amount
   (covers 9 runs of 10) per stretch; intermediates kept in stock between crafts. Totals = mean; safe total = 90% of
-  whole-route runs.
+  whole-route runs. The amount to queue = max(90% amount, mean rounded up) (Josh: one clear number, details in a hover).
+- **View** (tab "Leveling", `LevelingView.tsx`, classes `lv-`; leveling-data.json fetched on first open): profession,
+  from / to skill, time per craft in silver (per browser, localStorage `wow-forever-shuffle:leveling`). Summary
+  (expected, "Bad luck" = 9 in 10, recipes and training, crafts), Recipes to learn (skill, trainer / AH item, cost,
+  saves), Route (skill range, recipe + crafted reagents, Craft = amount to queue, Gold = stretch total vendor-only
+  (Josh), Cost each in coin colours, then Vendor / Disenchant / AH as profit or loss per craft = exit value - cost each,
+  green/red pills like the List; no best-exit marker (Josh disliked the outline and star); Sold / day = our sale
+  estimate for the product on the API house's faction, from sales.json). Click a stretch: what to craft and buy, with
+  amounts for the queued crafts. Shopping list for the whole route: every stretch's amounts summed plus the AH recipe
+  items (exact item names), as an Auctionator import (same format as the Shopping view); items a vendor sells (curated
+  vendor buy price) listed apart, not on the list.
 
 ## UI (what Josh wants)
 
@@ -904,7 +921,7 @@ Working notes:
   doesn't re-render 2,000 rows; rows use `content-visibility: auto`. Production build: arriving at List 230-300 ms ->
   ~25-30 ms, Prices 580-650 -> ~45-55; screenshots pixel-identical. Keep new props to these views stable (useCallback/useMemo).
 - Views: List · Favorites (`favorites/`) · Table · Prices (`itemprices/`) · Intermediates (`intermediates/`) · DE table (`detable/`) · Settings
-  (`settings/`) · Shopping (`shopping/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
+  (`settings/`) · Shopping (`shopping/`) · Leveling (`leveling/`). Pure logic sits next to each view with a `.test.ts`; the model stays in `model/`.
 - Verification setup: headless Chrome via playwright-core (installed in the session scratchpad, which is temporary;
   reinstall with `npm install playwright-core` in a scratch folder and launch with `channel: 'chrome'`). Seed it by
   writing a shuffle-edits doc to localStorage key `wow-forever-shuffle:edits:v1` before load; the dev server runs

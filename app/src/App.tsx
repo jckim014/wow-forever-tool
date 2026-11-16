@@ -16,6 +16,7 @@ import { IntermediatesView } from './intermediates/IntermediatesView'
 import { DeTableView } from './detable/DeTableView'
 import { setUseChains } from './intermediates/inter'
 import { ShoppingView } from './shopping/ShoppingView'
+import { LevelingView } from './leveling/LevelingView'
 import { addRecipe } from './shopping/list'
 import { FavoritesView } from './favorites/FavoritesView'
 import { favoriteCount } from './favorites/fav'
@@ -32,12 +33,12 @@ const EXIT_OPTIONS: { key: ExitView; label: string; title: string }[] = [
 ]
 const MIN_PROFIT_LABEL: Record<ExitView, string> = { all: 'Min profit at best exit', vendor: 'Min vendor profit', de: 'Min DE profit', ah: 'Min AH profit' }
 
-type View = 'list' | 'favorites' | 'table' | 'prices' | 'intermediates' | 'detable' | 'settings' | 'shopping'
+type View = 'list' | 'favorites' | 'table' | 'prices' | 'intermediates' | 'detable' | 'settings' | 'shopping' | 'leveling'
 const VIEW_KEY = 'wow-forever-shuffle:view'
 const savedView = (): View => {
   try {
     const v = localStorage.getItem(VIEW_KEY)
-    return v === 'favorites' || v === 'table' || v === 'prices' || v === 'intermediates' || v === 'detable' || v === 'settings' || v === 'shopping' ? v : 'list'
+    return v === 'favorites' || v === 'table' || v === 'prices' || v === 'intermediates' || v === 'detable' || v === 'settings' || v === 'shopping' || v === 'leveling' ? v : 'list'
   } catch {
     return 'list'
   }
@@ -126,6 +127,9 @@ export function App() {
           <button className={view === 'settings' ? 'on' : ''} onClick={() => chooseView('settings')} title="Price sources, AH cut, Arcane Salvager, crafting chains">Settings</button>
           <button className={view === 'shopping' ? 'on' : ''} onClick={() => chooseView('shopping')} title="Reagents for the recipes you picked, as an Auctionator shopping list">
             Shopping{edits.shopping.recipes.length ? ` (${edits.shopping.recipes.length})` : ''}
+          </button>
+          <button className={view === 'leveling' ? 'on' : ''} onClick={() => chooseView('leveling')} title="Cheapest way to level a profession at the current prices">
+            Leveling
           </button>
         </div>
         <DataMenu
@@ -240,7 +244,9 @@ export function App() {
           <PricesView game={game} deTable={edits.deTable ?? config.deTable} edits={edits} result={result} update={store.update} active={view === 'prices'} />
         </div>
       )}
-      {view === 'list' || view === 'prices' ? null : view === 'shopping' ? (
+      {view === 'list' || view === 'prices' ? null : view === 'leveling' ? (
+        <LevelingView game={game} result={result} sales={api.sales} />
+      ) : view === 'shopping' ? (
         <ShoppingView game={game} result={result} edits={edits} update={store.update} />
       ) : view === 'detable' ? (
         <DeTableView defaults={config.deTable} edits={edits} result={result} update={store.update} />

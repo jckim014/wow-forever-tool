@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Item, PriceInfo } from '../model/types'
-import { chance, learnables, plan, type LvRecipe, type PlanInput } from './plan'
+import { chance, learnables, plan, routeItems, type LvRecipe, type PlanInput } from './plan'
 
 const CLOTH = 1, BOLT = 2, THREAD = 3, CLOAK = 4, SHIRT = 5, RECIPE_ITEM = 90
 
@@ -91,5 +91,18 @@ describe('plan', () => {
     const p = plan(input([bolt], { to: 55 }))
     expect(p.gaps).toEqual([50, 51, 52, 53, 54])
     expect(p.reached.min).toBe(50)
+  })
+
+  it('lists the whole route to buy: reagents at the shown amounts, AH recipe items, vendor items flagged', () => {
+    const cheap = r({ id: 30, name: 'Cheap', colors: [1, 100, 110, 120], source: [5], product: SHIRT, reagents: [{ item: THREAD, qty: 1 }],
+      recipeItems: [{ id: RECIPE_ITEM, name: 'Pattern: Cheap' }] })
+    const p = plan(input([bolt, cheap], { to: 45 }))
+    const vendorPrice = (id: number) => ({ ...price(id), vendorBuy: id === THREAD ? 10 : null })
+    const items = routeItems(p, vendorPrice)
+    const shown = p.segments.reduce((t, s) => t + Math.ceil(s.shopping.find((l) => l.item === THREAD)!.qtySafe), 0)
+    expect(items).toEqual([
+      { item: RECIPE_ITEM, qty: 1, price: 500, vendor: false, recipe: true, name: 'Pattern: Cheap' },
+      { item: THREAD, qty: shown, price: 10, vendor: true, recipe: false },
+    ])
   })
 })
