@@ -761,20 +761,26 @@ checked it on the live site ("looks good").
   7aa2c00) and Xfaction Horde (Horde, account THOROCKTHEBOLD, 8a3c5d5); both in TRADERS and the page's KNOWN_ROLES.
   Xfaction Two had BavvbScan disabled in its AddOns list (found from 91/Xfaction-Two/AddOns.txt; Josh enabled it,
   nothing was collected before). All pushed and live.
+2026-11-15 (evening session): profession leveling planner (see Leveling planner), built step by step with Josh:
+  data (1248844; Josh re-saved eight profession pages first, Mining left at 11-05; the five hand-removed vendor prices
+  removed again), planner + tests, the Leveling tab with whole-route Auctionator list, sales.json from the sync for
+  Sold / day (93b9b98), then several design rounds on the exit columns (736885d, cdf67f3). All pushed and live.
+  Josh confirmed: starter recipes, vendor value only in Gold, AH recipes only when seen on the AH, no specialisations,
+  1s per craft, crafting intermediates per stretch. Josh's live-site menu was checked by screenshot: BavvbScan.lua
+  linked, auction data folder linked, save file and price history on (an older screenshot with Auc-ScanData.lua
+  linked came from another browser/site).
 
-Where we left off (2026-11-15 morning, signed off): mailbox log fixed and in daily use with six characters (traders
-Xfaction Bavvb + Xfaction Two on Alliance, Xria Two + Xfaction Horde on Horde; transfer Jeder, Horde Xria). Page clear
-at sign-off (no visits, Needs a look or waiting). Not yet seen for real: a big sales mailbox through 1.2 ("everything
-matches (OK)"; only two purchase-only visits so far, both clean), Xfaction Bavvb / Jeder reloaded onto 1.2 (unknown at
-sign-off), Xfaction Two's and Xfaction Horde's first records (should need no role choice). From the previous session:
-Josh is short of gold on Horde and funds it with Skinning Knife sends (Horde Xria lists, Jeder buys), picking trades
-from the Faction tab's new single formula. Not yet seen for real, he will check: the knife won mail -> "1 gold sent" on
-Refresh, a "Gold sent" History row, no knife in stock, and the seller's gold matched later (nothing left under
-"Blackwater listings sold, no transfer yet"); the Faction tab without the two checkboxes and its note "sell x 0.95 -
-buy / 0.85" (Market needs a restart: close tabs, wait 10 min, reopen). Also unconfirmed: the popup-less chat line, a
-seller's Blackwater gold matched to an item transfer, a wrong-cut flag, and a won mail emptied across two visits
-(recorded part by part since 1ffe250). If he later wants per-item gold cost in the tracker, the design is: 17.6% of
-the net gold an item took from the buying side's pool (credit for gold it brought), leftover = 17.6% of the float.
+Where we left off (2026-11-15 evening, signed off): the Leveling tab is live and Josh will use it when he levels a
+profession, coming back with specific questions (he prefers that to working through check lists; see memory). Nothing
+was checked by him in game yet: the whole-route Auctionator import, Sold / day in his browser (headless Chrome can't
+open F:), and the sync writing sales.json by itself (look for "sales.json:" lines in F:\ForeverAuctionData\sync.log).
+Unconfirmed from the morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
+Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
+end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
+checkboxes (Market restart), a seller's Blackwater gold matched to an item transfer, a wrong-cut flag, a won mail
+emptied across two visits. Josh funds Horde with Skinning Knife sends (Horde Xria lists, Jeder buys). If he later
+wants per-item gold cost in the tracker, the design is: 17.6% of the net gold an item took from the buying side's
+pool (credit for gold it brought), leftover = 17.6% of the float.
 Earlier state (2026-11-13 evening): Forever Market steps 1-7 done; its new look and sales tiles are
 done and checked by Josh. Cycles waits for data (shows "Still collecting" until items have 2 days with 12+ priced
 hours that share hours: first rough results around midday 2026-11-14; amber "rough" until 7 days, ~2026-11-20);
@@ -840,6 +846,14 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Leveling planner (2026-11-15): the skill-up chance is the Classic community formula, not confirmed on Forever (if
+  a green recipe levels noticeably faster or slower than planned, check it). Sold / day overstates cheap, heavily
+  relisted items (Linen Bag ~425/day, Red Linen Bag ~900/day). Offered, not decided: Sold / day next to AH (it now sits
+  after Disenchant since Josh reordered Vendor / AH / Disenchant). Known simplifications: only one level of
+  same-profession crafting earns skill points; AH recipes chosen greedily one at a time (no pairs); trainer rank
+  purchases (75/150/225) not modelled; recipes whose yellow is 0 on Wowhead use a pessimistic chance. A new
+  profession page re-parse needs `F:\ForeverAuctionData\items.json` for the recipe-item match (else the cache in
+  data/private/recipe-items.json is used), and new name mismatches go in `recipeItemAliases`.
 - Mailbox log (live 2026-11-14, f6c2cae; 1.2 fixes 2026-11-15): six trading characters, roles built in by GUID
   (KNOWN_ROLES) and partly also in Josh's trades file; "Xria (Alliance)" older records = none. Josh links both accounts'
   BavvbScan.lua. BavvbScan must be enabled per character in WoW's AddOns list (Jeder's first Blackwater sale was
@@ -877,8 +891,8 @@ Open items to raise when relevant:
   file-write only, no automation.
 - Wowhead vendor buy prices removed by hand from `game-data.json` (2026-11-11; Josh: incorrect, ignore for now):
   Black Lotus 13468 (40s), Pyrite 249391 (4s), Pristine Leather 249427 (5s), Pristine Hide 249428 (10s), Pristine
-  Scale 249429 (15s). The new Tailoring page lists them; `parse_pages.py` puts them back on every run. Remove them
-  again after a parse (or have Josh mark them "No vendor sells it" in the Prices view, which survives re-parses).
+  Scale 249429 (15s). The new Tailoring page lists them; `parse_pages.py` puts them back on every run (last removed
+  again 2026-11-15 after the re-parse). Remove them again after a parse (or have Josh mark them "No vendor sells it" in the Prices view, which survives re-parses).
 - Auctionator is no longer the main source. Old notes: Desktop WTF backups (Benediction, 2023) use price database
   v6, which the reader rejects; the readers handle v8 only. The beta file
   `F:\World of Warcraft\_classic_beta_\WTF\Account\1120039#1\SavedVariables\Auctionator.lua` was the 2026-10-22 import.
