@@ -899,25 +899,15 @@ Open items to raise when relevant:
   purchases (75/150/225) not modelled; recipes whose yellow is 0 on Wowhead use a pessimistic chance. A new
   profession page re-parse needs `F:\ForeverAuctionData\items.json` for the recipe-item match (else the cache in
   data/private/recipe-items.json is used), and new name mismatches go in `recipeItemAliases`.
-- Mailbox log (live 2026-11-14, f6c2cae; 1.2 fixes 2026-11-15): six trading characters, roles built in by GUID
-  (KNOWN_ROLES) and partly also in Josh's trades file; "Xria (Alliance)" older records = none. Josh links both accounts'
-  BavvbScan.lua. BavvbScan must be enabled per character in WoW's AddOns list (Jeder's first Blackwater sale was
-  collected with it off; Xfaction Two started disabled): check `WTF/Account/<acct>/91/<First-Last>/AddOns.txt`. A new
-  character's GUID can be read from ForeverMail.lua in the account's SavedVariables. Events kept: 1000.
-  If something looks wrong: read both accounts' SavedVariables (records, visits, `sales.events`) and
-  data/private/trades.json (entries with `mail`, `mail.handled`, `mail.roles`); to try the page on his real data
-  without touching it, run the dev server and seed a headless Chrome with copies (how it was checked this session).
+- Mail ledger / mailbox log (every character since 2026-11-16, 069b9f6): BavvbScan must be enabled per character in
+  WoW's AddOns list or that character records nothing (Xfaction Two started disabled): check
+  `WTF/Account/<acct>/91/<First-Last>/AddOns.txt`. If records look wrong: read both accounts' SavedVariables
+  (records, visits, `sales.events`, 1000 kept) and the ledger files; the sync.log "ledger:" lines show each run.
+  Records match gold to mails (1.2 fixes); a record with status nogold/noitem is kept as is (no tracker to fix it).
   When Josh can't paste from the game, ask for a screenshot (Print Screen) and read the newest file in
-  F:\World of Warcraft\_forever_\Screenshots. Known limits: a transfer char buying a stranger's Blackwater item
-  becomes a transfer; `full` names work ("Xria Two" from UnitFullName). Partial won mails across visits: built and
-  tested 2026-11-14 late (see Sales from the mailbox), not yet seen for real.
-- Trade tracker (stock-pool version live 2026-11-14, 8948234; per-unit transfer prices and partial card transfers,
-  b2f9f9d; Avg buy / Avg sell columns 9dfa364; price each on cards 4d364fe): Josh has a real trades file in batch format (v1); the live page converts it on first load and saves v2 on
-  his next change (suggested: File > Download a copy first). Not yet confirmed that his real data converted as
-  expected; if figures look off, compare total gold / trading profit with the old page's (the conversion keeps both
-  identical, tested). Partial transfers not yet used by Josh (test steps given: transfer part of a card, card shows
-  "N of M units left to transfer", Undo puts units back). Avg sell = received as recorded / units sold (after the
-  AH cut, Josh's choice); Avg buy leaves out Blackwater's cut. Iterations come from real use; keep it simple.
+  F:\World of Warcraft\_forever_\Screenshots. Not yet seen for real: partial won mails across visits.
+- Trade tracker: retired in practice 2026-11-16 (page live, unused, never removed unless Josh asks). Its data up to
+  then is in data/private/trades.json and the copy in the ledger folder.
 - Wall cutoff (2026-11-14): Josh hasn't yet looked at the new figures in the apps (check steps given: Mud Snapper Horde
   ~10c, Stonescale Eel Horde ~1s 64c). If a price looks wrong, print the item's listing ladder from the raw snapshot
   first (that is how the wall was found). A cheap cluster holding over 5% of units would still set the anchor low.
