@@ -9,7 +9,7 @@ const PREFS_KEY = 'forever-market:faction';
 const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); } catch { return {}; } })();
 const f = {
   search: '', dir: prefs.dir ?? 'both', minProfit: prefs.minProfit ?? '', minMargin: prefs.minMargin ?? '',
-  minSold: prefs.minSold ?? '', steady: prefs.steady ?? '0', hideThin: prefs.hideThin ?? true,
+  minSold: prefs.minSold ?? '', steady: prefs.steady ?? '0', hideThin: prefs.hideThin ?? true, protect: prefs.protect ?? false,
   sort: prefs.sort ?? 'profit', sortDir: prefs.sortDir ?? -1,
   days: prefs.days ?? 3, // steadiness and sales window
 };
@@ -20,8 +20,8 @@ let data = null;
 let openItem = () => {};
 let loadedFor = null;
 
-const profitOf = (r) => r.profit;
-const marginOf = (r) => r.margin;
+const profitOf = (r) => (f.protect ? r.protectedProfit : r.profit);
+const marginOf = (r) => (f.protect ? r.protectedMargin : r.margin);
 const steadyOf = (r) => r.steady;
 const steadyShare = (r) => { const s = steadyOf(r); return s.seen ? s.profitable / s.seen : 0; };
 const COLS = [
@@ -97,6 +97,7 @@ function render() {
       </span>
       <span id="f-custom" hidden><input id="f-days" type="number" min="1" max="365" step="1" value="${f.days}"> days <button id="f-days-apply" class="mbtn">Apply</button></span></span>
       <label class="field">Steady <select id="f-steady">${[['0', 'any'], ['50', '50%+'], ['75', '75%+'], ['100', 'always']].map(([v, l]) => `<option value="${v}"${f.steady === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="field" title="Snipe-proof transfer: listed on Blackwater at sell × 0.95, profit knifed back to the faction sold on (72.25% of profit)"><input id="f-protect" type="checkbox"${f.protect ? ' checked' : ''}> Protected</label>
       <label class="field" title="Cheap side with 2 or fewer units, or expensive side with 2 or fewer listings"><input id="f-thin" type="checkbox"${f.hideThin ? ' checked' : ''}> Hide thin markets</label>
       <span class="count">${rows.length.toLocaleString()} of ${data.rows.filter((r) => profitOf(r) > 0).length.toLocaleString()} profitable${rows.length > shown.length ? `, first ${shown.length} shown` : ''}</span>
     </div>
@@ -138,6 +139,7 @@ function render() {
   const applyDays = () => { const d = Math.round(Number($('#f-days').value)); if (d >= 1 && d <= 365) setDays(d); };
   $('#f-days-apply').addEventListener('click', applyDays);
   $('#f-days').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyDays(); });
+  $('#f-protect').addEventListener('change', (e) => { f.protect = e.target.checked; rerender(); });
   $('#f-thin').addEventListener('change', (e) => { f.hideThin = e.target.checked; rerender(); });
   $('#f-dir').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { f.dir = b.dataset.v; rerender(); } });
   box.querySelector('.mft').addEventListener('click', (e) => {

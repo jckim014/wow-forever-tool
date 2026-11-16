@@ -9,6 +9,10 @@
 //   side by a junk item (Skinning Knife), which loses 15% too: 0.15 / 0.85 = 17.6% of the cut, so the buy costs
 //   1 + 0.15 + 0.026 = 1 / 0.85. Break-even: sell ~24% above buy. Profit stays on the faction sold on; moving it
 //   elsewhere costs another 15% (not included). Deposits left out: they come back when the item sells.
+// Protected profit (Josh, 2026-11-16; the "Protected" switch on the Faction tab): the transfer is listed on Blackwater
+//   at sell x 0.95, what a sniper would get reselling it, so sniping it pays nothing. The selling side then buys at
+//   what it sells for (breaks even); the buying side gets 85% of that listing, keeps listing - buy, and knifes it back
+//   to the selling side (another 15%): 0.85 x (0.85 x 0.95 x sell - buy) = 0.7225 x profit.
 // Pure; tested in faction.test.mjs.
 
 export const AH_CUT = 0.05;
@@ -23,8 +27,11 @@ export function trade(cheap, dear) {
   const outlier = dear.cheapest15 > 0 && dear.lowest < OUTLIER_RATIO * dear.cheapest15;
   const sell = outlier ? dear.cheapest15 : dear.lowest;
   const profit = sell * (1 - AH_CUT) - buy / (1 - TRANSFER_CUT);
+  const listing = sell * (1 - AH_CUT); // protected transfer price
+  const keep = 1 - TRANSFER_CUT;
+  const protectedProfit = keep * (keep * listing - buy);
   return {
-    buy, sell, profit, margin: profit / buy, outlier,
+    buy, sell, profit, margin: profit / buy, protectedProfit, protectedMargin: protectedProfit / buy, outlier,
     thin: (cheap.units ?? 0) <= THIN_UNITS || (dear.listings ?? 0) <= THIN_UNITS,
   };
 }

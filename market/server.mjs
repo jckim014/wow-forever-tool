@@ -224,7 +224,7 @@ function faction(daysParam) {
       const steady = steadiness(hist);
       rows.push({
         item, name: it?.name ?? `Item ${item}`, quality: it?.quality ?? null, icon: it?.icon ?? null, from: cheapH, to: dearH,
-        buy: r.buy, sell: r.sell, profit: r.profit, margin: r.margin, outlier: r.outlier, thin: r.thin,
+        buy: r.buy, sell: r.sell, profit: r.profit, margin: r.margin, protectedProfit: r.protectedProfit, protectedMargin: r.protectedMargin, outlier: r.outlier, thin: r.thin,
         cheapUnits: cheap.units, dearListings: dear.listings, dearUnits: dear.units,
         oursPerDay: ours[dearH].get(item) ?? null, tsmPerDay: t?.items.get(item)?.soldPerDay ?? null,
         steady,

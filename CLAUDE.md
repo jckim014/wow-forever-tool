@@ -308,7 +308,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   refilled from the selling side with a Skinning Knife (another 15%), so the buy costs 1 + 0.15 + 0.026 = 1 / 0.85.
   Break-even: sell ~24% above buy (Margin = profit / buy, so ~0% at break-even). Profit stays on the faction sold on;
   moving it elsewhere costs another 15% (not included; the trade tracker counts each real knife send). Josh was walked
-  through it with "100g on Horde, buy 10g, sell 15g -> 2.49g" (in faction.test.mjs). Rows: every item and direction with
+  through it with "100g on Horde, buy 10g, sell 15g -> 2.49g" (in faction.test.mjs). **Protected** checkbox (Josh, 2026-11-16, remembered):
+  snipe-proof transfer listed on Blackwater at sell x 0.95 (a sniper reselling it gets nothing), the selling side
+  breaks even and the buying side's gain is knifed back: protected profit = 0.85 x (0.85 x 0.95 x sell - buy) =
+  0.7225 x profit (example: buy 10g, sell 20g -> 7.24g, protected 5.23g). Ticked, Profit / unit, Margin, Min profit,
+  Min margin and sorting use it; the rows listed don't change otherwise (same sign), nor does Steady. Blackwater deposits go by vendor price, not listing price (Josh, 2026-11-16), so the high
+  listing adds no deposit. Rows: every item and direction with
   profit > 0 at the latest snapshot; thin = cheap side <= 2 units or dear side <= 2 listings (hidden by default);
   "Steady" = share of snapshots in the window where the trade was profitable (information + optional filter, it
   doesn't change the profit). Window switch 3 / 7 / 30 days / Custom (1-365; default 3, remembered; `/api/faction?days=`,

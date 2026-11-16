@@ -16,6 +16,22 @@ test('profit = sell x 0.95 - buy / 0.85 (cut refilled from the selling side)', (
   assert.equal(Math.round(trade(side(1, 100000), side(150000, 150000)).profit / 100), 249);
 });
 
+test('protected profit: transfer listed at sell x 0.95, profit knifed back = 72.25% of profit', () => {
+  // the example shown to Josh: buy 10g, sell 20g -> 7.24g, protected 5.23g
+  const r = trade(side(1, 100000), side(200000, 200000));
+  assert.equal(Math.round(r.profit / 100), 724);
+  assert.equal(Math.round(r.protectedProfit / 100), 523);
+  // ledger: Horde pays 10g, gets 85% of the 19g listing, knifes the rest back; Alliance pays 19g, gets 19g
+  const horde = -100000 + 0.85 * 190000;
+  const alliance = -190000 + 200000 * 0.95 + 0.85 * horde;
+  assert.ok(Math.abs(r.protectedProfit - alliance) < 1e-6);
+  for (const [b, s] of [[100, 124], [100, 300], [5000, 7000]]) {
+    const t = trade(side(1, b), side(s, s));
+    assert.ok(Math.abs(t.protectedProfit - 0.7225 * t.profit) < 1e-9);
+    assert.ok(Math.abs(t.protectedMargin - t.protectedProfit / b) < 1e-12);
+  }
+});
+
 test('break-even needs the expensive side ~24% above the buy price', () => {
   assert.ok(trade(side(1, 100), side(123, 130)).profit < 0);
   assert.ok(trade(side(1, 100), side(124, 130)).profit > 0);
