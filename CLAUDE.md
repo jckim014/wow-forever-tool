@@ -775,7 +775,10 @@ checked it on the live site ("looks good").
   linked came from another browser/site).
 
 Where we left off (2026-11-15 evening, signed off): the Leveling tab is live and Josh will use it when he levels a
-profession, coming back with specific questions (he prefers that to working through check lists; see memory). Nothing
+profession, coming back with specific questions (he prefers that to working through check lists; see memory).
+2026-11-16 just after midnight: Josh is levelling Leatherworking 85 -> 243 on the route saved in
+`data/private/leveling-route-leatherworking-85-243.md` (rebuilt at the 06:17 UTC snapshot after the live route changed
+under him; he confirmed it). Since 787fc85 the page keeps a route fixed until Re-plan. Nothing
 was checked by him in game yet: the whole-route Auctionator import, Sold / day in his browser (headless Chrome can't
 open F:), and the sync writing sales.json by itself (look for "sales.json:" lines in F:\ForeverAuctionData\sync.log).
 Unconfirmed from the morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
