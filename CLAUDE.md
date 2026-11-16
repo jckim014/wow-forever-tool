@@ -786,6 +786,15 @@ profession, coming back with specific questions (he prefers that to working thro
 under him; he confirmed it). Since 787fc85 the page keeps a route fixed until Re-plan. Nothing
 was checked by him in game yet: the whole-route Auctionator import, Sold / day in his browser (headless Chrome can't
 open F:), and the sync writing sales.json by itself (look for "sales.json:" lines in F:\ForeverAuctionData\sync.log).
+2026-11-16 (short session, talk + one change): snipe protection for cross-faction transfers. Josh is about to move
+well-known high-value items, which bots on Blackwater will snipe at the buy-price listing (he can't beat them on
+speed). Worked out with him: listing the transfer at sell x 0.95 leaves a sniper nothing; the cost is a fixed
+share of profit (keep 85% if the gain stays on the buying faction, 72.25% if knifed back, whatever the gap); a
+listing above 95% adds cut, not protection; a high listing is the same as a cheap one plus a knife send of the
+difference. Built the Faction tab's **Protected** checkbox (72.25%, Josh's choice since he knifes profit back;
+4002f76, pushed; Josh checked it: "everything looks good"). Blackwater deposits go by vendor price (Josh).
+Not built, could matter once he uses it: the trade tracker records the higher transfer price as typed (its totals
+stay right); nothing flags which items bots watch, Josh decides per item.
 Unconfirmed from the morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
