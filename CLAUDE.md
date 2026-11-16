@@ -564,9 +564,11 @@ Cheapest route to level a profession with the app's prices. Pure code in `app/sr
   from / to skill, time per craft in silver (per browser, localStorage `wow-forever-shuffle:leveling`). Summary
   (expected, "Bad luck" = 9 in 10, recipes and training, crafts), Recipes to learn (skill, trainer / AH item, cost,
   saves), Route (skill range, recipe + crafted reagents, Craft = amount to queue, Gold = stretch total vendor-only
-  (Josh), Cost each in coin colours, then Vendor / Disenchant / AH as profit or loss per craft = exit value - cost each,
-  green/red pills like the List; no best-exit marker (Josh disliked the outline and star); Sold / day = our sale
-  estimate for the product on the API house's faction, from sales.json). Click a stretch: what to craft and buy, with
+  (Josh), Cost each; then a grey band "If you sell what one craft makes" (divider before it): Vendor / AH / Disenchant
+  (Josh's order) = what one craft brings back that way, plain text, green when it beats Cost each, the profit or loss
+  in a hover; Sold / day = our sale estimate for the product on the API house's faction, from sales.json). Money in the
+  route without copper once there is gold. Design history (Josh, 2026-11-15): profit/loss pills with a starred best
+  exit, then plain pills, then red/green text were all rejected as hard to read; losses everywhere drowned the signal. Click a stretch: what to craft and buy, with
   amounts for the queued crafts. Shopping list for the whole route: every stretch's amounts summed plus the AH recipe
   items (exact item names), as an Auctionator import (same format as the Shopping view); items a vendor sells (curated
   vendor buy price) listed apart, not on the list.

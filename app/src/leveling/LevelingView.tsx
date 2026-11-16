@@ -28,12 +28,13 @@ const loadLevelingData = () =>
   }))
 
 /** Money in coin colours: "1g 23s 04c" with each part coloured, blank stays blank. */
-function Coins({ v, sign }: { v: number | null; sign?: boolean }) {
+function Coins({ v, sign, short }: { v: number | null; sign?: boolean; /** drop copper once there is gold */ short?: boolean }) {
   if (v == null || !Number.isFinite(v)) return null
   const c = Math.round(Math.abs(v))
   const g = Math.floor(c / 10000), sv = Math.floor((c % 10000) / 100), cc = c % 100
   const p2 = (n: number) => String(n).padStart(2, '0')
   const parts: [string, string][] = c === 0 ? [['0c', 'lv-cc']]
+    : g && short ? [[`${g.toLocaleString()}g`, 'lv-cg'], [`${p2(sv)}s`, 'lv-cs']]
     : g ? [[`${g.toLocaleString()}g`, 'lv-cg'], [`${p2(sv)}s`, 'lv-cs'], [`${p2(cc)}c`, 'lv-cc']]
       : sv ? [[`${sv}s`, 'lv-cs'], [`${p2(cc)}c`, 'lv-cc']] : [[`${cc}c`, 'lv-cc']]
   return <span className="lv-money">{v < 0 && c ? '−' : sign && c ? '+' : ''}{parts.map(([t, k], i) => <span key={i} className={k}>{i > 0 ? ' ' : ''}{t}</span>)}</span>
@@ -137,15 +138,19 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
           <h2>Route</h2>
           <table className="lv-table lv-route">
             <thead>
+              <tr className="lv-group">
+                <th colSpan={5} />
+                <th colSpan={4} className="lv-x lv-x1">If you sell what one craft makes</th>
+              </tr>
               <tr>
                 <th>Skill</th><th>Recipe</th>
                 <th className="num lv-tip" title={QUEUE_TIP}>Craft ⓘ</th>
                 <th className="num" title="Expected gold for this stretch: reagents minus vendor value of what you make">Gold</th>
                 <th className="num" title="What one craft costs: its reagents (and the ingredients of the reagents you craft)">Cost each</th>
-                <th className="num lv-tip" title={EXIT_TIP + ' Vendor is the one counted in Gold.'}>Vendor ⓘ</th>
-                <th className="num lv-tip" title={EXIT_TIP + ' Disenchant: materials sold on the AH after the cut.'}>Disenchant ⓘ</th>
-                <th className="num lv-tip" title={EXIT_TIP + ' AH: sold on the AH after the cut.'}>AH ⓘ</th>
-                <th className="num lv-tip" title={salesTip(sales, result.settings.apiHouse)}>Sold / day ⓘ</th>
+                <th className="num lv-tip lv-x lv-x1" title={EXIT_TIP + ' Vendor is the one counted in Gold.'}>Vendor ⓘ</th>
+                <th className="num lv-tip lv-x" title={EXIT_TIP + ' AH: sold on the AH after the cut.'}>AH ⓘ</th>
+                <th className="num lv-tip lv-x" title={EXIT_TIP + ' Disenchant: materials sold on the AH after the cut.'}>Disenchant ⓘ</th>
+                <th className="num lv-tip lv-x" title={salesTip(sales, result.settings.apiHouse)}>Sold / day ⓘ</th>
               </tr>
             </thead>
             <tbody>
@@ -161,10 +166,10 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
                         {s.action.crafted.length > 0 && <span className="muted"> + craft {s.action.crafted.map((c) => name(c.item)).join(', ')}</span>}
                       </td>
                       <td className="num" title={`Expected ${q(s.crafts.mean)} crafts on average; ${s.crafts.safe} is enough 9 times in 10.`}>{s.crafts.safe}</td>
-                      <td className="num">{m(s.costMean)}</td>
-                      <td className="num">{m(s.action.cost)}</td>
+                      <td className="num"><Coins v={s.costMean} short /></td>
+                      <td className="num"><Coins v={s.action.cost} short /></td>
                       <ExitCells s={s} row={row} />
-                      <td className="num">{soldCell(s, sales, result.settings.apiHouse)}</td>
+                      <td className="num lv-x">{soldCell(s, sales, result.settings.apiHouse)}</td>
                     </tr>
                     {isOpen && <tr className="lv-detail"><td /><td colSpan={8}><SegmentDetail s={s} name={name} result={result} /></td></tr>}
                   </Fragment>
@@ -173,7 +178,7 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
             </tbody>
           </table>
           <p className="hint">Click a stretch for its shopping list. Craft = crafts to queue for that stretch (hover a number for the average).
-            Vendor, Disenchant and AH: profit (green) or loss (red) per craft if you sell what you make that way.
+            Vendor, AH and Disenchant: what one craft brings back if you sell what you make that way, green when that beats Cost each.
             Only Vendor is counted in Gold (the AH can't absorb dozens of the same item at today's price): compare Craft with Sold / day.</p>
         </div>
       )}
@@ -258,7 +263,11 @@ function soldCell(s: Segment, sales: SalesData | null, house: number) {
   return n < 10 ? (Math.round(n * 10) / 10).toLocaleString() : Math.round(n).toLocaleString()
 }
 
-const EXIT_TIP = 'Profit (green) or loss (red) per craft if you sell what one craft makes this way: its value minus Cost each.'
+const EXIT_TIP = 'What one craft brings back if you sell what it makes this way. Green when that is more than Cost each (a profit); hover a value for the profit or loss.'
+const fmtShort = (c: number) => {
+  const r = Math.round(c), g = Math.floor(r / 10000), s = Math.floor((r % 10000) / 100), cc = r % 100
+  return g ? `${g}g ${s}s` : s ? `${s}s ${cc}c` : `${cc}c`
+}
 
 function ExitCells({ s, row }: { s: Segment; row: RecipeRow | undefined }) {
   const a = s.action
@@ -266,15 +275,16 @@ function ExitCells({ s, row }: { s: Segment; row: RecipeRow | undefined }) {
   const vendor: number | null | 'na' = a.recipe.product == null ? 'na' : a.credit > 0 ? a.credit : 'na'
   const de: number | null | 'na' = !row || !row.deBand ? 'na' : row.deValue
   const ah: number | null | 'na' = !row || row.bind === 'pickup' ? (row ? 'bop' as 'na' : 'na') : row.ahValue
-  const exits = [vendor, de, ah]
+  const exits = [vendor, ah, de]
   const profits = exits.map((v) => (typeof v === 'number' ? v - a.cost : null))
   return (
     <>
       {exits.map((v, i) => (
-        <td key={i} className="num">
-          {v === 'na' ? (i === 2 && row?.bind === 'pickup' ? <span className="muted">BoP</span> : '')
+        <td key={i} className={i === 0 ? 'num lv-x lv-x1' : 'num lv-x'}>
+          {v === 'na' ? (i === 1 && row?.bind === 'pickup' ? <span className="muted">BoP</span> : '')
             : v == null ? <span className="muted">unpriced</span>
-              : <span className={`profit lv-exit ${profits[i]! >= 0 ? 'pos' : 'neg'}`}><Coins v={profits[i]} sign /></span>}
+              : <span className={`lv-exit ${profits[i]! > 0 ? 'lv-pos' : 'lv-neg'}`}
+                title={`${profits[i]! > 0 ? 'Profit' : 'Loss'} per craft: ${fmtShort(Math.abs(profits[i]!))} (value minus Cost each)`}><Coins v={v} short /></span>}
         </td>
       ))}
     </>

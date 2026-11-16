@@ -369,4 +369,12 @@ body { margin: 0; }
 .lv-money { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .lv-cg { color: #a87b00; } .lv-cs { color: #6c7079; } .lv-cc { color: #a8561e; }
 .lv-exit .lv-cg, .lv-exit .lv-cs, .lv-exit .lv-cc { color: inherit; }
-.lv-exit { font-weight: 500; }
+/* the selling columns, set apart: tinted, a divider before them, a group label above */
+.lv-route .lv-x { background: #f5f6f9; padding-left: 12px; padding-right: 12px; }
+.lv-route .lv-x1 { border-left: 2px solid #d5d9e0; }
+.lv-route .lv-group th { padding: 6px 12px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; text-align: center; color: var(--muted); }
+.lv-route .lv-group th:first-child { background: none; }
+.lv-route .lv-seg:hover td.lv-x, .lv-route .lv-seg.on td.lv-x { background: #eceef3; }
+/* losses are the norm while leveling: plain grey; only a profit stands out */
+.lv-exit.lv-pos { color: var(--pos-fg); font-weight: 600; }
+.lv-exit.lv-neg { color: inherit; }
