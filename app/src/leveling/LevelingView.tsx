@@ -178,7 +178,7 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
             </tbody>
           </table>
           <p className="hint">Click a stretch for its shopping list. Craft = crafts to queue for that stretch (hover a number for the average).
-            Vendor, AH and Disenchant: what one craft brings back if you sell what you make that way, green when that beats Cost each.
+            Vendor, AH and Disenchant: what one craft brings back if you sell what you make that way; the best of the three is green.
             Only Vendor is counted in Gold (the AH can't absorb dozens of the same item at today's price): compare Craft with Sold / day.</p>
         </div>
       )}
@@ -263,7 +263,7 @@ function soldCell(s: Segment, sales: SalesData | null, house: number) {
   return n < 10 ? (Math.round(n * 10) / 10).toLocaleString() : Math.round(n).toLocaleString()
 }
 
-const EXIT_TIP = 'What one craft brings back if you sell what it makes this way. Green when that is more than Cost each (a profit); hover a value for the profit or loss.'
+const EXIT_TIP = 'What one craft brings back if you sell what it makes this way. The best of the three is green; hover a value for the profit or loss against Cost each.'
 const fmtShort = (c: number) => {
   const r = Math.round(c), g = Math.floor(r / 10000), s = Math.floor((r % 10000) / 100), cc = r % 100
   return g ? `${g}g ${s}s` : s ? `${s}s ${cc}c` : `${cc}c`
@@ -277,13 +277,16 @@ function ExitCells({ s, row }: { s: Segment; row: RecipeRow | undefined }) {
   const ah: number | null | 'na' = !row || row.bind === 'pickup' ? (row ? 'bop' as 'na' : 'na') : row.ahValue
   const exits = [vendor, ah, de]
   const profits = exits.map((v) => (typeof v === 'number' ? v - a.cost : null))
+  // the exit worth the most (ties: Vendor, then AH, then Disenchant)
+  let best = -1
+  exits.forEach((v, i) => { if (typeof v === 'number' && (best < 0 || v > (exits[best] as number))) best = i })
   return (
     <>
       {exits.map((v, i) => (
         <td key={i} className={i === 0 ? 'num lv-x lv-x1' : 'num lv-x'}>
           {v === 'na' ? (i === 1 && row?.bind === 'pickup' ? <span className="muted">BoP</span> : '')
             : v == null ? <span className="muted">unpriced</span>
-              : <span className={`lv-exit ${profits[i]! > 0 ? 'lv-pos' : 'lv-neg'}`}
+              : <span className={`lv-exit ${i === best ? 'lv-pos' : 'lv-neg'}`}
                 title={`${profits[i]! > 0 ? 'Profit' : 'Loss'} per craft: ${fmtShort(Math.abs(profits[i]!))} (value minus Cost each)`}><Coins v={v} short /></span>}
         </td>
       ))}

@@ -565,8 +565,8 @@ Cheapest route to level a profession with the app's prices. Pure code in `app/sr
   (expected, "Bad luck" = 9 in 10, recipes and training, crafts), Recipes to learn (skill, trainer / AH item, cost,
   saves), Route (skill range, recipe + crafted reagents, Craft = amount to queue, Gold = stretch total vendor-only
   (Josh), Cost each; then a grey band "If you sell what one craft makes" (divider before it): Vendor / AH / Disenchant
-  (Josh's order) = what one craft brings back that way, plain text, green when it beats Cost each, the profit or loss
-  in a hover; Sold / day = our sale estimate for the product on the API house's faction, from sales.json). Money in the
+  (Josh's order) = what one craft brings back that way, plain text, the best of the three green (ties: Vendor, AH;
+  Josh chose this over "green when it beats Cost each"), the profit or loss in a hover; Sold / day = our sale estimate for the product on the API house's faction, from sales.json). Money in the
   route without copper once there is gold. Design history (Josh, 2026-11-15): profit/loss pills with a starred best
   exit, then plain pills, then red/green text were all rejected as hard to read; losses everywhere drowned the signal. Click a stretch: what to craft and buy, with
   amounts for the queued crafts. Shopping list for the whole route: every stretch's amounts summed plus the AH recipe
