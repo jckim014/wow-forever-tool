@@ -567,7 +567,11 @@ Cheapest route to level a profession with the app's prices. Pure code in `app/sr
   (Josh), Cost each; then a grey band "If you sell what one craft makes" (divider before it): Vendor / AH / Disenchant
   (Josh's order) = what one craft brings back that way, plain text, the best of the three green (ties: Vendor, AH;
   Josh chose this over "green when it beats Cost each"), the profit or loss in a hover; Sold / day = our sale estimate for the product on the API house's faction, from sales.json). Money in the
-  route without copper once there is gold. Design history (Josh, 2026-11-15): profit/loss pills with a starred best
+  route without copper once there is gold. **The route on screen stays fixed** (Josh, 2026-11-16: it changed under
+  him mid-session when the 10-minute API read brought a new snapshot): new prices replace it only if the route itself
+  (stretches + recipes to learn) is unchanged, or within 20 s of planning (start-up loading); otherwise an amber bar
+  "Prices have updated… Re-plan" and the old route keeps its old figures. Input changes re-plan at once. Kept in a
+  module variable, so it survives tab switches, not a reload. Design history (Josh, 2026-11-15): profit/loss pills with a starred best
   exit, then plain pills, then red/green text were all rejected as hard to read; losses everywhere drowned the signal. Click a stretch: what to craft and buy, with
   amounts for the queued crafts. Shopping list for the whole route: every stretch's amounts summed plus the AH recipe
   items (exact item names), as an Auctionator import (same format as the Shopping view); items a vendor sells (curated

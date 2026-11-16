@@ -48,7 +48,13 @@ const QUEUE_TIP = 'How many crafts to queue for this stretch. Skill-ups on yello
 
 const FACTION: Record<number, string> = { 111: 'Alliance', 114: 'Horde' }
 
-export function LevelingView({ game, result, sales }: { game: GameData; result: ModelResult; sales: SalesData | null }) {
+/** The route on screen, with the prices it was planned at. Kept outside the component so it survives switching tabs
+ *  (the view unmounts); a page reload plans afresh. */
+interface Kept { p: Plan | null; result: ModelResult; inpKey: string; route: string; at: number }
+let keptMemo: Kept | null = null
+const SETTLE_MS = 20_000
+
+export function LevelingView({ game, result: live, sales }: { game: GameData; result: ModelResult; sales: SalesData | null }) {
   const [data, setData] = useState<LevelingData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [inp, setInp] = useState<Inputs>(loadInputs)
@@ -64,16 +70,34 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
   }
   const item = (id: number) => game.items[id] ?? data?.items[id]
   const name = (id: number) => item(id)?.name ?? `Item ${id}`
-  const rowsById = useMemo(() => new Map(result.recipes.map((r) => [r.recipe.id, r])), [result])
 
-  const p: Plan | null = useMemo(() => {
+  // The route at the current prices. It replaces the one on screen only when the inputs change, when it is the same
+  // route (fresh numbers), or on Re-plan: new prices arriving mid-session (API data every 10 min, an import) must not
+  // swap the route under Josh while he follows it (2026-11-16).
+  const inpKey = `${inp.profession}|${inp.from}|${inp.to}|${inp.perCraftSilver}`
+  const fresh: Plan | null = useMemo(() => {
     if (!data || inp.to <= inp.from) return null
     return plan({
-      profession: inp.profession, from: inp.from, to: inp.to, recipes: data.recipes, price: result.prices,
-      intermediates: result.intermediates, item: (id) => game.items[id] ?? data.items[id],
+      profession: inp.profession, from: inp.from, to: inp.to, recipes: data.recipes, price: live.prices,
+      intermediates: live.intermediates, item: (id) => game.items[id] ?? data.items[id],
       cooldownCrafts: config.cooldownCrafts, perCraft: Math.round(inp.perCraftSilver * 100),
     })
-  }, [data, result, game, inp])
+  }, [data, live, game, inp])
+  const [kept, setKeptState] = useState<Kept | null>(() => keptMemo)
+  const keep = () => {
+    keptMemo = { p: fresh, result: live, inpKey, route: routeKey(fresh), at: Date.now() }
+    setKeptState(keptMemo)
+  }
+  // Start-up loading (the save file, the first API read) lands within seconds of the first plan: it replaces the route
+  // silently. After SETTLE_MS a different route waits for Re-plan.
+  const settling = !kept || !kept.p || Date.now() - kept.at < SETTLE_MS
+  const stale = !!kept && kept.inpKey === inpKey && !settling && kept.route !== routeKey(fresh)
+  useEffect(() => {
+    if (!kept || kept.inpKey !== inpKey || settling || (!stale && kept.p !== fresh)) keep()
+  }, [fresh, inpKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const p = kept && kept.inpKey === inpKey ? kept.p : fresh
+  const result = kept && kept.inpKey === inpKey ? kept.result : live
+  const rowsById = useMemo(() => new Map(result.recipes.map((r) => [r.recipe.id, r])), [result])
 
   if (error) return <div className="message error">{error}</div>
   if (!data) return <div className="message">Loading leveling data…</div>
@@ -96,6 +120,13 @@ export function LevelingView({ game, result, sales }: { game: GameData; result: 
             Your time per craft <NumberField value={inp.perCraftSilver} min={0} max={1000} onCommit={(n) => set({ perCraftSilver: n })} /> silver</label>
         </div>
         {inp.to <= inp.from && <p className="hint">The target skill must be above the starting skill.</p>}
+        {stale && kept && (
+          <div className="lv-stale">
+            <span>Prices have updated since this route was planned ({new Date(kept.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}),
+              and the route would change. It stays as it is until you re-plan; its figures are the prices it was planned with.</span>
+            <button className="button primary" onClick={() => { keep(); setOpen(new Set()) }}>Re-plan</button>
+          </div>
+        )}
         {p && (
           <div className="lv-sum">
             <div><span className="muted">Expected cost</span><b>{m(p.totalMean)}</b></div>
@@ -242,6 +273,12 @@ function RouteShopping({ p, inp, name, result }: { p: Plan; inp: Inputs; name: (
       </>}
     </div>
   )
+}
+
+/** What makes two routes the same route: the stretches (skill range, recipe, crafted reagents) and the recipes to learn. */
+function routeKey(p: Plan | null): string {
+  if (!p) return ''
+  return p.segments.map((s) => `${s.from}-${s.to}:${s.action.key}`).join(',') + '|' + p.learn.map((l) => l.recipe.id).join(',')
 }
 
 function salesTip(sales: SalesData | null, house: number): string {
