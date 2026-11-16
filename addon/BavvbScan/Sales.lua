@@ -14,6 +14,8 @@
 --                   src }, ... },
 --     visits  = { { id, t0, t1, char, realm, faction, goldIn, goldOut, sales, received, deposits, other,
 --                   unexplained, missing }, ... } }
+--   Sales also carry mailDaysLeft = the days the mail had left when last seen (an auction-sale mail lasts 30 days in
+--   Classic, so the sale was roughly 30 - mailDaysLeft days before collecting; kept raw for later estimates).
 --   price = sale price (whole stack), cut = AH cut, deposit = listing deposit returned, money = gold in the mail,
 --   received = money - deposit (sale price - AH cut), all copper. status: "ok" = its money reached the gold;
 --   "nogold" = the mail went but no matching gold came (left for Josh to judge). src: "invoice" (the mail's sale
@@ -31,15 +33,16 @@
 --   price, and units that never arrived are a "noitem" record. Records { kind = "buy", t, item, itemID, count (units
 --   in this part), price (paid for them), status "ok" / "noitem", mailCount, mailPrice (the whole mail) }; sale records
 --   carry kind = "sale" (older ones have no kind). Visits add buys (parts), spent, buyMissing.
--- Records are only added, never changed; fixes happen in the trade tracker. Records and visits older than KEEP_DAYS are
--- dropped (2026-11-14: ~0.4 KB a record would otherwise grow the file by 10-15 MB a year, slowing logins and /reload).
+-- Records are only added, never changed. Records and visits older than KEEP_DAYS are dropped (2026-11-14: ~0.4 KB a
+-- record would otherwise grow the file by 10-15 MB a year, slowing logins and /reload). The permanent copy is the mail
+-- ledger on Josh's PC (collector/ledger.mjs, run by the hourly sync), which has long since copied them.
 -- Buyer names are never read into the saved data.
 
 local GRACE = 10     -- seconds after the mailbox closes to wait for late gold or inbox updates
 local EXPIRY_SLACK = 300 -- seconds: a won mail's expiry time, worked out from its days left, matches within this
 local CARRY_DAYS = 35  -- won mails expire after 30 days; older carry entries are dropped
-local KEEP_DAYS = 60   -- records and visits older than this are dropped (the trade tracker has long since added them;
-                       -- it ignores anything older than 70 days, so a record can't come back after it forgot it)
+local KEEP_DAYS = 60   -- records and visits older than this are dropped (the ledger has long since copied them; the
+                       -- trade tracker ignores anything older than 70 days, so a record can't come back after it forgot it)
 local MAX_SUBSET = 12 -- waiting mails tried in combinations when matching one gold rise (a rise can pay several mails)
 local EVENTS_KEPT = 1000 -- mailbox events kept for diagnosis (120 until 2026-11-15: one big mailbox pushed them all out)
 
@@ -307,7 +310,8 @@ function Core.finish(v, now, carry)
   local function add(mail, at, status)
     local received = mail.money - (mail.deposit or 0)
     out[#out + 1] = { kind = "sale", t = at, item = mail.item, count = mail.count, price = mail.price,
-      deposit = mail.deposit, cut = mail.cut, money = mail.money, received = received, status = status, src = mail.src }
+      deposit = mail.deposit, cut = mail.cut, money = mail.money, received = received, status = status, src = mail.src,
+      mailDaysLeft = mail.daysLeft }
   end
   local sales, received, deposits, missing = 0, 0, 0, 0
   for _, c in ipairs(v.confirmed) do
@@ -431,7 +435,8 @@ local function readInbox()
         expiry = math.floor(time() + (tonumber(daysLeft) or 0) * 86400 + 0.5) }
     end
     if money and money > 0 then
-      local m = { sig = tostring(subject) .. "|" .. money, money = money, kind = "other" }
+      local m = { sig = tostring(subject) .. "|" .. money, money = money, kind = "other",
+        daysLeft = tonumber(daysLeft) and math.floor(tonumber(daysLeft) * 1000 + 0.5) / 1000 or nil }
       local t, item, _, bid, buyout, deposit, cut, _, _, c10, c11 = GetInboxInvoiceInfo(i)
       if t == "seller" and item then
         -- On the Forever client the quantity came as the 5th and 11th values (checked 2026-11-14); take the first
@@ -491,44 +496,21 @@ end
 
 local function plural(n, word) return n .. " " .. word .. (n == 1 and "" or "s") end
 
--- Problems in a summary (finished visit), as short phrases.
-local function issuesOf(x)
-  local out = {}
-  if (x.missing or 0) > 0 then
-    out[#out + 1] = plural(x.missing, "sale mail") .. " left without " .. (x.missing == 1 and "its" or "their") .. " gold"
-  end
-  if (x.unexplained or 0) > 0 then out[#out + 1] = coins(x.unexplained) .. " gold no mail accounts for" end
-  if (x.buyMissing or 0) > 0 then
-    out[#out + 1] = plural(x.buyMissing, "won mail") .. " left without " .. (x.buyMissing == 1 and "its" or "their")
-      .. " items reaching your bags"
-  end
-  return out
-end
-
--- The chat line after a mailbox visit: sales, gold, and either "everything matches", "waiting for ..." or the problems.
+-- The chat line after a mailbox visit: just what was recorded (Josh, 2026-11-16: short; the log is now background
+-- bookkeeping, so no checks or warnings in chat; /bscan sales shows records whose gold or items weren't seen).
 -- (A popup with a Reload button showed the same until 2026-11-14; Josh dropped it: logging off saves the file too.)
 local function reportLine(x)
   local parts = {}
-  if x.sales > 0 or (x.buys or 0) == 0 then parts[#parts + 1] = plural(x.sales, "sale") .. " (" .. coins(x.received) .. ")" end
+  if x.sales > 0 then parts[#parts + 1] = plural(x.sales, "sale") .. " (" .. coins(x.received) .. ")" end
   if (x.buys or 0) > 0 then parts[#parts + 1] = plural(x.buys, "purchase") .. " (" .. coins(x.spent) .. ")" end
-  local line = table.concat(parts, ", ") .. " recorded"
-  local issues = issuesOf(x)
-  if #issues > 0 then
-    return line .. ". |cffffb000Check in the tracker: " .. table.concat(issues, "; ") .. "|r"
-  end
-  local waits = {}
-  if (x.waiting or 0) > 0 then waits[#waits + 1] = "the gold of " .. plural(x.waiting, "mail") end
-  if (x.buyWaiting or 0) > 0 then waits[#waits + 1] = "the items of " .. plural(x.buyWaiting, "won mail") end
-  if #waits > 0 then
-    return line .. ", |cffffff80waiting for " .. table.concat(waits, " and ") .. "...|r"
-  end
-  return line .. ", everything matches |cff40ff40(OK)|r"
+  return table.concat(parts, ", ") .. " recorded"
 end
+Core.reportLine = reportLine
 
 local function hasNews(x)
-  return x.sales > 0 or (x.missing or 0) > 0 or (x.unexplained or 0) > 0 or (x.waiting or 0) > 0 or (x.buys or 0) > 0
-    or (x.buyMissing or 0) > 0 or (x.buyWaiting or 0) > 0
+  return x.sales > 0 or (x.buys or 0) > 0
 end
+Core.hasNews = hasNews
 
 -- The character's name as shown in game. On Forever the short name (UnitName) is only the first word, so "Xria Two",
 -- "Xria Forever" and "Xria Blacksmith" are all "Xria" (2026-11-14); records also carry the character's GUID, which is
@@ -633,21 +615,14 @@ local function note(event, arg)
   while #s.events > EVENTS_KEPT do table.remove(s.events, 1) end
 end
 
--- Which characters record their mail (Josh, 2026-11-14: the report showed on all his other characters). By default only
--- his trading characters; `/bscan mail on` / `off` changes it for the character playing (saved per account, by
--- GUID, in BavvbScanDB.mailChars).
-local TRADERS = {
-  ["Player-6925-03AADB1A"] = "Xfaction Bavvb",
-  ["Player-6925-037750ED"] = "Jeder Hillmont",
-  ["Player-6921-0306E8F7"] = "Horde Xria",
-  ["Player-6921-0308022D"] = "Xria Two",
-  ["Player-6921-03DDDF8A"] = "Xfaction Two", -- second Alliance seller, account 1120039#2 (2026-11-15)
-  ["Player-6925-03DF8156"] = "Xfaction Horde", -- second Horde seller, account THOROCKTHEBOLD (2026-11-15)
-}
+-- Which characters record their mail: every character (Josh, 2026-11-16: the log became a background record of all
+-- his auction trading, for bookkeeping and looking back). Until then only six trading characters, built in by GUID.
+-- `/bscan mail off` / `on` still switches it for the character playing (saved per account, by GUID, in
+-- BavvbScanDB.mailChars).
 function Core.recording(guid, choices)
   local c = choices and guid and choices[guid]
   if c ~= nil then return c end
-  return guid ~= nil and TRADERS[guid] ~= nil
+  return true
 end
 local function recording()
   return Core.recording(UnitGUID and UnitGUID("player"), BavvbScanDB and BavvbScanDB.mailChars)
@@ -733,6 +708,6 @@ function BavvbScanSalesStatus()
   if v then
     local ok = v.missing == 0 and v.unexplained == 0 and (v.buyMissing or 0) == 0
     say(string.format("Last mailbox visit %s (%s): %d sales, %d purchases, gold in %s%s", date("%m-%d %H:%M", v.t0),
-      tostring(v.char), v.sales, v.buys or 0, coins(v.goldIn), ok and " |cff40ff40(OK)|r" or " |cffffb000check in the tracker|r"))
+      tostring(v.char), v.sales, v.buys or 0, coins(v.goldIn), ok and "" or " |cffffb000(some gold or items not seen)|r"))
   end
 end

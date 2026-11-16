@@ -225,6 +225,17 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   it with the API prices (`readSales` in apiprices/folder.ts; only when its lastModified changes). First write: 6,550
   items Alliance, 6,450 Horde, 78 h of pairs, ~3 s. Cheap relisted items look high (Linen Bag ~425/day, Red Linen Bag
   ~900/day): the estimate counts some cancels/reposts as sales.
+- **Mail ledger** (Josh, 2026-11-16: the trade tracker outlived its use; he wants a background record of all his
+  auction trading for bookkeeping and looking back, e.g. a strategy at the next Classic launch or in 10 years):
+  BavvbScan's mailbox log now records on **every character** (see Trade tracker > Sales from the mailbox), and the
+  sync (`collector/ledger.mjs`, every run, tested) copies new records and visits from every account's BavvbScan.lua
+  under `F:\World of Warcraft\_forever_\WTF\Account\*\` (env FOREVER_WTF_ACCOUNTS; read only) into
+  `F:\ForeverAuctionData\ledger\YYYY-MM.jsonl` (local month; one JSON per line, lines only added; key account + id;
+  kind sale / buy / visit; sales get itemID from items.json when the name is unique; README.txt there explains the
+  fields). Own small SavedVariables parser (no TS import). Failure = lasting toast (`conditions.ledger`); the addon
+  keeps 60 days, so nothing is lost meanwhile. Seeded 2026-11-16: 2,401 entries, 11 characters, ~0.9 MB for ~3 days
+  (~100 MB/year at that pace); `ledger	rade-tracker-2026-11-16.json` = copy of the trades file then. F: only, no
+  second copy (Josh: nice to have, he manages it). To answer questions about past trades, read these files.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
@@ -432,7 +443,15 @@ market prices, predictions or TSM links. Purpose: how much gold is in the arbitr
   Blackwater item counts as a transfer (delete it). Jeder's first Blackwater sale (2026-11-14) was collected with the
   addon off: recorded by hand; Dismiss its won-mail half if it shows. `sales.events` keeps the last 120 mailbox events for diagnosis. Never stores buyer/sender names. Forever's GetInboxInvoiceInfo (checked by screenshot
   2026-11-14): type, item, buyer, sale price, count, deposit, cut, 0, 0, 0, count, false; mail money = sale + deposit -
-  cut. Only Josh's trading characters record (Josh, 2026-11-14: the popup showed on all his alts): their GUIDs are built in (`TRADERS` in Sales.lua: Xfaction Player-6925-03AADB1A, Jeder Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D, and since 2026-11-15 **Xfaction Two** Player-6921-03DDDF8A, a second Alliance trader on account 1120039#2, short name "Xfaction" like Xfaction Bavvb; GUID read from ForeverMail.lua's SavedVariables), and **Xfaction Horde** Player-6925-03DF8156, a second Horde trader on account THOROCKTHEBOLD (short name "Xfaction" too, but Horde). The trades page has the same six built in as roles (`KNOWN_ROLES` in mailSales.ts, plus "Xfaction|Alliance" = trader for Xfaction Bavvb's pre-GUID records); a role set on the page wins. Why: Xfaction Bavvb's trader role was only the old name list (`doc.mail.chars`), which stops counting once two characters share a short name; `/bscan mail on|off` changes it per character (BavvbScanDB.mailChars, by GUID); a new trading character needs `/bscan mail on` (and a role on the page). Chat line after each visit (a popup with a Reload button was dropped 2026-11-14 at
+  cut. **Every character records** since 2026-11-16 (mail ledger, see Collector); from 2026-11-14 to 11-16 only the six
+  trading characters did (`TRADERS` in Sales.lua, now removed: Xfaction Bavvb Player-6925-03AADB1A, Jeder
+  Player-6925-037750ED, Horde Xria Player-6921-0306E8F7, Xria Two Player-6921-0308022D, Xfaction Two
+  Player-6921-03DDDF8A (Alliance, account 1120039#2), Xfaction Horde Player-6925-03DF8156 (Horde, THOROCKTHEBOLD)).
+  `/bscan mail off|on` still switches a character (BavvbScanDB.mailChars, by GUID). The trades page keeps the six as
+  roles (`KNOWN_ROLES` in mailSales.ts, plus "Xfaction|Alliance"); other characters now show "Choose…" there (Josh
+  no longer uses the page; it stays live, untouched). Sale records also carry `mailDaysLeft` (sale mails last 30 days:
+  sale time ~ t - (30 - mailDaysLeft) days). Chat line since 2026-11-16 is short ("N sales (g), M purchases (g)
+  recorded"; no checks or waiting notes; `/bscan sales` flags records whose gold/items weren't seen). Chat line after each visit (a popup with a Reload button was dropped 2026-11-14 at
   Josh's request: logging off writes SavedVariables too, so his routine is just to log off; the risk is a crash,
   which loses that session's records since the mails are gone); `/bscan sales`. Tested in a fengari harness (192 checks incl. the popup, purchases, partial won mails, GUIDs, the 60-day limit and per-character switch; scratchpad, gone).
   **Matching fixes (BavvbScan 1.2, 2026-11-15)** after two bad visits that morning: (1) 58 sale mails emptied in 6 s on
@@ -779,6 +798,11 @@ checked it on the live site ("looks good").
   linked, auction data folder linked, save file and price history on (an older screenshot with Auc-ScanData.lua
   linked came from another browser/site).
 
+2026-11-16 (afternoon): Josh retired the trade tracker in practice (cumbersome with several characters; trades
+clearly profitable, no interest in its stats). Replaced by the mail ledger (see Collector): every character records,
+archived hourly on F:. The trades page stays live, unused. Not yet seen for real: the short chat line on a new
+character and the first "ledger: N new entries" line in F:\ForeverAuctionData\sync.log.
+
 Where we left off (2026-11-15 evening, signed off): the Leveling tab is live and Josh will use it when he levels a
 profession, coming back with specific questions (he prefers that to working through check lists; see memory).
 2026-11-16 just after midnight: Josh is levelling Leatherworking 85 -> 243 on the route saved in
@@ -835,7 +859,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy = 8a3c5d5 (Xfaction Horde in TRADERS). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an

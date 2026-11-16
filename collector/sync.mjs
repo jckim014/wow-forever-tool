@@ -24,6 +24,7 @@ import {
 import { openDb, insertSummary } from './marketDb.mjs';
 import { updateDepartures } from './departuresUpdate.mjs';
 import { writeSalesFile } from './salesFile.mjs';
+import { updateLedger } from './ledger.mjs';
 
 const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
@@ -37,6 +38,7 @@ const LOG_MAX_BYTES = 5 * 1024 * 1024;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
 const dataRoot = process.env.FOREVER_DATA_ROOT || 'F:\\ForeverAuctionData';
+const wtfAccountDir = process.env.FOREVER_WTF_ACCOUNTS || 'F:\\World of Warcraft\\_forever_\\WTF\\Account';
 const localDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'ForeverAuctionSync');
 const dryRun = process.argv.includes('--dry-run');
 
@@ -346,6 +348,18 @@ if (!dryRun && stored > 0) {
     { windowsHide: true, timeout: 5 * 60 * 1000, encoding: 'utf8', env: { ...process.env, FOREVER_DATA_ROOT: dataRoot } });
   const last = String(r.stdout || '').trim().split(/\r?\n/).pop();
   log(`names: ${r.status === 0 ? last : `fetch failed (${String(r.stderr || r.error || '').trim().slice(0, 200)})`}`);
+}
+
+// ---- mail ledger (ledger.mjs): new mailbox sales/purchases from every account's BavvbScan.lua, every run ----
+if (!dryRun && !conditions.drive) {
+  try {
+    const r = updateLedger({ wtfAccountDir: wtfAccountDir, ledgerDir: path.join(dataRoot, 'ledger'), itemsFile: path.join(dataRoot, 'items.json') });
+    if (!r.accounts) conditions.ledger = `No BavvbScan.lua found under ${wtfAccountDir}: mailbox sales and purchases aren't being archived.`;
+    log(`ledger: ${r.added} new entr${r.added === 1 ? 'y' : 'ies'} from ${r.accounts} account(s)${r.files.length ? ` (${r.files.join(', ')})` : ''}`);
+  } catch (e) {
+    conditions.ledger = `Mail ledger not updated: ${e.message}. Records stay in BavvbScan.lua for 60 days; retried every hour.`;
+    log(`ledger: ${e.message}`);
+  }
 }
 
 // ---- alerts ----
