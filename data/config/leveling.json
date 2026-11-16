@@ -1,0 +1,58 @@
+{
+  "_note": "Recipes known from the start (learned with the profession): free and always available to the leveling planner. First list from the rule: no Wowhead source, orange from skill 0, learned at <= 50 (2026-11-15). Edit by hand.",
+  "starter": {
+    "Alchemy": [
+      1245246,
+      1245250
+    ],
+    "Blacksmithing": [
+      2660,
+      2663,
+      3115,
+      12260,
+      1245287
+    ],
+    "Cooking": [
+      818,
+      2538,
+      2540
+    ],
+    "Enchanting": [
+      7418,
+      7421,
+      1245320,
+      1245321
+    ],
+    "Engineering": [
+      3918,
+      3919,
+      3920
+    ],
+    "First Aid": [],
+    "Leatherworking": [
+      2149,
+      2152,
+      2881,
+      7126,
+      9058,
+      9059
+    ],
+    "Mining": [
+      2657
+    ],
+    "Tailoring": [
+      2387,
+      2963,
+      3915,
+      12044
+    ]
+  },
+  "_aliasNote": "Recipe items whose name differs from the recipe they teach: item ID -> recipe (spell) ID.",
+  "recipeItemAliases": {
+    "9298": 8240,
+    "6211": 3188,
+    "3832": 3453,
+    "17062": 20916,
+    "18654": 23096
+  }
+}

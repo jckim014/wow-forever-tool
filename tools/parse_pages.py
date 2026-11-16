@@ -11,6 +11,13 @@ Input:  data/private/pages/*.html, one per profession, saved with Ctrl+S -> "Web
 Output: app/public/game-data.json (committed; this is what the site serves)
 Bind:   crafted products get items[id].bind from data/private/binding.json, written by tools/fetch_binding.py.
         New products missing from it are counted in a warning; run fetch_binding.py after this script.
+Leveling: also writes app/public/leveling-data.json for the leveling planner: every recipe with skill colours
+        (including enchants that create no item), its trainer cost, Wowhead source codes (6 = trainer), specialization,
+        starter flag (data/config/leveling.json) and the recipe items that teach it. Recipe items are matched by name
+        ("Pattern: <recipe>", "Plans: ...") against the auction collector's item names
+        (F:/ForeverAuctionData/items.json, game data from Wowhead tooltips; --items to change), cached in
+        data/private/recipe-items.json so a run without F: keeps the last match. Only items seen on the AH match,
+        which is the point: the planner only buys recipes from the AH.
 
 Run:
   python3 tools/parse_pages.py
@@ -28,6 +35,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ap = argparse.ArgumentParser()
 ap.add_argument('--pages', default=os.path.join(ROOT, 'data', 'private', 'pages'))
 ap.add_argument('--out', default=os.path.join(ROOT, 'app', 'public', 'game-data.json'))
+ap.add_argument('--items', default='F:/ForeverAuctionData/items.json')
+ap.add_argument('--leveling-out', default=os.path.join(ROOT, 'app', 'public', 'leveling-data.json'))
 args = ap.parse_args()
 
 PROFS = ['Tailoring', 'Leatherworking', 'Blacksmithing', 'Engineering', 'Enchanting', 'Alchemy', 'First Aid', 'Cooking', 'Mining']
@@ -49,7 +58,7 @@ def listview(s, lid):
         if i >= 0: return dec.raw_decode(s, s.find('data: ', i) + 6)[0]
     return None
 
-raw_items, crafted, recipes = {}, {}, []
+raw_items, crafted, recipes, all_recipes = {}, {}, [], []
 for prof, path in pages.items():
     s = open(path, encoding='utf8', errors='replace').read()
     for m in re.finditer(r'WH\.Gatherer\.addData\(3, 16, ', s):
@@ -61,6 +70,7 @@ for prof, path in pages.items():
     for c in ci or []: crafted.setdefault(c['id'], c)
     for r in R:
         if r.get('creates'): recipes.append((prof, r))
+        all_recipes.append((prof, r))
 
 BIND_CACHE = os.path.join(ROOT, 'data', 'private', 'binding.json')
 binding = json.load(open(BIND_CACHE, encoding='utf8')) if os.path.exists(BIND_CACHE) else {}
@@ -114,4 +124,55 @@ if old:
     oi, ni = old['items'], data['items']
     ch = [ni[k]['name'] for k in ni.keys() & oi.keys() if ni[k] != oi[k]]
     if ch: print(f'  items changed ({len(ch)}): {", ".join(sorted(ch)[:30])}{" ..." if len(ch) > 30 else ""}')
+
+# ---------- leveling data ----------
+PREFIX = {'Tailoring': 'Pattern', 'Leatherworking': 'Pattern', 'Blacksmithing': 'Plans', 'Engineering': 'Schematic',
+          'Enchanting': 'Formula', 'Alchemy': 'Recipe', 'Cooking': 'Recipe', 'First Aid': 'Manual', 'Mining': 'Plans'}
+RI_CACHE = os.path.join(ROOT, 'data', 'private', 'recipe-items.json')
+lv_conf = json.load(open(os.path.join(ROOT, 'data', 'config', 'leveling.json'), encoding='utf8'))
+starters = {i for ids in lv_conf['starter'].values() for i in ids}
+lv = [(p, r) for p, r in all_recipes if r.get('colors')]
+recipe_items = json.load(open(RI_CACHE, encoding='utf8')) if os.path.exists(RI_CACHE) else {}
+if os.path.exists(args.items):
+    ah = json.load(open(args.items, encoding='utf8')); by_name = {}
+    key = lambda n: re.sub(r'[^a-z0-9]', '', re.sub(r'the', '', n.lower()))  # "Transmute: Arcanite", "Elixir of the Giants"
+    for k, v in ah.items():
+        m = re.match(r'^(Pattern|Plans|Recipe|Formula|Schematic|Manual): (.+)$', v.get('name') or '')
+        if m: by_name.setdefault((m.group(1), key(m.group(2))), []).append({'id': int(k), 'name': v['name']})
+    recipe_items, matched = {}, set()
+    for p, r in lv:
+        hits = by_name.get((PREFIX[p], key(r['name'])), [])
+        if hits: recipe_items[str(r['id'])] = sorted(hits, key=lambda h: h['id']); matched.update(h['id'] for h in hits)
+    for iid, sid in lv_conf.get('recipeItemAliases', {}).items():
+        v = ah.get(iid)
+        if v and v.get('name'):
+            recipe_items.setdefault(str(sid), []).append({'id': int(iid), 'name': v['name']}); matched.add(int(iid))
+    json.dump(recipe_items, open(RI_CACHE, 'w', encoding='utf8'), indent=0, sort_keys=True)
+    left = sorted((h['name'], h['id']) for hs in by_name.values() for h in hs if h['id'] not in matched)
+    print(f'Recipe items: {len(matched)} of {sum(len(h) for h in by_name.values())} AH recipe items matched to a recipe'
+          f'{"; unmatched: " + ", ".join(f"{n} ({i})" for n, i in left) if left else ""}')
+else:
+    warnings.append(f'{args.items} not found; recipe items from the cache ({len(recipe_items)} recipes)')
+lv_recipes, lv_items = [], set()
+for p, r in lv:
+    d = {'id': r['id'], 'name': r['name'], 'profession': p, 'colors': r['colors'], 'learnedat': r.get('learnedat'),
+         'source': r.get('source') or [], 'reagents': [{'item': i, 'qty': n} for i, n in r.get('reagents', [])]}
+    if r.get('trainingcost') is not None: d['trainer'] = r['trainingcost']
+    if r.get('specialization'): d['spec'] = r['specialization']
+    if r['id'] in starters: d['starter'] = True
+    cr = r.get('creates')
+    if cr:
+        d['product'] = cr[0]; d['qtyMin'] = cr[1] if len(cr) > 1 and cr[1] else 1
+        d['qtyMax'] = max(cr[2] if len(cr) > 2 and cr[2] else d['qtyMin'], d['qtyMin']); lv_items.add(cr[0])
+    if str(r['id']) in recipe_items: d['recipeItems'] = recipe_items[str(r['id'])]
+    lv_items.update(x['item'] for x in d['reagents']); lv_recipes.append(d)
+missing_st = sorted(starters - {r['id'] for _, r in lv})
+if missing_st: warnings.append(f'data/config/leveling.json starters not on the pages: {missing_st}')
+extra = {str(i): item_fields(i) for i in sorted(lv_items) if str(i) not in items}
+lv_data = {'source': 'Wowhead Forever profession pages (game data only)',
+           'recipes': sorted(lv_recipes, key=lambda x: (x['profession'], x['name'], x['id'])), 'items': extra}
+json.dump(lv_data, open(args.leveling_out, 'w'), separators=(',', ':'), sort_keys=True)
+print(f'{len(lv_recipes)} leveling recipes ({sum("trainer" in r for r in lv_recipes)} trainer, {sum(r.get("starter", False) for r in lv_recipes)} starter, '
+      f'{sum("recipeItems" in r for r in lv_recipes)} with a recipe item seen on the AH), {len(extra)} extra items -> '
+      f'{os.path.relpath(args.leveling_out, ROOT)} ({os.path.getsize(args.leveling_out) // 1024} KB)')
 for w in warnings: print('WARNING:', w)

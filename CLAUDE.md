@@ -24,7 +24,7 @@ trading. He prefers direct, precise communication and honest assessment over val
 ## Layout
 
 ```
-tools/parse_pages.py            saved Wowhead pages -> app/public/game-data.json (committed)
+tools/parse_pages.py            saved Wowhead pages -> app/public/game-data.json + leveling-data.json (committed)
 tools/fetch_binding.py          products' bind type from Forever item tooltips -> game-data.json (cache in data/private/)
 tools/export_workbook_edits.py  one-time: workbook edits -> data/private/edits-v2.5.json (import in the app)
 tools/export_parity.py          calculated workbook -> data/private/parity-v2.5.json (test reference)
@@ -36,6 +36,7 @@ collector/                      auction collector: cloud fetch (GitHub Actions) 
 market/                         Forever Market: local app for price trends and faction arbitrage (see Forever Market)
 data/config/de-table.json       default disenchant table (Classic item-level bands), with material item IDs
 data/config/defaults.json       default settings and the cooldown-craft rule
+data/config/leveling.json       leveling planner: starter recipes per profession, recipe-item name aliases
 data/private/                   git-ignored: pages/, workbooks, edits-v2.5.json, parity-v2.5.json
 app/                            the web app (to be built: Vite + React + TypeScript + AG Grid Community)
 ```
@@ -524,6 +525,34 @@ unless the product is BoP), the priced one with the highest value; ties go Vendo
 Known workbook quirks to preserve or consciously change (ask): six same-name recipe pairs exist and are told apart
 by recipe ID. Decided: the workbook matched items by name, so two items sharing a name shared one price row; the app
 prices every item by its own ID (Josh, 2026-10-22). Parity differences this causes are listed in `parity.test.ts`.
+
+## Leveling planner (started 2026-11-15; agreed with Josh step by step)
+
+Cheapest route to level a profession with the app's prices. Pure code in `app/src/leveling/plan.ts` (tested in
+`plan.test.ts` on a made-up profession); data in `app/public/leveling-data.json` from `parse_pages.py`.
+- **Data**: every recipe with Wowhead skill colours [orange, yellow, green, grey] (incl. enchants that make no item),
+  learnedat, source codes (6 = trainer), trainingcost, specialization, and `recipeItems` = recipe items seen on the
+  AH, matched by name ("Pattern:/Plans:/Recipe:/Formula:/Schematic:/Manual: <recipe>", letters only, "the" dropped)
+  against the collector's `F:\ForeverAuctionData\items.json` (cache `data/private/recipe-items.json`), plus
+  `recipeItemAliases` in data/config/leveling.json for names that differ. Starters (known on learning the profession;
+  Josh confirmed the list) are in the same file. 2026-11-15: 2,212 recipes, 466 trainer, 28 starter, 677 with an AH item.
+- **Recipes used** (Josh): starters (free), trainer recipes (training cost) and recipes whose recipe item has a price
+  (AH; vendor recipes count only this way; unseen = not available). Specialisation recipes and cooldown crafts (the
+  model's rule: Transmute..., Mooncloth) are left out.
+- **Chance of a point** at skill s: 1 below yellow, (grey - s) / (grey - yellow) up to grey, 0 from grey; 0 before
+  learnedat (starters: from 1). Classic community formula, not confirmed on Forever.
+- **Actions**: a recipe, with each same-profession craftable reagent either bought (its reagent price) or crafted
+  (one level; its ingredients at the model's best cost); every craft in the action rolls for a point. Other reagents
+  at the model's best cost (so Allow crafting applies), no skill credit.
+- **Choice per skill level**: lowest (max(0, cost - vendor value of the product) + 1s x crafts) / expected points.
+  Profit at the vendor counts as 0 (else low chances look better); 1s per craft is Josh's time cost (2026-11-15:
+  Tailoring 1-300 498 -> 370 crafts for +0.45g), only for choosing, never in the totals. Products count at vendor
+  value by default (Josh); DE and AH exits are shown, not counted.
+- **Recipes to buy**: greedy: add the AH recipe that lowers the total most (its price included), drop a trainer recipe
+  that doesn't pay for its training cost, repeat. "Saves" = total without it - total with it.
+- **Quantities**: the route is simulated with dice rolls (2,000 runs, seeded): expected crafts and the 90% amount
+  (covers 9 runs of 10) per stretch; intermediates kept in stock between crafts. Totals = mean; safe total = 90% of
+  whole-route runs.
 
 ## UI (what Josh wants)
 
