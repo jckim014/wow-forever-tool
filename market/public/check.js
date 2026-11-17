@@ -29,7 +29,7 @@ let loaded = false;
 export async function showCheck() {
   if (loaded) return;
   const box = $('#check');
-  box.innerHTML = '<p class="mempty">Checking your TSM records against the snapshots (about 10 seconds)…</p>';
+  box.innerHTML = '<p class="mempty">Checking your TSM records against the snapshots (a few seconds; longer the first time)…</p>';
   try {
     const r = await (await fetch('/api/method-check')).json();
     if (r.error) throw new Error(r.error);

@@ -311,6 +311,11 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   snapshot = not checkable, never an earlier pair). v2 on 140 records: 88% of sales+buys detected (82/93), 0/15 cancels
   and 1/14 expiries counted as sales; the misses are mostly sales near the end of a listing (vanish with < 2 h left,
   indistinguishable from expiry: an hourly-snapshot limit). Tune only with ~100+ more records; record each version.
+  Speed (2026-11-17): reading every raw snapshot took 82 s / 1.6 GB at 5 days of data and grew with it, so each
+  snapshot pair is classified once into `F:\ForeverAuctionData\cache\method-check\<house>-<prevT>-<t>.json.gz` (only
+  listings of items whose records fall in that pair; ~3 MB; redone for a new method version, a new item, or a late
+  snapshot; unneeded files pruned). Warm check 0.5 s, first build 59 s; output identical to the old code on Josh's
+  2,892 records. Deleting the folder is safe (rebuilt on the next check).
 - **Faction tab** (step 6, 2026-11-13; calculation `market/faction.mjs`, tested; `/api/faction`; `public/faction.js`).
   Agreed with Josh: buy = cheap side's cheapest15; sell = dear side's lowest, unless it is under 80% of the dear side's
   cheapest15 (lone outlier / bait: then cheapest15, row flagged "outlier ignored"); transfer listed on Blackwater at

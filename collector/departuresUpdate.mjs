@@ -50,7 +50,8 @@ export function loadHouse(dir, house) {
   return a || c ? indexListings(a, c) : null;
 }
 
-function hasHouseFiles(dir, house) {
+/** True if the snapshot folder holds this house's listings (loadHouse would not return null). */
+export function hasHouseFiles(dir, house) {
   return fs.existsSync(path.join(dir, `house-${house}-auctions.json.gz`))
     || fs.existsSync(path.join(dir, `house-${house}-commodities.json.gz`));
 }
