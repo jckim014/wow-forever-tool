@@ -800,8 +800,8 @@ checked it on the live site ("looks good").
 
 2026-11-16 (afternoon): Josh retired the trade tracker in practice (cumbersome with several characters; trades
 clearly profitable, no interest in its stats). Replaced by the mail ledger (see Collector): every character records,
-archived hourly on F:. The trades page stays live, unused. Not yet seen for real: the short chat line on a new
-character and the first "ledger: N new entries" line in F:\ForeverAuctionData\sync.log.
+archived hourly on F:. The trades page stays live, unused. Confirmed 2026-11-17: the sync writes "ledger: N new
+entries from 2 account(s)" each run (e.g. 202, 93). Not yet seen for real: the short chat line on a new character.
 
 Where we left off (2026-11-15 evening, signed off): the Leveling tab is live and Josh will use it when he levels a
 profession, coming back with specific questions (he prefers that to working through check lists; see memory).
@@ -809,7 +809,7 @@ profession, coming back with specific questions (he prefers that to working thro
 `data/private/leveling-route-leatherworking-85-243.md` (rebuilt at the 06:17 UTC snapshot after the live route changed
 under him; he confirmed it). Since 787fc85 the page keeps a route fixed until Re-plan. Nothing
 was checked by him in game yet: the whole-route Auctionator import, Sold / day in his browser (headless Chrome can't
-open F:), and the sync writing sales.json by itself (look for "sales.json:" lines in F:\ForeverAuctionData\sync.log).
+open F:). The sync writes sales.json by itself every run (confirmed 2026-11-17, ~6,700 items per faction).
 2026-11-16 (short session, talk + one change): snipe protection for cross-faction transfers. Josh is about to move
 well-known high-value items, which bots on Blackwater will snipe at the buy-price listing (he can't beat them on
 speed). Worked out with him: listing the transfer at sell x 0.95 leaves a sniper nothing; the cost is a fixed
@@ -838,7 +838,10 @@ The sales estimate's confidence was explained to him (Method check: ~96% of his 
 misses = sales near listing end; leans low); rules change only with his yes after ~100+ more records.
 Collection check 2026-11-13: every hourly snapshot stored since the Google timer took over (2026-11-12 17:40 PT);
 one hour lost before it (2026-11-12 15:22 PT, manual-run period); the one failed run was the deliberate test; Google
-skipped one timer start (09:40 PT) at no cost. The collector and PC sync run unattended (scheduled sync + name fetch
+skipped one timer start (09:40 PT) at no cost. Check 2026-11-17 (Josh asked): 107 snapshots 11-12 20:22 to 11-17
+08:17 UTC, all 15 houses each hour, every run successful, sync "0 problem(s)", F: 857 GB free. One more hour missing:
+2026-11-13 19:22 UTC; right after it Blizzard's refresh moved from :22 to :17, so likely a skipped Blizzard update
+(unproven, run logs gone); no gaps since. The collector and PC sync run unattended (scheduled sync + name fetch
 are normal background Node processes; don't stop them).
 Shuffle app: Favorites and API prices shipped and live. Josh uses them with real scans and comes back with
 iterations. BavvbScan is the price source for up-to-the-minute prices; its scan panel is in use
