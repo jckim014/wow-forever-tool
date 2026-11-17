@@ -328,7 +328,7 @@ if (!dryRun && stored > 0) {
     marketDb ??= openDb(path.join(dataRoot, 'market.db'));
     const t0 = Date.now();
     const r = updateDepartures(marketDb, dataRoot);
-    log(`departures: ${r.pairs} pair(s) compared${r.skipped ? `, ${r.skipped} skipped (gap)` : ''}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+    log(`departures: ${r.pairs} pair(s) compared${r.skipped ? `, ${r.skipped} skipped (gap)` : ''}${r.redone ? `, ${r.redone} redone for a late snapshot` : ''}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   } catch (e) {
     events.push({ title: 'Auction sync: sale estimate not updated', message: `${e.message}. Run node collector/build_departures.mjs to catch up.`, url: ACTIONS_URL });
     log(`departures: ${e.message}`);

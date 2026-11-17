@@ -291,7 +291,9 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   have expired). Stored in market.db `departures(item, house, t, certain, probable, reposted, unclear)` and
   `departure_pairs(house, t, prev_t, skipped, method)`; filled by `collector/build_departures.mjs` (after a method
   change: drop both tables and rerun, ~6 s per 10 h of data) and by the sync after each new snapshot
-  (`departuresUpdate.mjs`). Item page (Josh asked for plain sales wording, 2026-11-13; tiles,
+  (`departuresUpdate.mjs`). A snapshot stored late (download failed, retried after later ones; first seen 2026-11-17
+  after the PC was off overnight) makes the next update delete and redo the pairs from the one spanning it
+  (`lateRedoFrom`; sync log "N redone for a late snapshot"). Item page (Josh asked for plain sales wording, 2026-11-13; tiles,
   2026-11-13: the old text bands were "clunky"): three tiles under the price table (`salesTiles` in app.js), "Alliance
   sold / day ⓘ" and "Horde sold / day ⓘ" with ~N (= certain + probable over the last 7 days, scaled to 24 h by the
   hour pairs present), then "N confirmed sales · estimated" (certain; "none confirmed" when ~0) and "last 7 days". The
