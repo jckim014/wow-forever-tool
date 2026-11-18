@@ -189,7 +189,8 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   `%LOCALAPPDATA%\ForeverAuctionSync\`. Windows toasts (click opens GitHub): F: not writable, GitHub unreachable twice
   in a row or token rejected, schedule not active, newest data > 3 h old, token expiring within 14 days (lasting
   problems: on start, every 6 h, and "fixed"); failed collector runs, a snapshot that can't be stored (kept on GitHub,
-  retried), new collector notes/problems (once each). **Backup for the timer**: if no collector run has started for
+  retried next hour; a failed download first gets one more try 30 s after the rest of the run, and only a second
+  failure alerts: 2026-11-18, the logon run hit "fetch failed" on two mornings before the network was up), new collector notes/problems (once each). **Backup for the timer**: if no collector run has started for
   70 min, the sync starts one (workflow_dispatch, `state.backupStartedAt`) and alerts until a run it didn't start
   appears (the timer is back). `--dry-run` and `--test-notification` flags. First real sync
   2026-11-12: 8.2 MB snapshot in 8.6 s, peak 336 MB; nothing new: 1 s, 56 MB. Summary of 111 vs a BavvbScan 25 min
@@ -833,7 +834,11 @@ stored late now has its sale-estimate pairs redone (ed50683), and the Method che
 0.5 s, 2e85119). Josh hasn't yet reported back on the Method check figures themselves (2,892 records now: sales+buys
 detected 60% (867 of 1,435 judged; 803 sales "invisible"), well below the 88% of the 140-record v2 check; the
 ~100+ records for a method review now exist: raise it when he next looks at Market).
-Unconfirmed from the morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
+2026-11-18 (short session): "snapshot could not be stored" toast after the PC was off ~3:55 am-2:05 pm local; the
+logon sync's first download hit "fetch failed" (10 others stored). Stored by a manual sync, late-snapshot redo
+recalculated 20 pairs, no data lost. Fix: one retry 30 s later before alerting (see Collector > PC side); not yet
+exercised for real (watch for "retrying in 30 s" in sync.log after the next morning backlog).
+Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
 checkboxes (Market restart), a seller's Blackwater gold matched to an item transfer, a wrong-cut flag, a won mail

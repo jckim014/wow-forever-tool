@@ -30,6 +30,7 @@ const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
 const ACTIONS_URL = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
 const STALE_MS = 3 * 60 * 60 * 1000;
+const RETRY_DELAY_MS = 30 * 1000;
 const BACKUP_RUN_AFTER_MS = 70 * 60 * 1000; // no collector run for this long: start one from here
 const TOKEN_WARN_MS = 14 * 24 * 60 * 60 * 1000;
 const LOCK_STALE_MS = 30 * 60 * 1000;
@@ -282,18 +283,33 @@ try {
     log(`${artifacts.length} snapshot(s) waiting on GitHub${dryRun ? ' (dry run)' : ''}`);
 
     if (driveOk) {
+      const fetchOne = async (a) => {
+        const t0 = Date.now();
+        const files = readZip(await downloadArtifact(a.id));
+        const id = storeSnapshot(a.name, files);
+        if (!dryRun) await gh(`/repos/${REPO}/actions/artifacts/${a.id}`, { method: 'DELETE' });
+        state.newestStored = Math.max(state.newestStored ?? 0, snapshotDate(id).getTime());
+        stored++;
+        log(`${dryRun ? 'checked' : 'stored'} ${id} (${(a.size_in_bytes / 1e6).toFixed(1)} MB, ${Date.now() - t0} ms)`);
+      };
+      // A failed download gets one more try 30 s after the rest (the logon run often starts before the network is
+      // fully up); only a second failure alerts.
+      const failed = [];
       for (const a of artifacts) {
         try {
-          const t0 = Date.now();
-          const files = readZip(await downloadArtifact(a.id));
-          const id = storeSnapshot(a.name, files);
-          if (!dryRun) await gh(`/repos/${REPO}/actions/artifacts/${a.id}`, { method: 'DELETE' });
-          state.newestStored = Math.max(state.newestStored ?? 0, snapshotDate(id).getTime());
-          stored++;
-          log(`${dryRun ? 'checked' : 'stored'} ${id} (${(a.size_in_bytes / 1e6).toFixed(1)} MB, ${Date.now() - t0} ms)`);
+          await fetchOne(a);
+        } catch (e) {
+          log(`failed ${a.name}: ${e.message} (retrying in 30 s)`);
+          failed.push(a);
+        }
+      }
+      if (failed.length) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      for (const a of failed) {
+        try {
+          await fetchOne(a);
         } catch (e) {
           events.push({ title: 'Auction sync: a snapshot could not be stored', message: `${a.name}: ${e.message}. It stays on GitHub and is retried next hour.`, url: ACTIONS_URL });
-          log(`failed ${a.name}: ${e.message}`);
+          log(`failed again ${a.name}: ${e.message}`);
         }
       }
     }
