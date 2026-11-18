@@ -826,6 +826,13 @@ difference. Built the Faction tab's **Protected** checkbox (72.25%, Josh's choic
 4002f76, pushed; Josh checked it: "everything looks good"). Blackwater deposits go by vendor price (Josh).
 Not built, could matter once he uses it: the trade tracker records the higher transfer price as typed (its totals
 stay right); nothing flags which items bots watch, Josh decides per item.
+2026-11-17 (morning session, fixes): Market looked stale because the PC was off ~2:55-9:30 local; the logon sync
+caught up (one download "terminated" mid-way on a slow just-logged-on network, stored by the next hourly retry).
+Blizzard skipped the 15:17 UTC update (data jumped 14:17 -> 16:25; unrecoverable). Two fixes, both pushed: a snapshot
+stored late now has its sale-estimate pairs redone (ed50683), and the Method check caches each pair on F: (82 s ->
+0.5 s, 2e85119). Josh hasn't yet reported back on the Method check figures themselves (2,892 records now: sales+buys
+detected 60% (867 of 1,435 judged; 803 sales "invisible"), well below the 88% of the 140-record v2 check; the
+~100+ records for a method review now exist: raise it when he next looks at Market).
 Unconfirmed from the morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
