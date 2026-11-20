@@ -108,6 +108,15 @@ export interface Edits {
   shopping: ShoppingEdits
   /** The Favorites view's groups; no effect on any calculation. */
   favorites: FavoritesEdits
+  /** The Leveling view's extra recipes and skill-up bonus (they change the route, not the Recipes figures). */
+  leveling: LevelingEdits
+}
+
+export interface LevelingEdits {
+  /** recipe IDs Josh has or can get outside the trainer and the AH (e.g. BoP vendor recipes): free in the planner */
+  recipes: number[]
+  /** Working Overtime legacy talent: percentage points added to a green recipe's skill-up chance while on */
+  overtime: { on: boolean; pts: number }
 }
 
 export interface FavoritesEdits {

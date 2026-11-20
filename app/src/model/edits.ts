@@ -2,12 +2,15 @@ import type { DeBand, Edits, ImportRow, ImportsInfo, Settings } from './types'
 
 export const EDITS_FORMAT = 'shuffle-edits'
 export const EDITS_VERSION = 1
+/** Working Overtime's bonus as measured by Josh (2026-11-19, tentative): +12 percentage points on green recipes */
+export const OVERTIME_PTS = 12
 
 export function emptyEdits(): Edits {
   return {
     typedPrices: {}, vendorBuyOverrides: {}, settings: {}, allowCrafting: {}, useChainsNo: [], deTable: null, imports: [], importsInfo: null,
     shopping: { recipes: [], ticks: {}, listName: null },
     favorites: { groups: [] },
+    leveling: { recipes: [], overtime: { on: false, pts: OVERTIME_PTS } },
   }
 }
 
@@ -139,6 +142,18 @@ export function normalizeEdits(raw: unknown): { edits: Edits; warnings: string[]
         }
       }
       e.favorites.groups.push({ id: g.id, name: g.name, recipes })
+    }
+  }
+  const lv = r.leveling as Record<string, unknown> | null | undefined
+  if (lv && typeof lv === 'object') {
+    const seen = new Set<number>()
+    for (const id of (Array.isArray(lv.recipes) ? lv.recipes : []) as unknown[]) {
+      if (Number.isInteger(id) && !seen.has(id as number)) { seen.add(id as number); e.leveling.recipes.push(id as number) }
+    }
+    const ot = lv.overtime as Record<string, unknown> | null | undefined
+    if (ot && typeof ot === 'object') {
+      if (typeof ot.on === 'boolean') e.leveling.overtime.on = ot.on
+      if (typeof ot.pts === 'number' && Number.isFinite(ot.pts) && ot.pts >= 0 && ot.pts <= 100) e.leveling.overtime.pts = ot.pts
     }
   }
   return { edits: e, warnings }

@@ -6,7 +6,9 @@
 // from yellow to grey, 0 from grey. Expected cost per point = (action cost - vendor value of what it makes) / expected
 // points (a craft that makes money counts as free when choosing, with fewer crafts winning). At each skill level the cheapest action among the learned recipes is used (an approximation: it treats the
 // chance as fixed for the whole action). Recipes: starters (free), trainer (training cost, non-specialisation) and
-// recipes whose recipe item has an AH price. Which AH recipes to buy is a greedy search: add the one that lowers the
+// recipes whose recipe item has an AH price, plus the recipes Josh ticks as his (`extra`: free; e.g. BoP vendor recipes
+// bought with Merchant's Favor). Every other recipe of the profession is a `candidate`: never used, but the plan says
+// what it would save if ticked. A skill-up bonus (Working Overtime) adds flat points to green chances. Which AH recipes to buy is a greedy search: add the one that lowers the
 // total most (its price included), repeat; drop trainer recipes that don't pay for their training cost. Quantities
 // come from simulating the chosen route with real dice rolls (`runs` times): expected and safe (e.g. 90%) crafts.
 import type { Config, IntermediateRow, Item, Money, PriceInfo, Reagent } from '../model/types'
@@ -48,6 +50,10 @@ export interface PlanInput {
   item: (id: number) => Item | undefined
   /** cooldown crafts (Transmute..., Mooncloth) can't be used for leveling: left out */
   cooldownCrafts?: Config['cooldownCrafts']
+  /** recipes Josh has or can get outside the trainer and the AH: used free of charge */
+  extra?: ReadonlySet<number>
+  /** added to the skill-up chance of a green recipe (0.12 = 12 percentage points; Working Overtime) */
+  bonus?: number
   /** copper added per craft when choosing recipes (your time); not in the totals. Default 100 (1s; Josh 2026-11-15), at least 1 */
   perCraft?: number
   /** share of runs the safe quantity covers (default 0.9) */
@@ -56,12 +62,13 @@ export interface PlanInput {
   seed?: number
 }
 
-export type Access = 'starter' | 'trainer' | 'ah'
+/** extra = ticked by Josh (free); candidate = not available, listed with what it would save */
+export type Access = 'starter' | 'trainer' | 'ah' | 'extra' | 'candidate'
 
 export interface Learnable {
   recipe: LvRecipe
   access: Access
-  /** training cost or recipe item price; 0 for starters */
+  /** training cost or recipe item price; 0 for starters, extra and candidate recipes */
   cost: number
   recipeItem: RecipeItem | null
 }
@@ -107,6 +114,9 @@ export interface Segment {
 export interface Plan {
   segments: Segment[]
   learn: (Learnable & { firstUsed: number; saving: number | null })[]
+  /** recipes not available (not ticked), each with what ticking it would save: copper, or levels it would fill where
+   *  the route stops. Null = it wouldn't change the route. The other recipes' choice stays as planned (approximate). */
+  candidates: { recipe: LvRecipe; saving: number | null; fills: number }[]
   /** skill levels no learnable recipe can raise (the route stops at the first) */
   gaps: number[]
   /** expected total: reagents - vendor value + training + recipe items */
@@ -125,13 +135,14 @@ export function minSkill(r: LvRecipe): number {
   return r.learnedat ?? (r.colors[0] || r.colors[1])
 }
 
-/** Chance of a skill point when crafting r at skill s (0 if not yet learnable). */
-export function chance(r: LvRecipe, s: number): number {
+/** Chance of a skill point when crafting r at skill s (0 if not yet learnable). `bonus` is added to a green chance
+ *  (between yellow and grey), up to 1; orange/yellow stay 1 and grey stays 0. */
+export function chance(r: LvRecipe, s: number, bonus = 0): number {
   if (s < minSkill(r)) return 0
   const [, y, , g] = r.colors
   if (s >= g) return 0
   if (s < y) return 1
-  return (g - s) / (g - y)
+  return Math.min(1, (g - s) / (g - y) + bonus)
 }
 
 export function isCooldown(r: LvRecipe, rule: Config['cooldownCrafts'] | undefined): boolean {
@@ -139,12 +150,14 @@ export function isCooldown(r: LvRecipe, rule: Config['cooldownCrafts'] | undefin
   return rule.namePrefixes.some((p) => r.name.startsWith(p)) || rule.names.includes(r.name)
 }
 
-export function learnables(recipes: LvRecipe[], profession: string, price: (id: number) => PriceInfo, cooldown?: Config['cooldownCrafts']): Learnable[] {
+export function learnables(recipes: LvRecipe[], profession: string, price: (id: number) => PriceInfo, cooldown?: Config['cooldownCrafts'],
+  extra?: ReadonlySet<number>, withCandidates = false): Learnable[] {
   const out: Learnable[] = []
   for (const r of recipes) {
     if (r.profession !== profession || r.spec || isCooldown(r, cooldown)) continue
     if (r.starter) out.push({ recipe: r, access: 'starter', cost: 0, recipeItem: null })
     else if (r.source.includes(6) && r.trainer != null) out.push({ recipe: r, access: 'trainer', cost: r.trainer, recipeItem: null })
+    else if (extra?.has(r.id)) out.push({ recipe: r, access: 'extra', cost: 0, recipeItem: null })
     else {
       let best: { it: RecipeItem; p: number } | null = null
       for (const it of r.recipeItems ?? []) {
@@ -152,6 +165,7 @@ export function learnables(recipes: LvRecipe[], profession: string, price: (id: 
         if (p != null && p > 0 && (!best || p < best.p)) best = { it, p }
       }
       if (best) out.push({ recipe: r, access: 'ah', cost: best.p, recipeItem: best.it })
+      else if (withCandidates) out.push({ recipe: r, access: 'candidate', cost: 0, recipeItem: null })
     }
   }
   return out
@@ -163,7 +177,8 @@ export function buildActions(input: PlanInput, learn: Learnable[]): Action[] {
   const makers = new Map<number, LvRecipe>()
   for (const l of learn) {
     const r = l.recipe
-    if (r.product == null) continue
+    // a candidate never makes reagents for other recipes (it would push out a maker that can be used)
+    if (r.product == null || l.access === 'candidate') continue
     const cur = makers.get(r.product)
     if (!cur || minSkill(r) < minSkill(cur)) makers.set(r.product, r)
   }
@@ -216,33 +231,37 @@ export function buildActions(input: PlanInput, learn: Learnable[]): Action[] {
   return actions
 }
 
-export function expectedPoints(a: Action, s: number): number {
+export function expectedPoints(a: Action, s: number, bonus = 0): number {
   if (s < minSkill(a.recipe)) return 0
-  let e = chance(a.recipe, s)
+  let e = chance(a.recipe, s, bonus)
   for (const c of a.crafted) {
     if (s < minSkill(c.maker)) return 0
-    e += c.crafts * chance(c.maker, s)
+    e += c.crafts * chance(c.maker, s, bonus)
   }
   return e
 }
 
 const GAP = 1e13
 
-interface Ranked { a: Action; cpp: number }
+/** cpp = the choosing score per point (time cost included, profit counted as 0); gold = expected gold per point */
+interface Ranked { a: Action; cpp: number; gold: number }
 
 function evaluate(levels: Ranked[][], avail: Set<number>, fixed: Map<number, number>) {
   const chosen: (Action | null)[] = []
   const used = new Set<number>()
   let total = 0
+  let gold = 0
   for (const list of levels) {
     const hit = list.find((x) => x.a.recipes.every((id) => avail.has(id)))
     chosen.push(hit?.a ?? null)
     if (!hit) { total += GAP; continue }
     total += hit.cpp
+    gold += hit.gold
     for (const id of hit.a.recipes) used.add(id)
   }
   for (const id of used) total += fixed.get(id) ?? 0
-  return { total, chosen, used }
+  for (const id of used) gold += fixed.get(id) ?? 0
+  return { total, gold, chosen, used }
 }
 
 function rng(seed: number) {
@@ -264,7 +283,8 @@ export function plan(input: PlanInput): Plan {
   const { from, to, price } = input
   const safety = input.safety ?? 0.9
   const runs = input.runs ?? 2000
-  const learn = learnables(input.recipes, input.profession, price, input.cooldownCrafts)
+  const bonus = input.bonus ?? 0
+  const learn = learnables(input.recipes, input.profession, price, input.cooldownCrafts, input.extra, true)
   const perCraft = Math.max(1, input.perCraft ?? 100)
   const byId = new Map(learn.map((l) => [l.recipe.id, l]))
   const actions = buildActions(input, learn)
@@ -272,24 +292,24 @@ export function plan(input: PlanInput): Plan {
   for (let s = from; s < to; s++) {
     const list: Ranked[] = []
     for (const a of actions) {
-      const e = expectedPoints(a, s)
+      const e = expectedPoints(a, s, bonus)
       // a craft that makes money counts as free here (else a low chance would look better: more crafts, more
       // profit); among free ones the fewest crafts per point wins (perCraft, at least 1 copper, per craft)
       const crafts = 1 + a.crafted.reduce((t, c) => t + c.crafts, 0)
-      if (e > 0) list.push({ a, cpp: (Math.max(0, a.cost - a.credit) + perCraft * crafts) / e })
+      if (e > 0) list.push({ a, cpp: (Math.max(0, a.cost - a.credit) + perCraft * crafts) / e, gold: (a.cost - a.credit) / e })
     }
     list.sort((x, y) => x.cpp - y.cpp)
     levels.push(list)
   }
   const fixed = new Map(learn.map((l) => [l.recipe.id, l.cost]))
-  const avail = new Set(learn.filter((l) => l.access !== 'ah').map((l) => l.recipe.id))
-  const candidates = learn.filter((l) => l.access === 'ah').map((l) => l.recipe.id)
+  const avail = new Set(learn.filter((l) => l.access !== 'ah' && l.access !== 'candidate').map((l) => l.recipe.id))
+  const ahIds = learn.filter((l) => l.access === 'ah').map((l) => l.recipe.id)
   let cur = evaluate(levels, avail, fixed)
   for (let round = 0; round < 200; round++) {
     let bestId: number | null = null
     let bestEval = cur
     let remove = false
-    for (const id of candidates) {
+    for (const id of ahIds) {
       if (avail.has(id)) continue
       avail.add(id)
       const e = evaluate(levels, avail, fixed)
@@ -311,11 +331,14 @@ export function plan(input: PlanInput): Plan {
   }
   // what each recipe bought or trained saves: the total without it, minus the total with it
   const savingOf = (id: number): number | null => {
-    if (fixed.get(id) === 0) return null
+    if (byId.get(id)!.access === 'starter') return null
     avail.delete(id)
-    const e = evaluate(levels, avail, fixed)
+    let e = evaluate(levels, avail, fixed)
+    // without it the route stops: compare with a route that may also use any AH recipe (one that was dropped because
+    // this recipe covered its levels)
+    if (e.total >= GAP) e = evaluate(levels, new Set([...avail, ...ahIds.filter((x) => x !== id)]), fixed)
     avail.add(id)
-    return e.total >= GAP ? null : e.total - cur.total
+    return e.total >= GAP ? null : e.gold - cur.gold
   }
 
   // segments: consecutive levels with the same action
@@ -351,13 +374,13 @@ export function plan(input: PlanInput): Plan {
       const a = segActs[gi].action
       a.crafted.forEach((c, ci) => {
         while ((stock.get(c.item) ?? 0) < c.qty - 1e-9) {
-          if (rand() < chance(c.maker, s)) s++
+          if (rand() < chance(c.maker, s, bonus)) s++
           stock.set(c.item, (stock.get(c.item) ?? 0) + qtyMade(c.maker))
           mc[gi][ci]++
         }
         stock.set(c.item, stock.get(c.item)! - c.qty)
       })
-      if (rand() < chance(a.recipe, s)) s++
+      if (rand() < chance(a.recipe, s, bonus)) s++
       top[gi]++
     }
     for (let i = 0; i < nSeg; i++) {
@@ -397,9 +420,25 @@ export function plan(input: PlanInput): Plan {
   const learnList = [...cur.used].map((id) => ({ ...byId.get(id)!, firstUsed: firstUsed.get(id)!, saving: savingOf(id) }))
     .sort((x, y) => x.firstUsed - y.firstUsed || x.recipe.name.localeCompare(y.recipe.name))
   const learnCost = learnList.reduce((t, l) => t + l.cost, 0)
+  // what ticking each candidate would save, with the rest of the route's recipes as chosen (only candidates whose skill
+  // range overlaps the route; a recipe that can't raise any level here is left out)
+  const gapCount = (chosen: (Action | null)[]) => chosen.filter((a) => !a).length
+  const curGaps = gapCount(cur.chosen)
+  const raises = new Set<number>()
+  for (const list of levels) for (const x of list) raises.add(x.a.recipe.id)
+  const candidates = learn.filter((l) => l.access === 'candidate' && raises.has(l.recipe.id)).map((l) => {
+    avail.add(l.recipe.id)
+    const e = evaluate(levels, avail, fixed)
+    avail.delete(l.recipe.id)
+    const fills = curGaps - gapCount(e.chosen)
+    // the route changes when the choosing score drops; the saving shown is in gold (it can be small or negative when
+    // the recipe mainly saves crafts)
+    const saving = fills > 0 ? null : cur.total - e.total > 0.5 ? cur.gold - e.gold : null
+    return { recipe: l.recipe, saving, fills }
+  }).sort((x, y) => y.fills - x.fills || (y.saving ?? 0) - (x.saving ?? 0) || minSkill(x.recipe) - minSkill(y.recipe))
   const reagentsMean = mean(totals)
   return {
-    segments, learn: learnList, gaps, totalMean: reagentsMean + learnCost, reagentsMean, learnCost,
+    segments, learn: learnList, candidates, gaps, totalMean: reagentsMean + learnCost, reagentsMean, learnCost,
     totalSafe: quantile(totals, safety) + learnCost,
     reached: { mean: mean(reachedAll), min: Math.min(...reachedAll) },
   }

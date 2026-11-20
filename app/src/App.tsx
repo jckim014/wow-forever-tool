@@ -245,7 +245,7 @@ export function App() {
         </div>
       )}
       {view === 'list' || view === 'prices' ? null : view === 'leveling' ? (
-        <LevelingView game={game} result={result} sales={api.sales} />
+        <LevelingView game={game} result={result} sales={api.sales} edits={edits} update={store.update} />
       ) : view === 'shopping' ? (
         <ShoppingView game={game} result={result} edits={edits} update={store.update} />
       ) : view === 'detable' ? (

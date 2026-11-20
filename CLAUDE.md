@@ -578,8 +578,19 @@ Cheapest route to level a profession with the app's prices. Pure code in `app/sr
 - **Recipes used** (Josh): starters (free), trainer recipes (training cost) and recipes whose recipe item has a price
   (AH; vendor recipes count only this way; unseen = not available). Specialisation recipes and cooldown crafts (the
   model's rule: Transmute..., Mooncloth) are left out.
-- **Chance of a point** at skill s: 1 below yellow, (grey - s) / (grey - yellow) up to grey, 0 from grey; 0 before
-  learnedat (starters: from 1). Classic community formula, not confirmed on Forever.
+- **More recipes** (Josh, 2026-11-19: BoP vendor recipes such as the Merchant's Favor ones, rep, drops): every other
+  non-spec, non-cooldown recipe of the profession (incl. AH recipes with no price right now) is a candidate. Ticked
+  ones (`edits.leveling.recipes`, save file) are used **free** (Josh values the Favor himself). Unticked candidates
+  whose skill range can raise a level of the route are listed with "Saves" = gold saved by that one recipe with the
+  rest of the route's recipes as chosen (no re-search of AH recipes; approximate), or "reaches N more levels" where
+  the route stops; the route is chosen by the choosing score, the saving shown is gold. Candidates never make
+  reagents for other recipes. Saves in Recipes to learn is now gold too (was the choosing score with the 1s/craft
+  time cost); when removing a recipe leaves a gap, that comparison may use any AH recipe again.
+- **Working Overtime** (legacy talent; Josh, 2026-11-19): checkbox + points (default 12, `OVERTIME_PTS`; Josh's
+  tentative test result, the talent text says 20%), saved in `edits.leveling.overtime`. Adds flat points to a green
+  chance, capped at 100%; orange/yellow stay 100%, grey 0%. Not confirmed how the game codes it (flat vs x1.2).
+- **Chance of a point** at skill s: 1 below yellow, (grey - s) / (grey - yellow) up to grey (+ Working Overtime's
+  points if on), 0 from grey; 0 before learnedat (starters: from 1). Classic community formula, not confirmed on Forever.
 - **Actions**: a recipe, with each same-profession craftable reagent either bought (its reagent price) or crafted
   (one level; its ingredients at the model's best cost); every craft in the action rolls for a point. Other reagents
   at the model's best cost (so Allow crafting applies), no skill credit.

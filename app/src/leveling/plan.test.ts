@@ -106,3 +106,51 @@ describe('plan', () => {
     ])
   })
 })
+
+describe('Working Overtime bonus', () => {
+  it('adds flat points to green chances only, capped at 100%', () => {
+    const x = r({ id: 1, name: 'x', colors: [10, 25, 37, 50] })
+    expect(chance(x, 24, 0.12)).toBe(1)
+    expect(chance(x, 37, 0.12)).toBeCloseTo(13 / 25 + 0.12)
+    expect(chance(x, 26, 0.12)).toBe(1) // 24/25 + 0.12 capped
+    expect(chance(x, 50, 0.12)).toBe(0) // grey stays grey
+    expect(chance(x, 9, 0.12)).toBe(0)
+  })
+
+  it('makes the route need fewer crafts', () => {
+    const base = plan(input([bolt], { to: 45 }))
+    const ot = plan(input([bolt], { to: 45, bonus: 0.12 }))
+    let expected = 24
+    for (let s = 25; s < 45; s++) expected += 1 / Math.min(1, (50 - s) / 25 + 0.12)
+    expect(ot.segments[0].crafts.mean).toBeCloseTo(expected, 0)
+    expect(ot.totalMean).toBeLessThan(base.totalMean)
+  })
+})
+
+describe('extra recipes', () => {
+  // a vendor recipe never seen on the AH: cheap reagents, green up to 120
+  const vend = r({ id: 50, name: 'Vendor shirt', colors: [40, 100, 110, 120], source: [5], product: SHIRT, reagents: [{ item: THREAD, qty: 1 }] })
+
+  it('lists an unticked one with what it would save, and uses a ticked one free of charge', () => {
+    const without = plan(input([bolt, vend], { to: 45 }))
+    expect(without.learn.map((l) => l.recipe.id)).toEqual([10])
+    const c = without.candidates.find((x) => x.recipe.id === 50)!
+    expect(c.fills).toBe(0)
+    expect(c.saving).toBeGreaterThan(0)
+    const withIt = plan(input([bolt, vend], { to: 45, extra: new Set([50]) }))
+    expect(withIt.learn.map((l) => [l.recipe.id, l.access, l.cost])).toContainEqual([50, 'extra', 0])
+    expect(withIt.candidates.map((x) => x.recipe.id)).not.toContain(50)
+    expect(withIt.totalMean).toBeCloseTo(without.totalMean - c.saving!, -2)
+  })
+
+  it('reports the levels a candidate would reach where the route stops', () => {
+    const p = plan(input([bolt, vend], { to: 55 }))
+    expect(p.gaps.length).toBe(5)
+    expect(p.candidates.find((x) => x.recipe.id === 50)!.fills).toBe(5)
+  })
+
+  it('leaves out candidates that cannot raise any level of the route', () => {
+    const p = plan(input([bolt, vend], { to: 30 }))
+    expect(p.candidates.map((x) => x.recipe.id)).toEqual([])
+  })
+})
