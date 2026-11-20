@@ -9,8 +9,11 @@
 //      the window's ratio. Profit per unit = expensive x 0.95 - cheap (AH cut on the sale; deposits left out), so a
 //      swing above 1 / 0.95 - 1 = 5.3% makes money.
 //   5. Held on N of M days: each day is checked against windows picked from the OTHER days (leave one out), so a pattern
-//      can't pass just by fitting the days it was found in. A day counts when buying in those cheap hours and selling
-//      in those expensive hours would have made money that day after the cut.
+//      can't pass just by fitting the days it was found in. A day counts when buying in those cheap hours that day and
+//      selling in the next expensive hours AFTER them (the next day's, when they come earlier on the clock) would have
+//      made money after the cut, at the actual prices. Until 2026-11-20 it compared the two windows' ratios within the
+//      same calendar day, which let a price falling all week pass ("cheap 20-24, expensive 0-4": the day's midnight is
+//      its high and its evening its low, but selling at the next midnight gets the evening's price).
 // Pure; tested in timing.test.mjs.
 import { AH_CUT } from './faction.mjs';
 
@@ -111,11 +114,36 @@ export function bestWindows(prof, width) {
   return { cheap: { start: cheap, ratio: means[cheap] }, exp: { start: exp, ratio: means[exp] } };
 }
 
-/** One day's average ratio over a window (needs at least half the window's hours that day), else null. */
-function dayWindow(day, start, width) {
+/** points -> Map(local slot (day * 24 + hour) -> average price that hour). */
+function hourly(points, tzOffsetMin) {
+  const acc = new Map();
+  for (const [t, v] of points) {
+    if (!(v > 0)) continue;
+    const slot = localSlot(t, tzOffsetMin);
+    const a = acc.get(slot);
+    if (a) { a[0] += v; a[1]++; } else acc.set(slot, [v, 1]);
+  }
+  const out = new Map();
+  for (const [slot, [sum, n]] of acc) out.set(slot, sum / n);
+  return out;
+}
+
+/** Average price over `width` hours from slot `start` (needs at least half of them priced), else null. */
+function windowPrice(prices, start, width) {
   let sum = 0, n = 0;
-  for (let i = 0; i < width; i++) { const v = day.ratios[(start + i) % 24]; if (!Number.isNaN(v)) { sum += v; n++; } }
+  for (let i = 0; i < width; i++) { const v = prices.get(start + i); if (v !== undefined) { sum += v; n++; } }
   return n >= Math.ceil(width / 2) ? sum / n : null;
+}
+
+/** Buy in the cheap window starting on `day`, sell in the first expensive window starting after it ends:
+ *  true / false = made money after the cut or not, null = a window lacks prices. */
+export function tradeWorked(prices, day, cheapStart, expStart, width) {
+  const buyAt = day * 24 + cheapStart;
+  let sellAt = day * 24 + expStart;
+  while (sellAt < buyAt + width) sellAt += 24;
+  const buy = windowPrice(prices, buyAt, width), sell = windowPrice(prices, sellAt, width);
+  if (buy === null || sell === null) return null;
+  return sell * (1 - AH_CUT) > buy;
 }
 
 /**
@@ -134,16 +162,17 @@ export function analyse(points, { width = 4, tzOffsetMin = null, minDayHours = M
   });
   const w = bestWindows(profileWithout(null, Math.max(2, Math.ceil(ds.length / 2))), width);
   if (!w) return { days: ds.length };
-  // held on: each day against the windows picked from the other days
+  // held on: each day against the windows picked from the other days, trading in time order at the actual prices
+  const prices = hourly(points, tzOffsetMin);
   let held = 0, tested = 0;
   const minOthers = Math.max(1, Math.ceil((ds.length - 1) / 2));
   for (const day of ds) {
     const ww = bestWindows(profileWithout(day, minOthers), width);
     if (!ww) continue;
-    const c = dayWindow(day, ww.cheap.start, width), e = dayWindow(day, ww.exp.start, width);
-    if (c === null || e === null) continue;
+    const ok = tradeWorked(prices, day.day, ww.cheap.start, ww.exp.start, width);
+    if (ok === null) continue;
     tested++;
-    if (e * (1 - AH_CUT) > c) held++;
+    if (ok) held++;
   }
   const typical = median(ds.map((d) => d.median));
   const cheapPrice = typical * w.cheap.ratio, expPrice = typical * w.exp.ratio;

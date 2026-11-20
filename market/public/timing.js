@@ -40,7 +40,7 @@ const COLS = [
   ['sell', 'Sell around', (r) => r.expPrice, '', 'Typical price in the expensive hours'],
   ['swing', 'Swing', (r) => r.swing, '', 'How much more expensive the expensive hours usually are than the cheap hours. Above 5.3% makes money after the 5% AH cut'],
   ['profit', 'Profit / unit', (r) => r.profit, '', 'Sell around x 0.95 (AH cut) - buy around. Deposits left out'],
-  ['held', 'Held on', heldShare, '', 'Days when buying in the cheap hours and selling in the expensive hours would have made money. Each day is checked against hours picked from the other days, so a pattern can\'t pass just by fitting the days it was found in'],
+  ['held', 'Held on', heldShare, '', 'Days when buying in the cheap hours and selling in the next expensive hours after them (the next day's, if they come earlier on the clock) would have made money at the actual prices, after the AH cut. Each day is checked against hours picked from the other days, so a pattern can\'t pass just by fitting the days it was found in'],
   ['days', 'Days', (r) => r.days, '', 'Days with the item priced in at least half the hours. Under 7 days the result is rough'],
   ['units', 'Units listed', (r) => r.units, '', 'Median units listed per snapshot in this faction'],
   ['ours', 'Sales / day*', (r) => num(r.oursPerDay), '', 'This faction, NA PvE: estimated units sold per day over the window (see the note below the filters)'],

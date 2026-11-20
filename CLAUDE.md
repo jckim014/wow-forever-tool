@@ -348,7 +348,11 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   (2 / 3 / 4 / 6, default 4, wrapping midnight, not overlapping). Swing = expensive / cheap - 1; buy around / sell
   around = median day price x window ratio; profit/unit = sell x 0.95 - buy (break-even swing 5.3%; deposits left out).
   "Held on N of M days" is leave-one-out: each day is checked against windows picked from the other days, and counts
-  when buying in the cheap and selling in the expensive window made money that day after the cut. Rows: profit > 0.
+  when buying in that day's cheap window and selling in the next expensive window after it (the next day's when it is
+  earlier on the clock) made money after the cut, at the actual hourly prices (`tradeWorked`). Fixed 2026-11-20 with
+  Josh's yes: it used to compare the two windows' ratios within one calendar day, so a price falling all week passed as
+  "cheap 20-24, expensive 0-4" (each day's midnight is its high; 354 of 655 sensible rows were that, 6 real). Swing,
+  prices and the row rule (profit > 0) are unchanged; such rows now show low Held on, so use the Held filter. Rows: profit > 0.
   Columns (all sortable, Josh wants the raw numbers whatever the ranking): hours, prices, swing, profit, held, days
   (amber under 7: "rough"), median units listed, Sales/day* (ours, that faction), TSM, Max gold/day* = profit x our
   sales/day (a ceiling; default sort). Filters: search, faction, min swing / profit / sales/day, held share, hide thin

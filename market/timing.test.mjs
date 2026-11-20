@@ -33,6 +33,23 @@ test('a price drifting from day to day is not a time-of-day pattern', () => {
   assert.equal(r.held, 0);
 });
 
+test('a price falling all week is not a cycle, even though each day is high at midnight and low at night', () => {
+  // -0.5% an hour: within each day the profile is highest at 0-4 and lowest at 20-24
+  const r = analyse(series(7, (d, h) => 10000 * 0.995 ** (d * 24 + h)), UTC);
+  assert.equal(r.cheapStart, 20);
+  assert.equal(r.expStart, 0);
+  assert.ok(r.swing > 0.05); // the profile alone sees a swing...
+  assert.ok(r.tested >= 5);
+  assert.equal(r.held, 0); // ...but buying in the evening and selling the next midnight never pays
+});
+
+test('a real cycle across midnight holds: cheap in the evening, expensive the next morning', () => {
+  const r = analyse(series(6, (d, h) => (h >= 20 ? 80 : h >= 6 && h < 10 ? 120 : 100)), UTC);
+  assert.equal(r.cheapStart, 20);
+  assert.equal(r.expStart, 6);
+  assert.deepEqual([r.held, r.tested], [5, 5]); // the last evening has no next morning
+});
+
 test('one odd day does not make a pattern', () => {
   const r = analyse(series(6, (d, h) => (d === 2 && h >= 18 && h < 22 ? 300 : 100)), UTC);
   assert.ok(Math.abs(r.swing) < 1e-9); // the profile takes the median day
