@@ -858,6 +858,13 @@ green), see Leveling planner; 431e5a9, pushed and live. Josh is levelling Tailor
 great as a first pass"). Found on his prices (Alliance, 200-300): the Merchant's Favor sandals/waistcords don't pay
 (14 Golden Pearls at ~1.44g); Wizardweave Robe/Turban save ~30-40g each by replacing Runecloth Shoulders (284-300,
 ~139g), but their patterns were only on the Horde AH that day.
+2026-11-20 (short session): Josh started using Cycles and asked how to approach it. Found that most top rows were a
+trend artifact (see Cycles tab: "Held on" fixed to trade in time order, 388cd20). Suggested use: Hide thin + Held on
+75%+, Max gold/day as a ceiling, confirm a row on the Price history heat map (a band at the same hours on most days),
+try one or two items small. Survivors were mostly gathered goods (Vulture Gizzard, Enchanted Leather, cloth, leather,
+Waylaid Crates), bought in the evening and sold the next morning. A broken page script followed (an unescaped
+apostrophe in the new tooltip stopped every tab; 9f68c12): after editing `market/public/*.js`, check each with
+`node --input-type=module --check < file`. Both pushed. Josh hasn't reported back on the fixed list yet.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -961,7 +968,7 @@ Open items to raise when relevant:
   version in `market/method-history.json`. 110/113 are PvP (2026-11-13); the realms behind 119/120/121 and
   123/124/125 are unconfirmed (collected anyway). Josh doesn't need them now and will ask (method: add the realms in
   the TSM app and match its AppData.lua against the houses, as for PvP). These need no input from Josh: raise them
-  when due (Cycles results ~2026-11-14, firm ~11-20; weekday patterns ~12-03; method review at ~100+ more records).
+  when due (Cycles: 7+ days of data since ~11-20, Held on fixed 11-20; weekday patterns ~12-03; method review at ~100+ more records).
 - Parked 2026-11-11 (Josh: not now): in-game companion in BavvbScan. The app would write
   `Interface\AddOns\BavvbScan\AppData.lua` (TSM-style; the AddOns folder is shared by all accounts) with per-recipe
   cost, exits, profit and the Shopping list; the addon would show a panel beside the profession window and create
