@@ -849,6 +849,11 @@ detected 60% (867 of 1,435 judged; 803 sales "invisible"), well below the 88% of
 logon sync's first download hit "fetch failed" (10 others stored). Stored by a manual sync, late-snapshot redo
 recalculated 20 pairs, no data lost. Fix: one retry 30 s later before alerting (see Collector > PC side); not yet
 exercised for real (watch for "retrying in 30 s" in sync.log after the next morning backlog).
+2026-11-19 (short session): Leveling planner gained More recipes (opt-in, free) and Working Overtime (+12 points on
+green), see Leveling planner; 431e5a9, pushed and live. Josh is levelling Tailoring and checked it on localhost ("looks
+great as a first pass"). Found on his prices (Alliance, 200-300): the Merchant's Favor sandals/waistcords don't pay
+(14 Golden Pearls at ~1.44g); Wizardweave Robe/Turban save ~30-40g each by replacing Runecloth Shoulders (284-300,
+~139g), but their patterns were only on the Horde AH that day.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -924,6 +929,9 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Working Overtime (2026-11-19): +12 flat points is Josh's tentative test result (talent text: 20%); if green recipes
+  level noticeably differently than planned, it may be x1.2 instead (a small change in `chance()`). More recipes'
+  Saves is approximate (other recipes kept as chosen: Turban showed ~48g, saved ~42g when ticked).
 - Leveling planner (2026-11-15): the skill-up chance is the Classic community formula, not confirmed on Forever (if
   a green recipe levels noticeably faster or slower than planned, check it). Sold / day overstates cheap, heavily
   relisted items (Linen Bag ~425/day, Red Linen Bag ~900/day). Offered, not decided: Sold / day next to AH (it now sits
