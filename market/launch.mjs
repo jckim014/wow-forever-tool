@@ -1,13 +1,15 @@
 // Opens Forever Market: starts the local server if it isn't running (hidden, detached; it stops by itself 10 minutes
 // after the last tab closes), waits until it answers, then opens http://localhost:<port>/ in the default browser.
 // Run by the forever-market:// link (install.ps1 registers it; Chrome bookmark "forever-market://open").
+// forever-market://item/<id> (from the shuffle app's recipe card) opens that item in Price history.
 // FOREVER_MARKET_NO_BROWSER=1 skips opening the browser (for tests).
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.FOREVER_MARKET_PORT) || 5310;
-const URL = `http://localhost:${PORT}/`;
+const item = /^forever-market:\/\/item\/(\d+)/i.exec(process.argv[2] ?? '')?.[1];
+const URL = `http://localhost:${PORT}/${item ? `#item=${item}` : ''}`;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

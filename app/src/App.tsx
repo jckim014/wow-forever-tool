@@ -93,8 +93,8 @@ export function App() {
   const onShop = useCallback((id: number) => update((cur) => addRecipe(cur, id)), [update])
   const onOpenShopping = useCallback(() => chooseView('shopping'), [chooseView])
   const cardProps = useMemo(
-    () => (result && game ? { result, game, onUseChains, shopping: shopIds, onShop, onOpenShopping, favorites: edits.favorites, updateFav } : null),
-    [result, game, onUseChains, shopIds, onShop, onOpenShopping, edits.favorites, updateFav],
+    () => (result && game ? { result, game, onUseChains, shopping: shopIds, onShop, onOpenShopping, favorites: edits.favorites, updateFav, sales: api.sales } : null),
+    [result, game, onUseChains, shopIds, onShop, onOpenShopping, edits.favorites, updateFav, api.sales],
   )
 
   if (error) return <div className="message error">{error}</div>

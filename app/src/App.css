@@ -381,3 +381,6 @@ body { margin: 0; }
 /* losses are the norm while leveling: plain grey; only a profit stands out */
 .lv-exit.lv-pos { color: var(--pos-fg); font-weight: 600; }
 .lv-exit.lv-neg { color: inherit; }
+
+/* Recipe card: link to Forever Market (RecipeCard MarketLink) */
+.rmkt { margin-left: 10px; font-size: 12px; white-space: nowrap; }

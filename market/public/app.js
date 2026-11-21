@@ -79,7 +79,8 @@ function showView(v) {
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
-try { const v = localStorage.getItem('forever-market:view'); showView(['faction', 'timing', 'check', 'plan'].includes(v) ? v : 'trends'); } catch { /* default */ }
+// A link with #item=<id> (e.g. from the shuffle app) always opens Price history on that item.
+try { const v = localStorage.getItem('forever-market:view'); showView(!location.hash.includes('item=') && ['faction', 'timing', 'check', 'plan'].includes(v) ? v : 'trends'); } catch { /* default */ }
 
 // ---- search ----
 let selected = Number(new URLSearchParams(location.hash.slice(1)).get('item')) || null;

@@ -261,7 +261,9 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Starts from Chrome, stops by itself**: Chrome bookmark `forever-market://open` -> per-user link registered by
   `market/install.ps1` (HKCU\Software\Classes\forever-market; re-run if the repo moves or Node's path changes) ->
   `launch-hidden.vbs` -> `launch.mjs`: starts the server hidden and detached if it isn't answering, then opens
-  http://localhost:5310/. Open tabs check in every minute; the server exits 10 min after the last check-in
+  http://localhost:5310/. `forever-market://item/<id>` (the shuffle app's recipe card, 2026-11-21) opens
+  `#item=<id>`, which always shows Price history on that item (the vbs passes the link on; the registry command already
+  had "%1", so no re-install was needed). Open tabs check in every minute; the server exits 10 min after the last check-in
   (`FOREVER_MARKET_IDLE_MS` / `FOREVER_MARKET_PORT` override for tests). A tab whose server stopped shows a banner.
 - Houses shown: Alliance 111 and Horde 114 only (`market/public/shared.js` HOUSES). Blackwater 117 is only the
   transfer route; its prices are never shown (Josh, 2026-11-13). Its cut is 15% (Josh confirmed), `BLACKWATER` in shared.js.
@@ -677,6 +679,11 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   the same way with DE / AH profit and value.
 - **Hide BoP** (toolbar checkbox, Josh, 2026-11-05): hides recipes whose product binds when picked up, in any view
   (the AH view leaves them out anyway). The recipe card's Item line shows the bind type.
+- **Recipe card links to Forever Market** (Josh, 2026-11-21): "Market ↗" after the product on the Makes line opens the
+  item in Forever Market via `forever-market://item/<id>` (starts Market if needed; works only on Josh's PC; carries
+  only the item ID), and a **Sold / day** line shows our sale estimate for the product (sales.json, API house's
+  faction, last 7 days, same figure as the Leveling view and Market; "no estimate" without the auction data folder).
+  Reagent links and the Prices view were left out for now (Claude's suggestion, Josh to give feedback).
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
 - **Shopping** (Josh, 2026-11-10; `app/src/shopping/`, classes `shop-*`): "Add to shopping list" in the recipe card

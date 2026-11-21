@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { formatMoney, formatQty, QUALITY_NAMES, sourceLabel } from '../format'
 import { recipeDetail, type ExitDetail, type GameData, type ModelResult, type Money, type RecipeRow } from '../model'
 import type { LineSource } from '../model/detail'
+import type { SalesData } from '../apiprices/read'
 
 const OFF_REASON = {
   recipe: 'crafting off for this recipe',
@@ -47,8 +48,34 @@ function How({ e, cut }: { e: ExitDetail; cut: number }) {
   )
 }
 
-export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop, onOpenShopping, fav }: {
+const FACTION: Record<number, string> = { 111: 'Alliance', 114: 'Horde' }
+
+/** Opens the item in Forever Market (the local app on Josh's PC): the forever-market:// link starts it if needed. */
+function MarketLink({ item }: { item: number }) {
+  return (
+    <a className="rmkt" href={`forever-market://item/${item}`} title="Open this item's price history and sales in Forever Market (on this PC)">
+      Market ↗
+    </a>
+  )
+}
+
+/** Our sale estimate for the product on the API house's faction (last 7 days), as in Forever Market and the Leveling view. */
+function SoldPerDay({ item, sales, house }: { item: number; sales: SalesData | null; house: number }) {
+  const h = sales?.houses[house]
+  if (!sales || !h || !h.hours) {
+    return <span className="na" title="Needs the auction data folder (File > Link auction data folder) and the PC sync's sales.json; Alliance and Horde only">no estimate</span>
+  }
+  const where = FACTION[house] ?? `house ${house}`
+  const tip = `Estimated from the hourly ${where} auction listings over the last ${sales.days} days (as in Forever Market): includes some cancellations, misses items bought within the hour.`
+  const n = h.items.get(item)
+  if (n == null) return <span className="muted" title={tip}>none seen ({where})</span>
+  const v = n < 10 ? (Math.round(n * 10) / 10).toLocaleString() : Math.round(n).toLocaleString()
+  return <span title={tip}>~{v} <span className="muted">({where}, last {sales.days} days)</span></span>
+}
+
+export function RecipeCard({ row, result, game, sales, onUseChains, inShopping, onShop, onOpenShopping, fav }: {
   row: RecipeRow
+  sales: SalesData | null
   result: ModelResult
   game: GameData
   onUseChains: (recipeId: number, on: boolean) => void
@@ -82,7 +109,7 @@ export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop,
           </tbody>
         </table>
         <dl className="meta">
-          <dt>Makes</dt><dd>{formatQty(row.qtyMade)}× {row.productName}</dd>
+          <dt>Makes</dt><dd>{formatQty(row.qtyMade)}× {row.productName}{row.recipe.product != null && <MarketLink item={row.recipe.product} />}</dd>
           <dt>Item</dt>
           <dd>
             {row.quality !== null ? <span className={`qual-${row.quality}`}>{QUALITY_NAMES[row.quality] ?? row.quality}</span> : '—'}
@@ -90,6 +117,7 @@ export function RecipeCard({ row, result, game, onUseChains, inShopping, onShop,
             {row.bind && row.bind !== 'none' ? ` · ${BIND_TEXT[row.bind]}` : ''}
           </dd>
           <dt>AH price</dt><dd>{row.ahPrice === null ? <span className="na">none</span> : <>{exact(row.ahPrice)} each ({sourceLabel(row.ahSource)})</>}</dd>
+          {row.recipe.product != null && <><dt>Sold / day</dt><dd><SoldPerDay item={row.recipe.product} sales={sales} house={result.settings.apiHouse} /></dd></>}
           <dt>Reagents sell to vendor for</dt><dd>{exact(row.reagentsVendorValue)}{row.reagentsWithoutSell ? ` (${row.reagentsWithoutSell} without a sell price)` : ''}</dd>
           <dt>Recipe ID</dt><dd>{row.recipe.id}</dd>
         </dl>

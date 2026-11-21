@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState, type DragEvent } from 're
 import { formatMoneyShort, formatQty } from '../format'
 import type { FavoritesEdits, GameData, ModelResult, Money, RecipeRow } from '../model'
 import { RecipeCard } from './RecipeCard'
+import type { SalesData } from '../apiprices/read'
 import { exitFigures, type ExitView } from './filter'
 import { FavPicker } from '../favorites/FavPicker'
 import { useResetOnShow } from '../keepAlive'
@@ -160,6 +161,8 @@ export const Row = memo(function Row({ r, open, exit, onToggle, fav, onStar, onG
 })
 
 export interface CardProps {
+  /** our sale-rate estimate (sales.json from the auction data folder), for the card's Sold / day */
+  sales: SalesData | null
   result: ModelResult
   game: GameData
   onUseChains: (recipeId: number, on: boolean) => void
@@ -174,7 +177,7 @@ export interface CardProps {
 export function Card({ r, p }: { r: RecipeRow; p: CardProps }) {
   return (
     <RecipeCard
-      row={r} result={p.result} game={p.game} onUseChains={p.onUseChains}
+      row={r} result={p.result} game={p.game} sales={p.sales} onUseChains={p.onUseChains}
       inShopping={p.shopping.has(r.recipe.id)} onShop={p.onShop} onOpenShopping={p.onOpenShopping}
       fav={<FavPicker recipeId={r.recipe.id} favorites={p.favorites} updateFav={p.updateFav} />}
     />
