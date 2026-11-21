@@ -2,7 +2,7 @@
 // (planLib.js says what each edit does to the rest); the budget turns shares into gold; prices come from the latest
 // snapshot. Saved to F:\ForeverAuctionData\plan.json through the server.
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
-import { normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find } from './planLib.js';
+import { normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand } from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -118,6 +118,7 @@ function render() {
       ${n.note ? `<span class="minfo" title="${esc(n.note)}">ⓘ</span>` : ''}</td>`;
     return `<tr class="pl-d${Math.min(depth, 3)}${group ? ' pl-grow' : ''}">
       ${nameCell}
+      <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, l]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select></td>
       <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
       <td><input class="pl-in" data-k="${n.id}:whole" type="number" step="any" min="0" max="100" value="${pct(whole)}"> %</td>
       <td>${moneyHtml(Math.round(gold * 100) * 100)}</td>
@@ -148,16 +149,18 @@ function render() {
       <textarea class="pl-export-text" readonly rows="2">${esc(exported.text)}</textarea>
       <div><button id="p-copy" class="mbtn2">Copy again</button> <button id="p-export-close" class="mbtn2">Close</button></div>
     </div>` : ''}
-    <p class="mhint2">% of parent: change it and the rest of that group makes room, nothing outside the group moves.
+    <p class="mhint2">Band: Large 4, Medium 2, Small 1, Token ½. In a group, each banded line's share = its band / the total of the bands (after any exact lines);
+      changing a band only moves weight inside that group. Typing a % makes that line exact.<br>
+      % of parent: change it and the rest of that group makes room, nothing outside the group moves.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
       Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
       Double-click a name to rename it.</p>
     ${flags.length ? `<p class="mearly">More gold than the AH lists right now: ${flags.map(esc).join(', ')}. Buying them out would push the price up; spread the buying over time or lower their share.</p>` : ''}
     <div class="mfaction">
       <table class="mtable mft pl-table">
-        <tr><th class="mleft">Wallet / item</th><th>% of parent</th><th>% of whole</th><th>Gold</th><th>Price each</th><th>Buys</th><th>Listed</th><th></th><th></th></tr>
+        <tr><th class="mleft">Wallet / item</th><th class="mleft">Band</th><th>% of parent</th><th>% of whole</th><th>Gold</th><th>Price each</th><th>Buys</th><th>Listed</th><th></th><th></th></tr>
         ${body}
-        <tr class="pl-total"><td class="mleft">Total</td><td></td><td>100 %</td><td>${moneyHtml(budget * 10000)}</td><td colspan="5"></td></tr>
+        <tr class="pl-total"><td class="mleft">Total</td><td></td><td></td><td>100 %</td><td>${moneyHtml(budget * 10000)}</td><td colspan="5"></td></tr>
       </table>
     </div>`;
   renderStatus();
@@ -188,6 +191,7 @@ function wire() {
   $('#p-copy')?.addEventListener('click', () => copyList());
   $('#p-export-close')?.addEventListener('click', () => { exported = null; render(); });
   box.querySelector('.pl-table').addEventListener('change', (e) => {
+    if (e.target.dataset.band) { setBand(doc.tree, e.target.dataset.band, e.target.value || null); changed(); return; }
     const k = e.target.dataset.k;
     if (!k) return;
     const next = document.activeElement?.dataset?.k; // Tab moved focus: put it back after redrawing

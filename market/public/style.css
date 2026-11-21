@@ -281,3 +281,5 @@ a:hover { color: var(--strong); }
   display: flex; flex-direction: column; gap: 6px; }
 .pl-export-text { width: 100%; box-sizing: border-box; font: 12px Consolas, monospace; background: var(--input); color: var(--fg);
   border: 1px solid var(--input-border); border-radius: 3px; padding: 4px 6px; resize: vertical; }
+.pl-band { font: inherit; font-size: 13px; padding: 1px 2px; background: var(--input); color: var(--fg); border: 1px solid var(--input-border); border-radius: 3px; }
+.pl-band.pl-exact { color: var(--faint); }

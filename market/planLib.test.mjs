@@ -118,3 +118,60 @@ test('shoppingList: units the gold buys per item, merged across lines, Auctionat
   const one = shoppingList(r, 'bl', 1, (n) => price[n] ?? null, 'x'); // 0.25g buys no Black Lotus
   assert.deepEqual(one.items, []); assert.deepEqual(one.skipped, ['Black Lotus']);
 });
+
+import { setBand, rebalance, rebalanceAll, BANDS } from './public/planLib.js';
+const banded = () => normalize({ children: [
+  { id: 'g', name: 'Shared', w: 60, children: [
+    { id: 'df', name: 'Dreamfoil', w: 1, band: 'L' }, { id: 'gr', name: 'Gromsblood', w: 1, band: 'M' },
+    { id: 'si', name: 'Silversage', w: 1, band: 'M' }, { id: 'ic', name: 'Icecap', w: 1, band: 'S' }] },
+  { id: 'o', name: 'Other', w: 40 },
+] });
+
+test('bands: share = band weight / total of the group', () => {
+  const r = rebalanceAll(banded());
+  const g = r.children[0].children;
+  near(g[0].w, 400 / 9, 'df 4/9'); near(g[1].w, 200 / 9, 'gr 2/9'); near(g[3].w, 100 / 9, 'ic 1/9');
+  near(r.children[0].w, 60, 'group size unchanged');
+});
+
+test('setBand: raising one line takes from its siblings only', () => {
+  const r = rebalanceAll(banded());
+  setBand(r, 'gr', 'L'); // 4 4 2 1 = 11
+  const g = r.children[0].children;
+  near(g[0].w, 400 / 11, 'df'); near(g[1].w, 400 / 11, 'gr'); near(g[2].w, 200 / 11, 'si'); near(g[3].w, 100 / 11, 'ic');
+  near(wholeShares(r).get('o'), 40, 'other group untouched');
+});
+
+test('a typed % makes a line exact; the banded rest share what is left by band', () => {
+  const r = rebalanceAll(banded());
+  setLocal(r, 'ic', 25);
+  const g = r.children[0].children;
+  assert.equal(g[3].band, undefined);
+  near(g[3].w, 25, 'icecap exact 25');
+  setBand(r, 'si', 'S'); // banded: 4 2 1 = 7 share 75
+  near(g[0].w, 75 * 4 / 7, 'df'); near(g[2].w, 75 / 7, 'si'); near(g[3].w, 25, 'icecap stays');
+});
+
+test('setWhole makes the path exact but keeps the siblings banded', () => {
+  const r = rebalanceAll(banded());
+  setWhole(r, 'df', 40);
+  assert.equal(r.children[0].children[0].band, undefined);
+  assert.equal(r.children[0].children[1].band, 'M');
+  near(r.children[0].children[1].w / r.children[0].children[3].w, 2, 'M:S ratio kept');
+});
+
+test('adding a line to an all-banded group brings it in as Small', () => {
+  const r = rebalanceAll(banded());
+  addChild(r, 'g', 'Golden Sansam'); // 4 2 2 1 1 = 10
+  const g = r.children[0].children;
+  assert.equal(g[4].band, 'S');
+  near(g[0].w, 40, 'df'); near(g[4].w, 10, 'sansam');
+});
+
+test('setBand(null) keeps the current % as exact', () => {
+  const r = rebalanceAll(banded());
+  setBand(r, 'df', null);
+  near(r.children[0].children[0].w, 400 / 9, 'df kept');
+  assert.ok(BANDS.L.w === 4);
+  void rebalance;
+});

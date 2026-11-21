@@ -367,6 +367,13 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   (siblings always sum to 100). Editing **% of parent** makes the siblings make room in proportion (nothing outside the
   group moves); editing **% of whole** makes the ancestors grow/shrink and everything outside the node scale in
   proportion (siblings included; the inside keeps its split). Gold is display-only (Josh: he works in %), budget x share.
+  **Bands** (Josh, 2026-11-20: rough inputs, so a few sizes instead of precise %s): per row Exact / Large 4 / Medium 2 /
+  Small 1 / Token ½ (`BANDS`, fixed: Josh decided against editable band weights and custom bands for now; add four
+  boxes only if a whole level feels wrong in use). In a group, exact rows keep their %, banded rows share the rest by
+  band weight (`rebalance`); a band change moves weight only inside its group; typing a % (or a % of whole on a path)
+  makes that row exact; a new line in an all-banded group comes in as Small. Josh's plan uses bands for items and for
+  the groups inside Core; his own decisions (wallets, 80/20, 65/35, E'ko 50/50) stay exact. Pre-band file kept as
+  `F:\ForeverAuctionData\plan.before-bands.json`; Reset goes back to the original precise weights (no bands).
   Prices: cheapest15 at the latest snapshot, Alliance/Horde switch, item looked up by exact name (`item` overrides the
   name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)

@@ -54,6 +54,7 @@ export function setLocal(root, id, pct) {
   const { node, parent } = find(root, id);
   if (!node) return root;
   const v = clamp(pct);
+  delete node.band; // a typed % is exact
   const sibs = parent.children.filter((k) => k !== node);
   const rest = sibs.reduce((s, k) => s + k.w, 0);
   node.w = sibs.length ? v : 100;
@@ -81,6 +82,7 @@ export function setWhole(root, id, pct) {
     return false;
   };
   findChain(root, []);
+  for (const n of chain) delete n.band; // their own % changes: they become exact (siblings keep their bands' ratios)
   // Walk down the path: at each level the path node and its siblings get new weights. Everything below a sibling
   // keeps its own split (its local weights don't change), and so does everything inside the target.
   const rest = 100 - old;
@@ -134,8 +136,49 @@ export function addChild(root, parentId, name) {
   const target = parentId ? find(root, parentId).node : root;
   if (!target) return root;
   const child = { id: newId(), name: String(name || 'New line').trim() || 'New line', w: 0 };
-  if (!target.children?.length) { target.children = [child]; child.w = 100; } else target.children.push(child);
+  if (!target.children?.length) { target.children = [child]; child.w = 100; return root; }
+  // In a group whose lines all have bands, a new line comes in as Small and the group is re-split.
+  const banded = target.children.every((k) => k.band);
+  target.children.push(child);
+  if (banded) { child.band = 'S'; rebalance(target); }
   return root;
+}
+
+// ---- Bands: a few sizes instead of precise %s (Josh, 2026-11-20). A band is a weight; within a group, exact lines
+// (no band) keep their %, and banded lines share the rest in proportion to their band weights. ----
+export const BANDS = { L: { label: 'Large', w: 4 }, M: { label: 'Medium', w: 2 }, S: { label: 'Small', w: 1 }, T: { label: 'Token', w: 0.5 } };
+
+/** Re-splits a group's lines: exact lines keep their weight, banded lines share what's left by band weight. */
+export function rebalance(group) {
+  const kids = group.children ?? [];
+  const banded = kids.filter((k) => BANDS[k.band]);
+  if (!banded.length) return normalize(group);
+  const exact = kids.filter((k) => !BANDS[k.band]);
+  const fixed = Math.min(100, exact.reduce((s, k) => s + k.w, 0));
+  const total = banded.reduce((s, k) => s + BANDS[k.band].w, 0);
+  for (const k of banded) k.w = ((100 - fixed) * BANDS[k.band].w) / total;
+  if (fixed >= 100 - 1e-9 && exact.length) {
+    // exact lines already fill the group: give the banded lines room by scaling the exact ones down to 50%
+    for (const k of exact) k.w = (k.w / fixed) * 50;
+    for (const k of banded) k.w = (50 * BANDS[k.band].w) / total;
+  }
+  return group;
+}
+
+/** Sets a line's band (null = exact, keeping its current %) and re-splits its group. */
+export function setBand(root, id, band) {
+  const { node, parent } = find(root, id);
+  if (!node) return root;
+  if (band && BANDS[band]) node.band = band; else delete node.band;
+  rebalance(parent);
+  return normalize(root);
+}
+
+/** Re-splits every group that has banded lines (after loading or bulk changes). */
+export function rebalanceAll(root) {
+  rebalance(root);
+  walk(root, (n) => { if (n.children?.length) rebalance(n); });
+  return normalize(root);
 }
 
 /** Leaves (the lines you buy) with their whole share, in tree order. */
