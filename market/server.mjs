@@ -13,6 +13,7 @@ import { runMethodCheck } from './methodCheck.mjs';
 import { spearman } from './validate.mjs';
 import { trade, steadiness } from './faction.mjs';
 import { analyse, median, MIN_DAYS, MIN_DAY_HOURS as DEFAULT_MIN_DAY_HOURS } from './timing.mjs';
+import { validPlan } from './public/planLib.js';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -237,6 +238,43 @@ function faction(daysParam) {
   return value;
 }
 
+// ---- Plan tab: Josh's budget weights, saved as one JSON file on F: (format forever-plan v1) ----
+const planFile = process.env.FOREVER_PLAN_FILE || path.join(dataRoot, 'plan.json');
+function readPlan() {
+  try { return JSON.parse(fs.readFileSync(planFile, 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+function writePlan(doc) {
+  if (!validPlan(doc)) throw new Error('not a forever-plan v1 document');
+  doc.savedAt = new Date().toISOString();
+  const tmp = planFile + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(doc, null, 1));
+  fs.renameSync(tmp, planFile); // whole file or nothing
+  return { savedAt: doc.savedAt };
+}
+/** Latest price per house for items given by name (exact, ignoring case). Of items sharing a name, the one listed
+ *  most at the latest snapshot. Unknown names come back as null. */
+function pricesByName(names) {
+  getItems();
+  const byName = new Map();
+  for (const it of items) {
+    const k = it.name.toLowerCase();
+    if (!byName.has(k)) byName.set(k, []);
+    byName.get(k).push(it);
+  }
+  const out = {};
+  for (const n of names) {
+    const cands = byName.get(String(n).toLowerCase()) ?? [];
+    let best = null;
+    for (const it of cands) {
+      const l = latest(it.id);
+      const units = (l[111]?.units ?? 0) + (l[114]?.units ?? 0);
+      if (!best || units > best.units) best = { units, value: { id: it.id, icon: it.icon ?? null, quality: it.quality ?? null, latest: l } };
+    }
+    out[n] = best?.value ?? null;
+  }
+  return out;
+}
+
 // ---- API ----
 const api = {
   '/api/status': () => {
@@ -279,6 +317,8 @@ const api = {
     return { id, from, to, snapshots: snaps, houses };
   },
   '/api/method-check': () => methodCheck(),
+  '/api/plan': () => ({ plan: readPlan(), file: planFile }),
+  '/api/prices': (params) => pricesByName((params.get('names') ?? '').split('|').filter(Boolean).slice(0, 500)),
   '/api/faction': (params) => faction(params.get('days')),
   '/api/timing': (params) => timing(params.get('days'), params.get('width')),
   '/api/item': (params) => {
@@ -306,6 +346,15 @@ const server = http.createServer((req, res) => {
     if (url.pathname === '/api/heartbeat') {
       lastSeen = Date.now();
       return send(204, '');
+    }
+    if (url.pathname === '/api/plan' && req.method === 'POST') {
+      lastSeen = Date.now();
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 2e6) req.destroy(); });
+      req.on('end', () => {
+        try { send(200, JSON.stringify(writePlan(JSON.parse(body)))); } catch (e) { send(400, JSON.stringify({ error: e.message })); }
+      });
+      return;
     }
     if (api[url.pathname]) {
       lastSeen = Date.now();

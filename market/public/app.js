@@ -5,6 +5,7 @@ import { lineChart, hourHeatmap, calendar, SERIES_COLORS } from './charts.js';
 import { showCheck } from './check.js';
 import { initFaction, showFaction } from './faction.js';
 import { initTiming, showTiming } from './timing.js';
+import { showPlan } from './plan.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -70,13 +71,15 @@ function showView(v) {
   $('#view-faction').hidden = v !== 'faction';
   $('#view-timing').hidden = v !== 'timing';
   $('#view-check').hidden = v !== 'check';
+  $('#view-plan').hidden = v !== 'plan';
   if (v === 'check') showCheck();
   if (v === 'faction') showFaction();
   if (v === 'timing') showTiming();
+  if (v === 'plan') showPlan();
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
-try { const v = localStorage.getItem('forever-market:view'); showView(['faction', 'timing', 'check'].includes(v) ? v : 'trends'); } catch { /* default */ }
+try { const v = localStorage.getItem('forever-market:view'); showView(['faction', 'timing', 'check', 'plan'].includes(v) ? v : 'trends'); } catch { /* default */ }
 
 // ---- search ----
 let selected = Number(new URLSearchParams(location.hash.slice(1)).get('item')) || null;

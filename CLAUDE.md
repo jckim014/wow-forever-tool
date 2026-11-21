@@ -251,7 +251,8 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
 (filters on both sale figures) (done), 7 Cycles tab (time-of-day patterns; done 2026-11-13, results from ~2 days of data;
 weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Tabs** (renamed by Josh 2026-11-13; on screen / code name): **Price history** / trends (step 5; older notes here say
-  "Trends"), **Faction** / faction, **Cycles** / timing (step 7), **Method check** / check. The code keeps the old names.
+  "Trends"), **Faction** / faction, **Cycles** / timing (step 7), **Method check** / check, **Plan** / plan (2026-11-20).
+  The code keeps the old names.
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
   `/api/search?q=` (items.json in memory, re-read when it changes; ranking in `market/lib.mjs`), `/api/item?id=`
@@ -361,6 +362,21 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   14 d 3.6 s, 30 d 6.5 s, cached per snapshot; prices are read one item at a time (PK range) because the time index
   needs a table lookup per row (~7x slower). `FOREVER_TIMING_MIN_DAY_HOURS` lowers the 12-hour rule for trying it out.
   UI wording: "expensive", never "dear" (Josh didn't know the word; Faction tooltips and heat-map legends changed too).
+- **Plan tab** (Josh, 2026-11-20; `public/plan.js`, pure logic `public/planLib.js` tested in `planLib.test.mjs`, classes
+  `pl-*`): Josh's speculation budget as a tree of wallets > groups > items, each with a weight = % of its parent
+  (siblings always sum to 100). Editing **% of parent** makes the siblings make room in proportion (nothing outside the
+  group moves); editing **% of whole** makes the ancestors grow/shrink and everything outside the node scale in
+  proportion (siblings included; the inside keeps its split). Gold is display-only (Josh: he works in %), budget x share.
+  Prices: cheapest15 at the latest snapshot, Alliance/Horde switch, item looked up by exact name (`item` overrides the
+  name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
+  Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
+  / rename (double-click) lines, Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
+  per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
+  quantity = units the gold buys, merged per item; no max price yet), copied to the clipboard; Josh tested the import
+  in game. Saved by the server (`POST /api/plan`, whole-file replace) to `F:\ForeverAuctionData\plan.json` (format
+  `forever-plan` v1: budget, house, tree, initial; env FOREVER_PLAN_FILE); never in the repo (personal plan). Starting
+  weights came from Josh's consumables analysis (`data/private/consumables-plan.md`, calculator
+  `data/private/consumables-calc.mjs`).
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes).
 - **Look** (Josh, 2026-11-13, "fine for now"): light theme with WoW touches. Money in coin colours (`moneyHtml` in
   shared.js: gold/silver/copper parts, padded `5g 04s 00c`), faction names in Alliance blue / Horde red (`factionHtml`),

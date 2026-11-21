@@ -250,3 +250,34 @@ a:hover { color: var(--strong); }
 
 :root[data-theme="light"] .seg button.on, :root[data-theme="light"] .seg button:hover { background: #d9d9d9; }
 :root[data-theme="light"] .seg button + button { border-left-color: #fff; }
+
+/* Plan tab (plan.js) */
+.pl-table { width: auto; min-width: 900px; }
+.pl-table td { vertical-align: middle; }
+.pl-name { white-space: nowrap; }
+.pl-tog { border: none; background: none; color: var(--muted); cursor: pointer; width: 18px; padding: 0; font: inherit; }
+.pl-tog:hover { color: var(--strong); }
+.pl-tog-sp { display: inline-block; width: 18px; }
+.pl-group { font-weight: 600; color: var(--strong); }
+.pl-d0 td { background: var(--panel-2); }
+.pl-d0 .pl-group { font-size: 14px; }
+.pl-d1.pl-grow td { background: var(--box); }
+.pl-in { width: 64px; padding: 2px 5px; border: 1px solid var(--input-border); border-radius: 3px; font: inherit; font-size: 13px; text-align: right;
+  background: var(--input); color: var(--fg); font-variant-numeric: tabular-nums; }
+.pl-in:hover { border-color: var(--line-2); }
+.pl-budget { width: 100px; padding: 3px 6px; border: 2px solid var(--input-border); border-radius: 4px; font: inherit; font-size: 13px;
+  background: var(--input); color: var(--fg); }
+.pl-act { white-space: nowrap; }
+.pl-btn { border: 1px solid var(--line-2); background: none; color: var(--muted); border-radius: 2px; width: 22px; height: 20px; padding: 0;
+  margin-left: 3px; cursor: pointer; font: inherit; line-height: 1; }
+.pl-btn:hover { color: var(--strong); border-color: var(--focus); }
+.pl-total td { font-weight: 700; color: var(--strong); border-top: 2px solid var(--line-2); }
+.mbtn2 { padding: 3px 10px; border: 1px solid var(--line-2); border-radius: 2px; background: var(--panel-2); color: var(--fg); cursor: pointer; font: inherit; font-size: 13px; }
+.mbtn2:hover { border-color: var(--focus); color: var(--strong); }
+.mfaint { color: var(--faint); font-size: 12px; }
+.mwarn-text { color: var(--warn); font-size: 13px; font-weight: 600; }
+.pl-list { width: auto; padding: 0 6px; font-size: 12px; }
+.pl-export { margin: 8px 0; padding: 8px 12px; background: var(--box); border: 1px solid var(--line-2); border-radius: 3px; font-size: 13px;
+  display: flex; flex-direction: column; gap: 6px; }
+.pl-export-text { width: 100%; box-sizing: border-box; font: 12px Consolas, monospace; background: var(--input); color: var(--fg);
+  border: 1px solid var(--input-border); border-radius: 3px; padding: 4px 6px; resize: vertical; }
