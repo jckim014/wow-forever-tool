@@ -888,6 +888,17 @@ try one or two items small. Survivors were mostly gathered goods (Vulture Gizzar
 Waylaid Crates), bought in the evening and sold the next morning. A broken page script followed (an unescaped
 apostrophe in the new tooltip stopped every tab; 9f68c12): after editing `market/public/*.js`, check each with
 `node --input-type=module --check < file`. Both pushed. Josh hasn't reported back on the fixed list yet.
+2026-11-20 (evening, long session): Josh's raid-consumables speculation (12-09 raid launch: Mount Hyjal, Hyjal Summit,
+Barrow Deeps). Built with him step by step: a demand model (per-raider kits: flasks, elixirs, potions, oils; reagent
+units from the recipes; gold at market.db prices) in `data/private/consumables-calc.mjs`, with all assumptions,
+Forever tooltip facts (durations, Natural flasks only work in those 3 zones, Blasted Lands turn-in recipes) and his
+decisions in `data/private/consumables-plan.md`. Then the Forever Market **Plan tab** (see Forever Market): wallets
+55 / 20 / 15 / 10 (core alchemy, Nature Protection, misc buffs, non-alchemy placeholder), bands, "rows already set
+stay put", Auctionator lists per group (Josh tested the import in game). Commits 8ee6826, 2f3b45b, 7ee7a7c, pushed.
+Baseline to return to: Reset in the Plan tab, `F:\ForeverAuctionData\plan.baseline-2026-11-20.json`, and the
+readable `data/private/plan-baseline-2026-11-20.md`. Josh's budget: 500g = about his daily income, invested daily.
+Also answered: gold to Horde + a pattern back costs ~176.5g for a 150g pattern with a cheap (snipeable) listing,
+~199g listed safely at 150g (15% Blackwater cut each way).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -963,6 +974,15 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- **Raise at the start of the next session (Josh asked, 2026-11-20):** (1) exit rules per wallet of his consumables
+  speculation (sell in thirds: at 2x, at target, by a date; a "wrong if" line; a time stop; raids 12-09; ~9,000g of
+  stock by launch at 500g/day); (2) a maximum price per item on the Plan tab's Auctionator lists (not built).
+- Plan tab, offered and not decided: a "Bought so far" column (gold or units per line) so each day's 500g goes to the
+  few lines furthest behind target instead of every line (could later fill from the mail ledger); a trimmed plan
+  (drop lines under ~2% of the budget). Parked: research for the non-alchemy placeholder (food, scrolls, stones).
+  Only if they come up: editable band weights; redo the Blasted Lands split if a material's price jumps (it is a
+  snapshot of 2026-11-20 Alliance prices). Settled, don't reopen: flask split, potions per night, Elixir of Sages,
+  new-herb supply risk.
 - Working Overtime (2026-11-19): +12 flat points is Josh's tentative test result (talent text: 20%); if green recipes
   level noticeably differently than planned, it may be x1.2 instead (a small change in `chance()`). More recipes'
   Saves is approximate (other recipes kept as chosen: Turban showed ~48g, saved ~42g when ticked).
