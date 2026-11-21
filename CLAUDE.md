@@ -683,7 +683,10 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   item in Forever Market via `forever-market://item/<id>` (starts Market if needed; works only on Josh's PC; carries
   only the item ID), and a **Sold / day** line shows our sale estimate for the product (sales.json, API house's
   faction, last 7 days, same figure as the Leveling view and Market; "no estimate" without the auction data folder).
-  Reagent links and the Prices view were left out for now (Claude's suggestion, Josh to give feedback).
+  Reagent links and the Prices view were left out for now (Claude's suggestion, Josh to give feedback). Chrome asks
+  "Open Windows Based Script Host?" on the first click: Josh ticked "Always allow jckim014.github.io..." (2026-11-21),
+  which stopped it. Not used: the Chrome policy AutoLaunchProtocolsFromOrigins (needs admin under HKCU\Software\Policies
+  and shows "Managed by your organization").
 - Recipes **Table** (secondary, toolbar toggle): the full-column AG Grid view with collapsible groups, for sorting or
   filtering on any column. Loaded on demand. Revisit whether to keep it once the List has been used for a while.
 - **Shopping** (Josh, 2026-11-10; `app/src/shopping/`, classes `shop-*`): "Add to shopping list" in the recipe card
@@ -911,6 +914,10 @@ Baseline to return to: Reset in the Plan tab, `F:\ForeverAuctionData\plan.baseli
 readable `data/private/plan-baseline-2026-11-20.md`. Josh's budget: 500g = about his daily income, invested daily.
 Also answered: gold to Horde + a pattern back costs ~176.5g for a 150g pattern with a cheap (snipeable) listing,
 ~199g listed safely at 150g (15% Blackwater cut each way).
+2026-11-21 (session): several plans on one Plan page (ab3ea6f), and the shuffle app's recipe card links to Forever
+Market (Market ↗ + Sold / day, db9fe0f; Chrome's "Always allow" tick box stopped the script-host prompt). All pushed and
+live; Josh checked both ("works as expected"). Josh said the Plan tab solved his three burdens: tracking, the split
+math and the shopping. He asked for a portfolio view later (see Open items).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -989,6 +996,11 @@ Open items to raise when relevant:
 - **Raise at the start of the next session (Josh asked, 2026-11-20):** (1) exit rules per wallet of his consumables
   speculation (sell in thirds: at 2x, at target, by a date; a "wrong if" line; a time stop; raids 12-09; ~9,000g of
   stock by launch at 500g/day); (2) a maximum price per item on the Plan tab's Auctionator lists (not built).
+- **Portfolio view (Josh asked, 2026-11-21: "let's work on that later"):** link his trade records to the plans: per
+  item what he holds, what it cost on average, today's value and the gap to the plan's target (covers the "Bought so
+  far" idea). Sources: the mail ledger on F: (BavvbScan buys/sales, every character; cost and amounts) and TSM's
+  inventory data in TradeSkillMaster.lua for current bag/bank/mail holdings (contents not checked yet: look first).
+- Recipe card Market link: Josh to give feedback on whether reagent links or Prices-view links are wanted.
 - Plan tab, offered and not decided: a "Bought so far" column (gold or units per line) so each day's 500g goes to the
   few lines furthest behind target instead of every line (could later fill from the mail ledger); a trimmed plan
   (drop lines under ~2% of the budget). Parked: research for the non-alchemy placeholder (food, scrolls, stones).
