@@ -283,3 +283,9 @@ a:hover { color: var(--strong); }
   border: 1px solid var(--input-border); border-radius: 3px; padding: 4px 6px; resize: vertical; }
 .pl-band { font: inherit; font-size: 13px; padding: 1px 2px; background: var(--input); color: var(--fg); border: 1px solid var(--input-border); border-radius: 3px; }
 .pl-band.pl-exact { color: var(--faint); }
+.pl-plan { margin: 14px 0 22px; }
+.pl-head { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin-bottom: 8px; background: var(--panel-2); border-radius: 3px; }
+.pl-ptog { border: none; background: none; cursor: pointer; font: inherit; color: var(--muted); padding: 0; }
+.pl-ptog:hover .pl-pname { color: var(--link); }
+.pl-pname { font-size: 16px; font-weight: 700; color: var(--strong); }
+.pl-psum { color: var(--muted); font-size: 13px; margin-right: auto; }

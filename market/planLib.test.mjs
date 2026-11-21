@@ -196,3 +196,17 @@ test('setLocal: kept rows plus the new value over 100 falls back to proportional
   setLocal(r2, 'b', 40, new Set(['a'])); // 70 + 40 > 100: everyone moves
   near(r2.children[1].w, 40, 'b'); near(r2.children[0].w / r2.children[2].w, 7, 'a:c kept');
 });
+
+import { toV2, newPlan } from './public/planLib.js';
+test('plan file v1 -> v2, and v2 validation', () => {
+  const v1 = { format: 'forever-plan', version: 1, budget: 500, house: 111, tree: { children: [{ id: 'a', name: 'A', w: 100 }] }, initial: { children: [] } };
+  const v2 = toV2(v1);
+  assert.equal(v2.version, 2); assert.equal(v2.plans.length, 1);
+  assert.equal(v2.plans[0].name, 'Raid consumables'); assert.equal(v2.plans[0].budget, 500); assert.equal(v2.plans[0].tree, v1.tree);
+  assert.ok(validPlan(v2));
+  assert.equal(toV2(v2), v2);
+  const p = newPlan('Pre-BiS mats');
+  assert.equal(p.tree.children.length, 1); near(p.tree.children[0].w, 100, 'one wallet');
+  assert.ok(validPlan({ ...v2, plans: [...v2.plans, p] }));
+  assert.ok(!validPlan({ format: 'forever-plan', version: 2, plans: [{ name: 'no id', tree: { children: [] } }] }));
+});

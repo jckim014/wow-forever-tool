@@ -197,10 +197,28 @@ export function leaves(root) {
   return out;
 }
 
-/** The empty plan's file shape (format forever-plan v1). */
+/** The plan file (format forever-plan): v1 = one plan { budget, house, tree, initial }; v2 (2026-11-21) = several
+ *  plans shown on one page: { plans: [{ id, name, budget, house, tree, initial }] }. */
 export const PLAN_FORMAT = 'forever-plan';
+const validTree = (t) => Array.isArray(t?.children);
 export function validPlan(doc) {
-  return !!doc && doc.format === PLAN_FORMAT && doc.version === 1 && Array.isArray(doc.tree?.children);
+  if (!doc || doc.format !== PLAN_FORMAT) return false;
+  if (doc.version === 1) return validTree(doc.tree);
+  if (doc.version === 2) return Array.isArray(doc.plans) && doc.plans.every((p) => p && typeof p.id === 'string' && validTree(p.tree));
+  return false;
+}
+
+/** A v1 file (one plan) as v2; v2 comes back as it is. */
+export function toV2(doc, firstName = 'Raid consumables') {
+  if (doc?.version === 2) return doc;
+  const { budget, house, tree, initial } = doc;
+  return { format: PLAN_FORMAT, version: 2, plans: [{ id: 'p1', name: firstName, budget, house, tree, initial }] };
+}
+
+/** A new plan with one wallet. */
+export function newPlan(name, id = newId()) {
+  const tree = { children: [{ id: newId(), name: 'Wallet 1', w: 100 }] };
+  return { id, name: String(name || 'New plan').trim() || 'New plan', budget: 0, house: 111, tree, initial: structuredClone(tree) };
 }
 
 // Auctionator's own separators; a name containing them would break the list.

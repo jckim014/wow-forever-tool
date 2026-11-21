@@ -363,7 +363,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   needs a table lookup per row (~7x slower). `FOREVER_TIMING_MIN_DAY_HOURS` lowers the 12-hour rule for trying it out.
   UI wording: "expensive", never "dear" (Josh didn't know the word; Faction tooltips and heat-map legends changed too).
 - **Plan tab** (Josh, 2026-11-20; `public/plan.js`, pure logic `public/planLib.js` tested in `planLib.test.mjs`, classes
-  `pl-*`): Josh's speculation budget as a tree of wallets > groups > items, each with a weight = % of its parent
+  `pl-*`): **several plans on one page** (2026-11-21, Josh chose this over a plan picker): each a foldable section with
+  its own name, budget, faction, tree, bands, starting weights and shopping lists (named "<plan>: <group>"); New plan at
+  the top with "All plans" = the sum of the budgets; Rename / Delete per plan; "more than listed" is checked per plan
+  (Josh). File format `forever-plan` v2 `{ plans: [{ id, name, budget, house, tree, initial }] }`; a v1 file (one
+  plan) is read as v2 with the plan named "Raid consumables" (`toV2`). Each plan is a speculation budget as a tree
+  of wallets > groups > items, each with a weight = % of its parent
   (siblings always sum to 100). Editing **% of parent** makes the siblings make room in proportion (nothing outside the
   group moves); editing **% of whole** makes the ancestors grow/shrink and everything outside the node scale in
   proportion (siblings included; the inside keeps its split). Gold is display-only (Josh: he works in %), budget x share.
@@ -381,7 +386,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
   quantity = units the gold buys, merged per item; no max price yet), copied to the clipboard; Josh tested the import
   in game. Saved by the server (`POST /api/plan`, whole-file replace) to `F:\ForeverAuctionData\plan.json` (format
-  `forever-plan` v1: budget, house, tree, initial; env FOREVER_PLAN_FILE); never in the repo (personal plan). Starting
+  `forever-plan`, see above; env FOREVER_PLAN_FILE); never in the repo (personal plan). Starting
   weights came from Josh's consumables analysis (`data/private/consumables-plan.md`, calculator
   `data/private/consumables-calc.mjs`).
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes).

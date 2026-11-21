@@ -1,24 +1,34 @@
-// Plan tab: Josh's budget split into wallets, groups and items. Each row's % of parent and % of the whole are editable
-// (planLib.js says what each edit does to the rest); the budget turns shares into gold; prices come from the latest
-// snapshot. Saved to F:\ForeverAuctionData\plan.json through the server.
+// Plan tab: Josh's budgets, each split into wallets, groups and items. Several plans sit on the page one under another,
+// each with its own budget, faction, tree, bands, shopping lists and starting weights. Each row's % of parent and
+// % of the whole are editable (planLib.js says what each edit does to the rest); the budget turns shares into gold;
+// prices come from the latest snapshot. Saved to F:\ForeverAuctionData\plan.json through the server.
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
-import { normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand } from './planLib.js';
+import {
+  normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
+  toV2, newPlan,
+} from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const CLOSED_KEY = 'forever-market:plan-closed';
+const CLOSED_KEY = 'forever-market:plan-closed';          // groups closed (node ids)
+const PLANS_CLOSED_KEY = 'forever-market:plan-sections-closed'; // plans collapsed (plan ids)
+const readSet = (k) => new Set((() => { try { return JSON.parse(localStorage.getItem(k) ?? '[]'); } catch { return []; } })());
+const keepSet = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* per browser */ } };
 
-let doc = null;          // the plan file's content
+let doc = null;          // the plan file's content (v2: { plans: [...] })
 let prices = {};         // item name -> { id, icon, quality, latest: { 111: {...}, 114: {...} } } | null
-let closed = new Set((() => { try { return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '[]'); } catch { return []; } })());
+const closed = readSet(CLOSED_KEY);
+const closedPlans = readSet(PLANS_CLOSED_KEY);
 let saveState = '';      // '', 'saving', 'saved', or an error message
 let saveTimer = null;
 let loaded = false;
 let planFile = 'the plan file';
 const setRows = new Set(); // rows whose % of parent was typed since the page loaded: later edits in their group leave them alone
-let exported = null;     // the last Auctionator list made: { name, text, items, skipped, copied }
+let exported = null;     // the last Auctionator list made: { planId, name, text, items, skipped, copied }
 
 const lookupName = (n) => n.item ?? n.name;
+const planById = (id) => doc.plans.find((p) => p.id === id);
+const houseOf = (p) => (p.house === 114 ? 114 : 111);
 
 export async function showPlan() {
   if (loaded) return refreshPrices();
@@ -27,10 +37,11 @@ export async function showPlan() {
   try {
     const r = await (await fetch('/api/plan')).json();
     if (r.error) throw new Error(r.error);
-    doc = validPlan(r.plan) ? r.plan : emptyPlan();
+    doc = validPlan(r.plan) ? toV2(r.plan) : { format: 'forever-plan', version: 2, plans: [newPlan('Plan 1')] };
     if (r.file) planFile = r.file;
-    normalize(doc.tree);
+    for (const p of doc.plans) normalize(p.tree);
     loaded = true;
+    wire(box);
     render();
     await refreshPrices();
   } catch (e) {
@@ -38,14 +49,9 @@ export async function showPlan() {
   }
 }
 
-function emptyPlan() {
-  const tree = { children: [{ id: 'w1', name: 'Wallet 1', w: 100 }] };
-  return { format: 'forever-plan', version: 1, budget: 1000, house: 111, tree, initial: structuredClone(tree) };
-}
-
 async function refreshPrices() {
   const names = new Set();
-  walk(doc.tree, (n) => { if (!n.children?.length) names.add(lookupName(n)); });
+  for (const p of doc.plans) walk(p.tree, (n) => { if (!n.children?.length) names.add(lookupName(n)); });
   const want = [...names].filter((n) => !(n in prices));
   if (!want.length) return;
   try {
@@ -91,22 +97,48 @@ function renderStatus() {
 const pct = (v) => (v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v > 0 ? v.toFixed(2) : '0');
 
 function render() {
-  const box = $('#plan');
-  const shares = wholeShares(doc.tree);
-  const budget = Number(doc.budget) || 0;
-  const house = doc.house === 114 ? 114 : 111;
+  const total = doc.plans.reduce((s, p) => s + (Number(p.budget) || 0), 0);
+  $('#plan').innerHTML = `
+    <div class="mfilters">
+      <button class="mbtn2" data-act="new-plan">New plan</button>
+      <span class="field">All plans: <strong>${moneyHtml(total * 10000)}</strong></span>
+      <span id="p-save"></span>
+    </div>
+    <p class="mhint2">Band: Large 4, Medium 2, Small 1, Token ½. In a group, each banded line's share = its band / the total of the bands (after any exact lines);
+      changing a band only moves weight inside that group. Typing a % makes that line exact.<br>
+      % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
+      (until you reload the page), so you can type a group's numbers one after another.
+      % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
+      Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
+      Double-click a name to rename it. Click a plan's name to fold it away.</p>
+    ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
+  renderStatus();
+}
+
+function planHtml(plan) {
+  const shares = wholeShares(plan.tree);
+  const budget = Number(plan.budget) || 0;
+  const house = houseOf(plan);
+  const open = !closedPlans.has(plan.id);
+  const head = `<div class="pl-head">
+      <button class="pl-ptog" data-act="toggle-plan" title="${open ? 'Fold away' : 'Open'}">${open ? '▾' : '▸'} <span class="pl-pname">${esc(plan.name)}</span></button>
+      <span class="pl-psum">${moneyHtml(budget * 10000)} · ${house === 114 ? 'Horde' : 'Alliance'}</span>
+      <button class="mbtn2" data-act="rename-plan">Rename</button><button class="mbtn2" data-act="delete-plan">Delete</button>
+    </div>`;
+  if (!open) return `<section class="pl-plan" data-plan="${plan.id}">${head}</section>`;
   const rows = [];
-  const rec = (node, depth, parentId) => {
+  const rec = (node, depth) => {
     for (const n of node.children ?? []) {
-      rows.push({ n, depth, parentId });
-      if (n.children?.length && !closed.has(n.id)) rec(n, depth + 1, n.id);
+      rows.push({ n, depth });
+      if (n.children?.length && !closed.has(n.id)) rec(n, depth + 1);
     }
   };
-  rec(doc.tree, 0, null);
+  rec(plan.tree, 0);
   const flags = [];
-  // Gold per item across every line that buys it (Dreamfoil sits in two wallets): the "more than listed" check uses it.
+  // Gold per item across every line of this plan that buys it (Dreamfoil sits in two wallets): "more than listed" uses
+  // it. Each plan is checked on its own (Josh, 2026-11-21).
   const itemGold = new Map();
-  walk(doc.tree, (x) => {
+  walk(plan.tree, (x) => {
     if (!x.children?.length) itemGold.set(lookupName(x), (itemGold.get(lookupName(x)) ?? 0) + (budget * (shares.get(x.id) ?? 0)) / 100);
   });
   const body = rows.map(({ n, depth }) => {
@@ -128,44 +160,37 @@ function render() {
       ${n.note ? `<span class="minfo" title="${esc(n.note)}">ⓘ</span>` : ''}</td>`;
     return `<tr class="pl-d${Math.min(depth, 3)}${group ? ' pl-grow' : ''}">
       ${nameCell}
-      <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, l]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select></td>
+      <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, lb]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${lb}</option>`).join('')}</select></td>
       <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
       <td><input class="pl-in" data-k="${n.id}:whole" type="number" step="any" min="0" max="100" value="${pct(whole)}"> %</td>
       <td>${moneyHtml(Math.round(gold * 100) * 100)}</td>
       <td>${group ? '' : each ? moneyHtml(each) : `<span class="blank" title="${p === null ? 'No AH item with this name' : 'Not listed in this faction right now'}">—</span>`}</td>
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
-      <td class="mleft">${thin ? `<span class="mflag" title="${shared ? `All lines of this item together (~${Math.round(totalUnits).toLocaleString()} units) buy` : 'The gold buys'} more than is listed right now">more than listed${shared ? ' (all lines)' : ''}</span>` : ''}</td>
+      <td class="mleft">${thin ? `<span class="mflag" title="${shared ? `All lines of this item in this plan together (~${Math.round(totalUnits).toLocaleString()} units) buy` : 'The gold buys'} more than is listed right now">more than listed${shared ? ' (all lines)' : ''}</span>` : ''}</td>
       <td class="pl-act">${group ? `<button class="pl-btn pl-list" data-list="${n.id}" title="Auctionator shopping list of everything in ${esc(n.name)}">List</button>` : ''}<button class="pl-btn" data-add="${n.id}" title="Add a line inside">+</button><button class="pl-btn" data-del="${n.id}" title="Remove">×</button></td>
     </tr>`;
   }).join('');
-  box.innerHTML = `
+  const ex = exported?.planId === plan.id ? exported : null;
+  return `<section class="pl-plan" data-plan="${plan.id}">${head}
     <div class="mfilters">
-      <label class="field">Budget <input id="p-budget" class="pl-budget" type="number" step="any" min="0" value="${budget}"> g</label>
-      <span class="field">Prices <span class="seg" id="p-house">
-        ${HOUSES.map((h) => `<button data-v="${h.id}" class="${house === h.id ? 'on' : ''}">${h.label}</button>`).join('')}
+      <label class="field">Budget <input class="pl-budget" data-act="budget" type="number" step="any" min="0" value="${budget}"> g</label>
+      <span class="field">Prices <span class="seg">
+        ${HOUSES.map((h) => `<button data-act="house" data-v="${h.id}" class="${house === h.id ? 'on' : ''}">${h.label}</button>`).join('')}
       </span></span>
-      <button id="p-open" class="mbtn2">Open all</button><button id="p-close" class="mbtn2">Close all</button>
-      <button id="p-add" class="mbtn2">Add wallet</button>
-      <button id="p-reset" class="mbtn2">Reset to starting weights</button>
-      <button id="p-list-all" class="mbtn2" title="Auctionator shopping list of the whole plan">Shopping list (all)</button>
-      <span id="p-save"></span>
+      <button class="mbtn2" data-act="open-all">Open all</button><button class="mbtn2" data-act="close-all">Close all</button>
+      <button class="mbtn2" data-act="add-wallet">Add wallet</button>
+      <button class="mbtn2" data-act="reset">Reset to starting weights</button>
+      <button class="mbtn2" data-act="list-all" title="Auctionator shopping list of this whole plan">Shopping list (all)</button>
     </div>
-    ${exported ? `<div class="pl-export">
-      <div><strong>Auctionator list "${esc(exported.name)}"</strong>: ${exported.items.length} item${exported.items.length === 1 ? '' : 's'}${exported.copied ? ', copied' : ''}.
+    ${ex ? `<div class="pl-export">
+      <div><strong>Auctionator list "${esc(ex.name)}"</strong>: ${ex.items.length} item${ex.items.length === 1 ? '' : 's'}${ex.copied ? ', copied' : ''}.
         In game: Auctionator's Shopping tab, Import, paste. Importing a list with the same name replaces it.
         Quantities = units the gold buys at today's ${house === 114 ? 'Horde' : 'Alliance'} prices.
-        ${exported.skipped.length ? `<br>Left out (no price, or the gold buys less than one): ${exported.skipped.map(esc).join(', ')}` : ''}</div>
-      <textarea class="pl-export-text" readonly rows="2">${esc(exported.text)}</textarea>
-      <div><button id="p-copy" class="mbtn2">Copy again</button> <button id="p-export-close" class="mbtn2">Close</button></div>
+        ${ex.skipped.length ? `<br>Left out (no price, or the gold buys less than one): ${ex.skipped.map(esc).join(', ')}` : ''}</div>
+      <textarea class="pl-export-text" readonly rows="2">${esc(ex.text)}</textarea>
+      <div><button class="mbtn2" data-act="copy">Copy again</button> <button class="mbtn2" data-act="export-close">Close</button></div>
     </div>` : ''}
-    <p class="mhint2">Band: Large 4, Medium 2, Small 1, Token ½. In a group, each banded line's share = its band / the total of the bands (after any exact lines);
-      changing a band only moves weight inside that group. Typing a % makes that line exact.<br>
-      % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
-      (until you reload the page), so you can type a group's numbers one after another.
-      % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
-      Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
-      Double-click a name to rename it.</p>
     ${flags.length ? `<p class="mearly">More gold than the AH lists right now: ${flags.map(esc).join(', ')}. Buying them out would push the price up; spread the buying over time or lower their share.</p>` : ''}
     <div class="mfaction">
       <table class="mtable mft pl-table">
@@ -173,86 +198,100 @@ function render() {
         ${body}
         <tr class="pl-total"><td class="mleft">Total</td><td></td><td></td><td>100 %</td><td>${moneyHtml(budget * 10000)}</td><td colspan="5"></td></tr>
       </table>
-    </div>`;
-  renderStatus();
-  wire();
+    </div>
+  </section>`;
 }
 
 function changed() { save(); render(); }
 
-function wire() {
-  const box = $('#plan');
-  $('#p-budget').addEventListener('change', (e) => { doc.budget = Math.max(0, Number(e.target.value) || 0); changed(); });
-  $('#p-house').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { doc.house = Number(b.dataset.v); changed(); } });
-  $('#p-open').addEventListener('click', () => { closed.clear(); keepClosed(); render(); });
-  $('#p-close').addEventListener('click', () => { walk(doc.tree, (n) => { if (n.children?.length) closed.add(n.id); }); keepClosed(); render(); });
-  $('#p-add').addEventListener('click', () => {
-    const name = prompt('Name of the new wallet:');
-    if (name) { addChild(doc.tree, null, name); changed(); }
+/** One set of listeners on the tab's box; every control says what it is (data-act etc.) and which plan it's in. */
+function wire(box) {
+  const planOf = (el) => planById(el.closest('[data-plan]')?.dataset.plan);
+  box.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    const plan = e.target.closest('[data-plan]') ? planOf(e.target) : null;
+    if (a) {
+      const act = a.dataset.act;
+      if (act === 'new-plan') {
+        const name = prompt('Name of the new plan:');
+        if (name) { doc.plans.push(newPlan(name)); changed(); }
+        return;
+      }
+      if (!plan) return;
+      if (act === 'toggle-plan') { closedPlans.has(plan.id) ? closedPlans.delete(plan.id) : closedPlans.add(plan.id); keepSet(PLANS_CLOSED_KEY, closedPlans); render(); }
+      else if (act === 'rename-plan') { const n = prompt('New name of the plan:', plan.name); if (n && n.trim()) { plan.name = n.trim(); changed(); } }
+      else if (act === 'delete-plan') {
+        if (confirm(`Delete the plan "${plan.name}" and everything in it? This can't be undone (except from a copy of the plan file).`)) {
+          doc.plans = doc.plans.filter((p) => p !== plan);
+          if (exported?.planId === plan.id) exported = null;
+          changed();
+        }
+      } else if (act === 'house') { plan.house = Number(a.dataset.v); changed(); }
+      else if (act === 'open-all') { walk(plan.tree, (n) => closed.delete(n.id)); keepSet(CLOSED_KEY, closed); render(); }
+      else if (act === 'close-all') { walk(plan.tree, (n) => { if (n.children?.length) closed.add(n.id); }); keepSet(CLOSED_KEY, closed); render(); }
+      else if (act === 'add-wallet') { const n = prompt(`Name of the new wallet in "${plan.name}":`); if (n) { addChild(plan.tree, null, n); changed(); } }
+      else if (act === 'reset') {
+        if (!plan.initial || !confirm(`Go back to the starting weights of "${plan.name}"? Your changes to its weights, names and lines are replaced (the budget stays).`)) return;
+        plan.tree = structuredClone(plan.initial);
+        setRows.clear();
+        normalize(plan.tree);
+        changed();
+        refreshPrices();
+      } else if (act === 'list-all') makeList(plan, null);
+      else if (act === 'copy') copyList();
+      else if (act === 'export-close') { exported = null; render(); }
+      return;
+    }
+    const t = e.target.closest('[data-tog],[data-add],[data-del],[data-list]');
+    if (!t || !plan) return;
+    if (t.dataset.list) makeList(plan, t.dataset.list);
+    else if (t.dataset.tog) {
+      const id = t.dataset.tog;
+      closed.has(id) ? closed.delete(id) : closed.add(id);
+      keepSet(CLOSED_KEY, closed);
+      render();
+    } else if (t.dataset.add) {
+      const name = prompt('Name of the new line (an item name gets its price):');
+      if (!name) return;
+      addChild(plan.tree, t.dataset.add, name);
+      closed.delete(t.dataset.add);
+      changed();
+      refreshPrices();
+    } else if (t.dataset.del) {
+      const n = find(plan.tree, t.dataset.del).node;
+      if (n && confirm(`Remove "${n.name}"${n.children?.length ? ' and everything in it' : ''}? The rest of its group fills its share.`)) {
+        remove(plan.tree, n.id);
+        changed();
+      }
+    }
   });
-  $('#p-reset').addEventListener('click', () => {
-    if (!doc.initial || !confirm('Go back to the starting weights? Your changes to the weights, names and lines are replaced (the budget stays).')) return;
-    doc.tree = structuredClone(doc.initial);
-    setRows.clear();
-    normalize(doc.tree);
-    prices = {};
-    changed();
-    refreshPrices();
-  });
-  $('#p-list-all').addEventListener('click', () => makeList(null));
-  $('#p-copy')?.addEventListener('click', () => copyList());
-  $('#p-export-close')?.addEventListener('click', () => { exported = null; render(); });
-  box.querySelector('.pl-table').addEventListener('change', (e) => {
-    if (e.target.dataset.band) { setBand(doc.tree, e.target.dataset.band, e.target.value || null); changed(); return; }
+  box.addEventListener('change', (e) => {
+    const plan = planOf(e.target);
+    if (!plan) return;
+    if (e.target.dataset.act === 'budget') { plan.budget = Math.max(0, Number(e.target.value) || 0); changed(); return; }
+    if (e.target.dataset.band) { setBand(plan.tree, e.target.dataset.band, e.target.value || null); changed(); return; }
     const k = e.target.dataset.k;
     if (!k) return;
     const next = document.activeElement?.dataset?.k; // Tab moved focus: put it back after redrawing
     const [id, field] = k.split(':');
     const v = Number(e.target.value);
     if (!Number.isFinite(v) || v < 0) { render(); return; }
-    if (field === 'local') { setLocal(doc.tree, id, v, setRows); setRows.add(id); }
-    else setWhole(doc.tree, id, v);
+    if (field === 'local') { setLocal(plan.tree, id, v, setRows); setRows.add(id); }
+    else setWhole(plan.tree, id, v);
     changed();
     const el = next && box.querySelector(`[data-k="${next}"]`);
     if (el) { el.focus(); el.select?.(); }
   });
-  box.querySelector('.pl-table').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.dataset.k) e.target.dispatchEvent(new Event('change', { bubbles: true }));
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.target.dataset.k || e.target.dataset.act === 'budget')) e.target.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  box.querySelector('.pl-table').addEventListener('click', (e) => {
-    const t = e.target.closest('[data-tog],[data-add],[data-del],[data-list]');
-    if (!t) return;
-    if (t.dataset.list) {
-      makeList(t.dataset.list);
-    } else if (t.dataset.tog) {
-      const id = t.dataset.tog;
-      closed.has(id) ? closed.delete(id) : closed.add(id);
-      keepClosed();
-      render();
-    } else if (t.dataset.add) {
-      const name = prompt('Name of the new line (an item name gets its price):');
-      if (!name) return;
-      addChild(doc.tree, t.dataset.add, name);
-      closed.delete(t.dataset.add);
-      changed();
-      refreshPrices();
-    } else if (t.dataset.del) {
-      let n = null;
-      walk(doc.tree, (x) => { if (x.id === t.dataset.del) n = x; });
-      if (n && confirm(`Remove "${n.name}"${n.children?.length ? ' and everything in it' : ''}? The rest of its group fills its share.`)) {
-        remove(doc.tree, n.id);
-        changed();
-      }
-    }
-  });
-  box.querySelector('.pl-table').addEventListener('dblclick', (e) => {
+  box.addEventListener('dblclick', (e) => {
     const t = e.target.closest('[data-rename]');
-    if (!t) return;
-    let n = null;
-    walk(doc.tree, (x) => { if (x.id === t.dataset.rename) n = x; });
+    const plan = t && planOf(t);
+    if (!plan) return;
+    const n = find(plan.tree, t.dataset.rename).node;
     const name = n && prompt('New name:', n.name);
     if (name && name.trim()) {
-      if (!n.children?.length && !n.item && name.trim() !== n.name) n.item = undefined;
       n.name = name.trim();
       changed();
       refreshPrices();
@@ -260,13 +299,14 @@ function wire() {
   });
 }
 
-/** Builds the Auctionator list for a group (null = the whole plan), shows it above the table and copies it. */
-async function makeList(id) {
-  const house = doc.house === 114 ? 114 : 111;
-  const node = id ? find(doc.tree, id).node : null;
-  const name = node ? `Plan: ${node.name}` : 'Plan';
+/** Builds the Auctionator list for a group of a plan (null = the whole plan), shows it in that plan and copies it.
+ *  Named after the plan, so lists from different plans don't replace each other in game. */
+async function makeList(plan, id) {
+  const house = houseOf(plan);
+  const node = id ? find(plan.tree, id).node : null;
+  const name = node ? `${plan.name}: ${node.name}` : plan.name;
   const priceOf = (itemName) => prices[itemName]?.latest?.[house]?.cheapest15 ?? null;
-  exported = { name, ...shoppingList(doc.tree, id, Number(doc.budget) || 0, priceOf, name), copied: false };
+  exported = { planId: plan.id, name, ...shoppingList(plan.tree, id, Number(plan.budget) || 0, priceOf, name), copied: false };
   await copyList();
 }
 
@@ -276,5 +316,3 @@ async function copyList() {
   render();
   if (!exported.copied) $('.pl-export-text')?.select(); // copy by hand (Ctrl+C) if the browser refused
 }
-
-function keepClosed() { try { localStorage.setItem(CLOSED_KEY, JSON.stringify([...closed])); } catch { /* per browser */ } }
