@@ -371,7 +371,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Small 1 / Token ½ (`BANDS`, fixed: Josh decided against editable band weights and custom bands for now; add four
   boxes only if a whole level feels wrong in use). In a group, exact rows keep their %, banded rows share the rest by
   band weight (`rebalance`); a band change moves weight only inside its group; typing a % (or a % of whole on a path)
-  makes that row exact; a new line in an all-banded group comes in as Small. Josh's plan uses bands for items and for
+  makes that row exact; a new line in an all-banded group comes in as Small. **Rows already set stay put** (Josh, 2026-11-20): a typed % of parent comes out of the siblings not yet typed since the page loaded (`setRows` in plan.js, `keep` in `setLocal`), so a group's numbers can be typed one after another; when all are set, or the set ones plus the new value pass 100, every sibling moves in proportion. A reload starts fresh (Josh: fine). A save still pending when the page closes goes out by sendBeacon. Josh's plan uses bands for items and for
   the groups inside Core; his own decisions (wallets, 80/20, 65/35, E'ko 50/50) stay exact. Pre-band file kept as
   `F:\ForeverAuctionData\plan.before-bands.json`; Reset goes back to the original precise weights (no bands).
   Prices: cheapest15 at the latest snapshot, Alliance/Horde switch, item looked up by exact name (`item` overrides the

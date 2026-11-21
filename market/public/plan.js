@@ -15,6 +15,7 @@ let saveState = '';      // '', 'saving', 'saved', or an error message
 let saveTimer = null;
 let loaded = false;
 let planFile = 'the plan file';
+const setRows = new Set(); // rows whose % of parent was typed since the page loaded: later edits in their group leave them alone
 let exported = null;     // the last Auctionator list made: { name, text, items, skipped, copied }
 
 const lookupName = (n) => n.item ?? n.name;
@@ -59,6 +60,7 @@ function save() {
   renderStatus();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    saveTimer = null;
     try {
       const r = await fetch('/api/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
       const j = await r.json();
@@ -70,6 +72,14 @@ function save() {
     renderStatus();
   }, 400);
 }
+
+// A save still waiting when the page closes or reloads goes out at once (sendBeacon survives the page going away).
+addEventListener('pagehide', () => {
+  if (!saveTimer || saveState !== 'saving' || !doc) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  navigator.sendBeacon('/api/plan', new Blob([JSON.stringify(doc)], { type: 'application/json' }));
+});
 
 function renderStatus() {
   const el = $('#p-save');
@@ -151,7 +161,8 @@ function render() {
     </div>` : ''}
     <p class="mhint2">Band: Large 4, Medium 2, Small 1, Token ½. In a group, each banded line's share = its band / the total of the bands (after any exact lines);
       changing a band only moves weight inside that group. Typing a % makes that line exact.<br>
-      % of parent: change it and the rest of that group makes room, nothing outside the group moves.
+      % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
+      (until you reload the page), so you can type a group's numbers one after another.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
       Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
       Double-click a name to rename it.</p>
@@ -182,6 +193,7 @@ function wire() {
   $('#p-reset').addEventListener('click', () => {
     if (!doc.initial || !confirm('Go back to the starting weights? Your changes to the weights, names and lines are replaced (the budget stays).')) return;
     doc.tree = structuredClone(doc.initial);
+    setRows.clear();
     normalize(doc.tree);
     prices = {};
     changed();
@@ -198,7 +210,7 @@ function wire() {
     const [id, field] = k.split(':');
     const v = Number(e.target.value);
     if (!Number.isFinite(v) || v < 0) { render(); return; }
-    if (field === 'local') setLocal(doc.tree, id, v);
+    if (field === 'local') { setLocal(doc.tree, id, v, setRows); setRows.add(id); }
     else setWhole(doc.tree, id, v);
     changed();
     const el = next && box.querySelector(`[data-k="${next}"]`);

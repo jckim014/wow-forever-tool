@@ -50,15 +50,23 @@ const clamp = (v) => Math.min(100, Math.max(0, Number(v) || 0));
  * Sets a node's % of its parent. The parent keeps its size: the siblings make room in proportion to their weights
  * (equally if they are all 0).
  */
-export function setLocal(root, id, pct) {
+export function setLocal(root, id, pct, keep = null) {
   const { node, parent } = find(root, id);
   if (!node) return root;
   const v = clamp(pct);
   delete node.band; // a typed % is exact
   const sibs = parent.children.filter((k) => k !== node);
-  const rest = sibs.reduce((s, k) => s + k.w, 0);
   node.w = sibs.length ? v : 100;
-  for (const k of sibs) k.w = rest > 0 ? (k.w / rest) * (100 - node.w) : (100 - node.w) / sibs.length;
+  // Siblings in `keep` (already set this visit) stay as they are and the change comes out of the others; when that
+  // isn't possible (all set, or the kept ones plus this one pass 100), every sibling makes room in proportion.
+  const kept = keep ? sibs.filter((k) => keep.has(k.id)) : [];
+  const free = sibs.filter((k) => !kept.includes(k));
+  const keptSum = kept.reduce((s, k) => s + k.w, 0);
+  const useKeep = kept.length && free.length && node.w + keptSum <= 100 + 1e-9;
+  const movers = useKeep ? free : sibs;
+  const room = useKeep ? 100 - node.w - keptSum : 100 - node.w;
+  const rest = movers.reduce((s, k) => s + k.w, 0);
+  for (const k of movers) k.w = rest > 0 ? (k.w / rest) * room : room / movers.length;
   return root;
 }
 

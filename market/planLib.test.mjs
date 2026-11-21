@@ -175,3 +175,24 @@ test('setBand(null) keeps the current % as exact', () => {
   assert.ok(BANDS.L.w === 4);
   void rebalance;
 });
+
+test('setLocal with rows already set: the change comes out of the untouched ones', () => {
+  const r = normalize({ children: [{ id: 'c', w: 60.2 }, { id: 'n', w: 15.7 }, { id: 'm', w: 12.9 }, { id: 'x', w: 11.2 }] });
+  const keep = new Set();
+  const edit = (id, v) => { setLocal(r, id, v, keep); keep.add(id); };
+  edit('c', 55); edit('n', 20); edit('m', 15);
+  const w = Object.fromEntries(r.children.map((k) => [k.id, k.w]));
+  near(w.c, 55, 'core'); near(w.n, 20, 'np'); near(w.m, 15, 'misc'); near(w.x, 10, 'last one gets the rest');
+  edit('x', 12); // every other row is set: all make room in proportion
+  near(r.children.reduce((s, k) => s + k.w, 0), 100, 'sum'); near(r.children[3].w, 12, 'x');
+  near(r.children[0].w / r.children[1].w, 55 / 20, 'proportional among the set ones');
+});
+
+test('setLocal: kept rows plus the new value over 100 falls back to proportional', () => {
+  const r = normalize({ children: [{ id: 'a', w: 50 }, { id: 'b', w: 40 }, { id: 'c', w: 10 }] });
+  setLocal(r, 'c', 30, new Set(['a', 'b'])); // a + b = 90, + 30 > 100; and nothing is free anyway
+  near(r.children[2].w, 30, 'c'); near(r.children[0].w / r.children[1].w, 50 / 40, 'a:b kept');
+  const r2 = normalize({ children: [{ id: 'a', w: 70 }, { id: 'b', w: 20 }, { id: 'c', w: 10 }] });
+  setLocal(r2, 'b', 40, new Set(['a'])); // 70 + 40 > 100: everyone moves
+  near(r2.children[1].w, 40, 'b'); near(r2.children[0].w / r2.children[2].w, 7, 'a:c kept');
+});
