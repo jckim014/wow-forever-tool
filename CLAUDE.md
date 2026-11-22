@@ -1019,9 +1019,11 @@ Open items to raise when relevant:
   stale); which drop recipes he has (Devilsaur Leggings, Robe of Winter Night...). Offered: keep the scan as a re-runnable
   tool or page. Arcane Crystal / Fel Crystal nominal vendor prices also distort the app's transmute figures: suggest
   marking them "No vendor sells it" in the Prices view.
-- **Raise at the start of the next session (Josh asked, 2026-11-20):** (1) exit rules per wallet of his consumables
-  speculation (sell in thirds: at 2x, at target, by a date; a "wrong if" line; a time stop; raids 12-09; ~9,000g of
-  stock by launch at 500g/day); (2) a maximum price per item on the Plan tab's Auctionator lists (not built).
+- Exit rules for the consumables speculation: **tabled by Josh (2026-11-21): he works on them himself and will ask if
+  he wants help. Don't raise them.** (A draft was shown: thirds at 2x / target / by a date, a "wrong if" line.)
+  Still open, raise only if relevant: a maximum price per item on the Plan tab's Auctionator lists (not built).
+  Seen in the mail ledger that day: no core-herb buys yet for the Raid consumables plan (~5,200g on Desti went to
+  pre-BiS leather mats); asked Josh whether he'd started buying or uses a character the addon doesn't log, no answer.
 - **Portfolio view (Josh asked, 2026-11-21: "let's work on that later"):** link his trade records to the plans: per
   item what he holds, what it cost on average, today's value and the gap to the plan's target (covers the "Bought so
   far" idea). Sources: the mail ledger on F: (BavvbScan buys/sales, every character; cost and amounts) and TSM's
