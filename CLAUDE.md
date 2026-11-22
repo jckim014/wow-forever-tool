@@ -918,6 +918,27 @@ Also answered: gold to Horde + a pattern back costs ~176.5g for a 150g pattern w
 Market (Market ↗ + Sold / day, db9fe0f; Chrome's "Always allow" tick box stopped the script-host prompt). All pushed and
 live; Josh checked both ("works as expected"). Josh said the Plan tab solved his three burdens: tracking, the split
 math and the shopping. He asked for a portfolio view later (see Open items).
+2026-11-21 (evening, analysis only, no code changes): Josh asked for every shuffle on current data (he'd seen "50 gph"
+  claims; his DE tests sold slowly). Scan of all recipes, multi-step and cross-profession, vendor / DE / AH exits, 111 and
+  114, at the 22:25 UTC snapshot. Findings told to Josh: nothing sustains 50 g/h. Craft -> DE pays 0.2-0.5g/craft only
+  in Rare 26-30 and 41-50 bands and loses from ilvl 51 up. DE mat volume is large (strict count: Strange Dust >= 17k/day,
+  Vision 5.4k, Dream 3.4k, Illusion 1.9k; ~6.3k-7.3k g/day of mats per faction; < ~1.5 days of stock), so his slow
+  sales were most likely priced above the floor. The wand loop (2 LME + Simple Wood -> Greater Magic Wand -> DE) is
+  ~+4s/wand, capped ~10g/day/faction by Lesser Astral Essence demand. Buying AH greens/blues under DE value: ~37g/day
+  (A), ~28g (H) of margin in total. Best earners: cooldowns (Mooncloth +46g A / +69g H, Arcanite +28/+31g, Legionite
+  +26/+20g per cooldown); repeatable crafts cap at ~20-185 g/day each (Devilsaur Leggings, Warbear Woolies, Robe of
+  Winter Night, Greater Arcane Elixir (Alliance only), Greater Shadow Protection Potion, reagent bags, Mystic Rugged
+  Armor Kit on Horde). Method notes worth reusing: (1) strict commodity sales bracket from hourly listings (lower = partial
+  stack buys + vanished listings at or below the highest partly-bought price; upper = vanished at or below the cheapest
+  untouched listing; reposts of the same size removed); sales.json's "probable" counts walls being cancelled (one hour
+  showed 4,629 Strange Dust). (2) Wowhead vendor buy prices are wrong for Arcane Crystal (80s) and Fel Crystal (1.2g),
+  both 11-16g on the AH; the scan ignored any vendor price under 1/3 of the AH price. (3) Blizzard's item API has
+  pre-Forever vendor sell prices (Forever lowered crafted gear, e.g. Nightscape Headband 29s vs 45s): use game-data.json
+  for vendor prices; Blizzard static-classic1x-us gives ilvl/class for non-crafted items (static-forever-us only has
+  Forever-only items, IDs > 200000). Scripts, the item ilvl/class cache (4,809 listed greens/blues/epics) and results
+  are in `data/private/shuffle-scan-2026-11-21/` (run with node from that folder after fixing paths: they were written
+  for the scratchpad; common.mjs reads F: and the repo by absolute path). Josh hasn't said whether he wants it as a
+  tool or page.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -993,6 +1014,11 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- Shuffle scan (2026-11-21): asked Josh, no answer yet: is Frilled Lichen, Stranglevine or Major Mana Potion sold by a
+  vendor on Forever (the bags gain ~0.8g, the armor kit ~0.7g if so; Major Mana Potion's 60s Wowhead price may be
+  stale); which drop recipes he has (Devilsaur Leggings, Robe of Winter Night...). Offered: keep the scan as a re-runnable
+  tool or page. Arcane Crystal / Fel Crystal nominal vendor prices also distort the app's transmute figures: suggest
+  marking them "No vendor sells it" in the Prices view.
 - **Raise at the start of the next session (Josh asked, 2026-11-20):** (1) exit rules per wallet of his consumables
   speculation (sell in thirds: at 2x, at target, by a date; a "wrong if" line; a time stop; raids 12-09; ~9,000g of
   stock by launch at 500g/day); (2) a maximum price per item on the Plan tab's Auctionator lists (not built).
