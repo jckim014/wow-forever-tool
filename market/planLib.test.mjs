@@ -226,3 +226,19 @@ test('movePlan puts a plan before or after another', async () => {
   assert.equal(movePlan(ps, 'x', 'a'), ps);
   assert.equal(ids(ps), 'abcd');                       // input untouched
 });
+
+test('moveLine reorders siblings only and keeps their weights', async () => {
+  const { moveLine } = await import('./public/planLib.js');
+  const tree = { children: [
+    { id: 'w1', w: 60, children: [{ id: 'a', w: 70 }, { id: 'b', w: 30, band: 'small' }] },
+    { id: 'w2', w: 40, children: [{ id: 'c', w: 100 }] },
+  ] };
+  const ids = (n) => n.children.map((k) => k.id).join('');
+  assert.equal(moveLine(tree, 'w2', 'w1'), true);
+  assert.equal(ids(tree), 'w2w1');
+  assert.equal(moveLine(tree, 'a', 'b', true), true);
+  assert.deepEqual(tree.children[1].children, [{ id: 'b', w: 30, band: 'small' }, { id: 'a', w: 70 }]);
+  assert.equal(moveLine(tree, 'a', 'c'), false);   // different groups: nothing moves
+  assert.equal(moveLine(tree, 'b', 'a'), false);   // already there
+  assert.equal(tree.children[0].w, 40);
+});

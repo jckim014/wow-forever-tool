@@ -367,7 +367,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Plan tab** (Josh, 2026-11-20; `public/plan.js`, pure logic `public/planLib.js` tested in `planLib.test.mjs`, classes
   `pl-*`): **several plans on one page** (2026-11-21, Josh chose this over a plan picker): each a foldable section with
   its own name, budget, faction, tree, bands, starting weights and shopping lists (named "<plan>: <group>"); New plan at
-  the top with "All plans" = the sum of the budgets; Rename / Delete per plan; plans reordered by dragging the ⠿ grip in a plan's header onto another plan (top half = before, bottom half = after; Josh, 2026-11-21; `movePlan` in planLib.js, the order is the file's `plans` order); "more than listed" is checked per plan
+  the top with "All plans" = the sum of the budgets; Rename / Delete per plan; plans reordered by dragging the ⠿ grip in a plan's header onto another plan (top half = before, bottom half = after; Josh, 2026-11-21; `movePlan` in planLib.js, the order is the file's `plans` order); wallets, groups and items move the same way by the ⠿ that shows when hovering a row, but only among the lines of their own group, and only the order changes (no % moves; `moveLine`; Josh, 2026-11-22); "more than listed" is checked per plan
   (Josh). File format `forever-plan` v2 `{ plans: [{ id, name, budget, house, tree, initial }] }`; a v1 file (one
   plan) is read as v2 with the plan named "Raid consumables" (`toV2`). Each plan is a speculation budget as a tree
   of wallets > groups > items, each with a weight = % of its parent
@@ -389,7 +389,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   and a price's hover says which it came from. Only the Plan tab uses scans. Alliance/Horde switch, item looked up by exact name (`item` overrides the
   name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
-  / rename (✎ button or double-click the name) lines, Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
+  / rename (✎ button or double-click the name) lines, a "for" label per line (the "for" button or double-click the label: free text Josh types, e.g. "Natural flasks", shown in grey after the name, display only, kept by Reset; field `uses`; 2026-11-22), Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
   per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
   quantity = units the gold buys, merged per item; no max price yet), copied to the clipboard; Josh tested the import
   in game. Saved by the server (`POST /api/plan`, whole-file replace) to `F:\ForeverAuctionData\plan.json` (format
@@ -1019,14 +1019,16 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
-- Shuffle scan (2026-11-21): asked Josh, no answer yet: is Frilled Lichen, Stranglevine or Major Mana Potion sold by a
-  vendor on Forever (the bags gain ~0.8g, the armor kit ~0.7g if so; Major Mana Potion's 60s Wowhead price may be
-  stale); which drop recipes he has (Devilsaur Leggings, Robe of Winter Night...). Offered: keep the scan as a re-runnable
-  tool or page. Arcane Crystal / Fel Crystal nominal vendor prices also distort the app's transmute figures: suggest
-  marking them "No vendor sells it" in the Prices view.
+- Shuffle scan (2026-11-21): settled 2026-11-22: Frilled Lichen, Stranglevine and Major Mana Potion are not sold by a
+  vendor on Forever; Josh doesn't want the scan followed up. Don't raise it.
+- **Crate status reports** (2026-11-22, Josh: keep checking over time): Damaged Undermine Supply Crate vs his herb
+  positions. Everything is in `data/private/crate-analysis/` (README.txt = why, how to rerun, fixed method, the facts
+  Josh gave, findings so far; analyse.mjs; reports/). On "crate report"/"status report": Josh re-saves the Wowhead
+  crate page, run the script, lead with the verdict and what changed. The method is fixed (he guards against
+  confirmation bias): change it only on purpose and say so.
 - Exit rules for the consumables speculation: **tabled by Josh (2026-11-21): he works on them himself and will ask if
   he wants help. Don't raise them.** (A draft was shown: thirds at 2x / target / by a date, a "wrong if" line.)
-  Still open, raise only if relevant: a maximum price per item on the Plan tab's Auctionator lists (not built).
+  Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
   Seen in the mail ledger that day: no core-herb buys yet for the Raid consumables plan (~5,200g on Desti went to
   pre-BiS leather mats); asked Josh whether he'd started buying or uses a character the addon doesn't log, no answer.
 - **Portfolio view (Josh asked, 2026-11-21: "let's work on that later"):** link his trade records to the plans: per
@@ -1034,9 +1036,7 @@ Open items to raise when relevant:
   far" idea). Sources: the mail ledger on F: (BavvbScan buys/sales, every character; cost and amounts) and TSM's
   inventory data in TradeSkillMaster.lua for current bag/bank/mail holdings (contents not checked yet: look first).
 - Recipe card Market link: Josh to give feedback on whether reagent links or Prices-view links are wanted.
-- Plan tab, offered and not decided: a "Bought so far" column (gold or units per line) so each day's 500g goes to the
-  few lines furthest behind target instead of every line (could later fill from the mail ledger); a trimmed plan
-  (drop lines under ~2% of the budget). Parked: research for the non-alchemy placeholder (food, scrolls, stones).
+- Plan tab: Parked: research for the non-alchemy placeholder (food, scrolls, stones).
   Only if they come up: editable band weights; redo the Blasted Lands split if a material's price jumps (it is a
   snapshot of 2026-11-20 Alliance prices). Settled, don't reopen: flask split, potions per night, Elixir of Sages,
   new-herb supply risk.
@@ -1068,7 +1068,7 @@ Open items to raise when relevant:
   version in `market/method-history.json`. 110/113 are PvP (2026-11-13); the realms behind 119/120/121 and
   123/124/125 are unconfirmed (collected anyway). Josh doesn't need them now and will ask (method: add the realms in
   the TSM app and match its AppData.lua against the houses, as for PvP). These need no input from Josh: raise them
-  when due (Cycles: 7+ days of data since ~11-20, Held on fixed 11-20; weekday patterns ~12-03; method review at ~100+ more records).
+  when due (Cycles review: Josh said later, 2026-11-22: wait for him; weekday patterns ~12-03; method review at ~100+ more records).
 - Parked 2026-11-11 (Josh: not now): in-game companion in BavvbScan. The app would write
   `Interface\AddOns\BavvbScan\AppData.lua` (TSM-style; the AddOns folder is shared by all accounts) with per-recipe
   cost, exits, profit and the Shopping list; the addon would show a panel beside the profession window and create

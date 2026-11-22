@@ -264,3 +264,16 @@ export function movePlan(plans, fromId, toId, after = false) {
   rest.splice(at, 0, from);
   return rest.every((p, i) => p === plans[i]) ? plans : rest;
 }
+
+/**
+ * Moves a wallet, group or item to just before (or after) one of its siblings. Only the order changes: the line keeps
+ * its weight and band, so no % moves. Changes the tree in place; true when something moved.
+ */
+export function moveLine(root, fromId, toId, after = false) {
+  const a = find(root, fromId), b = find(root, toId);
+  if (!a.node || !b.node || a.parent !== b.parent) return false;
+  const next = movePlan(a.parent.children, fromId, toId, after);
+  if (next === a.parent.children) return false;
+  a.parent.children = next;
+  return true;
+}

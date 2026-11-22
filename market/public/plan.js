@@ -5,7 +5,7 @@
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
 import {
   normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
-  toV2, newPlan, movePlan,
+  toV2, newPlan, movePlan, moveLine,
 } from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -140,7 +140,7 @@ function render() {
       (until you reload the page), so you can type a group's numbers one after another.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
       Every group always adds up to 100%. Prices: cheapest 15%, from your newest /bscan or the latest hourly data, whichever is newer (per faction; hover a price for its source); "~" = units the gold buys at that price; Listed = units on the AH now.
-      ✎ (or double-click a name) renames a line. Click a plan's name to fold it away; drag its ⠿ to move it.</p>
+      ✎ (or double-click a name) renames a line; 🏷 adds a short label of your own after the name (what it's for). Click a plan's name to fold it away; drag its ⠿ to move it. Drag a line's ⠿ to move it within its group.</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
   renderStatus();
 }
@@ -158,13 +158,13 @@ function planHtml(plan) {
     </div>`;
   if (!open) return `<section class="pl-plan" data-plan="${plan.id}">${head}</section>`;
   const rows = [];
-  const rec = (node, depth) => {
+  const rec = (node, depth, anc) => {
     for (const n of node.children ?? []) {
-      rows.push({ n, depth });
-      if (n.children?.length && !closed.has(n.id)) rec(n, depth + 1);
+      rows.push({ n, depth, anc: [...anc, n.id] });
+      if (n.children?.length && !closed.has(n.id)) rec(n, depth + 1, [...anc, n.id]);
     }
   };
-  rec(plan.tree, 0);
+  rec(plan.tree, 0, []);
   const flags = [];
   // Gold per item across every line of this plan that buys it (Dreamfoil sits in two wallets): "more than listed" uses
   // it. Each plan is checked on its own (Josh, 2026-11-21).
@@ -172,7 +172,7 @@ function planHtml(plan) {
   walk(plan.tree, (x) => {
     if (!x.children?.length) itemGold.set(lookupName(x), (itemGold.get(lookupName(x)) ?? 0) + (budget * (shares.get(x.id) ?? 0)) / 100);
   });
-  const body = rows.map(({ n, depth }) => {
+  const body = rows.map(({ n, depth, anc }) => {
     const whole = shares.get(n.id) ?? 0;
     const gold = (budget * whole) / 100;
     const group = !!n.children?.length;
@@ -186,10 +186,12 @@ function planHtml(plan) {
     const shared = Math.abs(totalGold - gold) > 1e-6;
     if (thin && !flags.includes(n.name)) flags.push(n.name);
     const nameCell = `<td class="mleft pl-name" style="padding-left:${6 + depth * 22}px">
+      <span class="pl-grip pl-lgrip" draggable="true" title="Drag to move up or down within its group">⠿</span>
       ${group ? `<button class="pl-tog" data-tog="${n.id}" title="${closed.has(n.id) ? 'Open' : 'Close'}">${closed.has(n.id) ? '▸' : '▾'}</button>` : '<span class="pl-tog-sp"></span>'}
       ${group ? '' : p ? iconHtml(p.icon) : '<span class="micon-none"></span>'}<span class="${group ? 'pl-group' : `q${p?.quality ?? 1}`}" data-rename="${n.id}" title="Double-click to rename${n.item ? ` · priced as ${esc(n.item)}` : ''}">${esc(n.name)}</span>
+      ${n.uses ? `<span class="pl-uses" data-uses-edit="${n.id}" title="${esc(n.uses)} (double-click to change)">· ${esc(n.uses.length > 45 ? `${n.uses.slice(0, 43).trimEnd()}…` : n.uses)}</span>` : ''}
       ${n.note ? `<span class="minfo" title="${esc(n.note)}">ⓘ</span>` : ''}</td>`;
-    return `<tr class="pl-d${Math.min(depth, 3)}${group ? ' pl-grow' : ''}">
+    return `<tr class="pl-d${Math.min(depth, 3)}${group ? ' pl-grow' : ''}" data-line="${n.id}" data-anc="${anc.join(' ')}">
       ${nameCell}
       <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, lb]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${lb}</option>`).join('')}</select></td>
       <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
@@ -199,7 +201,7 @@ function planHtml(plan) {
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
       <td class="mleft">${thin ? `<span class="mflag" title="${shared ? `All lines of this item in this plan together (~${Math.round(totalUnits).toLocaleString()} units) buy` : 'The gold buys'} more than is listed right now">more than listed${shared ? ' (all lines)' : ''}</span>` : ''}</td>
-      <td class="pl-act">${group ? `<button class="pl-btn pl-list" data-list="${n.id}" title="Auctionator shopping list of everything in ${esc(n.name)}">List</button>` : ''}<button class="pl-btn" data-ren="${n.id}" title="Rename (or double-click the name)">✎</button><button class="pl-btn" data-add="${n.id}" title="Add a line inside">+</button><button class="pl-btn" data-del="${n.id}" title="Remove">×</button></td>
+      <td class="pl-act">${group ? `<button class="pl-btn pl-list" data-list="${n.id}" title="Auctionator shopping list of everything in ${esc(n.name)}">List</button>` : ''}<button class="pl-btn" data-uses="${n.id}" title="What it's for: a short label of your own, shown after the name">🏷</button><button class="pl-btn" data-ren="${n.id}" title="Rename (or double-click the name)">✎</button><button class="pl-btn" data-add="${n.id}" title="Add a line inside">+</button><button class="pl-btn" data-del="${n.id}" title="Remove">×</button></td>
     </tr>`;
   }).join('');
   const ex = exported?.planId === plan.id ? exported : null;
@@ -246,6 +248,16 @@ function renameLine(plan, id) {
   }
 }
 
+/** A line's "for" label (🏷 button or double-click on the label): free text Josh types, display only (2026-11-22). */
+function labelLine(plan, id) {
+  const n = find(plan.tree, id).node;
+  if (!n) return;
+  const v = prompt(`What is "${n.name}" for? (e.g. Natural flasks). Leave empty to remove the label.`, n.uses ?? '');
+  if (v === null) return;
+  if (v.trim()) n.uses = v.trim(); else delete n.uses;
+  changed();
+}
+
 /** One set of listeners on the tab's box; every control says what it is (data-act etc.) and which plan it's in. */
 function wire(box) {
   const planOf = (el) => planById(el.closest('[data-plan]')?.dataset.plan);
@@ -280,7 +292,10 @@ function wire(box) {
       else if (act === 'add-wallet') { const n = prompt(`Name of the new wallet in "${plan.name}":`); if (n) { addChild(plan.tree, null, n); changed(); } }
       else if (act === 'reset') {
         if (!plan.initial || !confirm(`Go back to the starting weights of "${plan.name}"? Your changes to its weights, names and lines are replaced (the budget stays).`)) return;
+        const uses = new Map();
+        walk(plan.tree, (n) => { if (n.uses) uses.set(n.id, n.uses); });
         plan.tree = structuredClone(plan.initial);
+        walk(plan.tree, (n) => { if (uses.has(n.id)) n.uses = uses.get(n.id); else delete n.uses; }); // labels survive a reset
         setRows.clear();
         normalize(plan.tree);
         changed();
@@ -290,9 +305,10 @@ function wire(box) {
       else if (act === 'export-close') { exported = null; render(); }
       return;
     }
-    const t = e.target.closest('[data-tog],[data-ren],[data-add],[data-del],[data-list]');
+    const t = e.target.closest('[data-tog],[data-ren],[data-uses],[data-add],[data-del],[data-list]');
     if (!t || !plan) return;
     if (t.dataset.ren) renameLine(plan, t.dataset.ren);
+    else if (t.dataset.uses) labelLine(plan, t.dataset.uses);
     else if (t.dataset.list) makeList(plan, t.dataset.list);
     else if (t.dataset.tog) {
       const id = t.dataset.tog;
@@ -343,7 +359,34 @@ function wire(box) {
     const r = sec.getBoundingClientRect();
     return { sec, after: e.clientY > r.top + r.height / 2 };
   };
+  // Reorder lines: drag a row's grip onto a line of the same group (the order only; no % changes). Over a sibling's
+  // open contents it drops after that sibling's last row, so the marker always shows where the line will land.
+  let dragLine = null; // { plan, id, sibs: ids of the lines it can move among }
+  const lineSpot = (e) => {
+    const tr = e.target.closest?.('tr[data-line]');
+    if (!tr || !dragLine || tr.closest('[data-plan]').dataset.plan !== dragLine.plan.id) return null;
+    const target = tr.dataset.anc.split(' ').find((id) => dragLine.sibs.includes(id));
+    if (!target) return null;
+    const self = tr.dataset.line === target;
+    const r = tr.getBoundingClientRect();
+    const after = !self || e.clientY > r.top + r.height / 2;
+    const table = tr.closest('table');
+    const mark = after ? [...table.querySelectorAll(`tr[data-anc~="${target}"]`)].pop() : table.querySelector(`tr[data-line="${target}"]`);
+    return { target, after, mark };
+  };
   box.addEventListener('dragstart', (e) => {
+    const lg = e.target.closest?.('.pl-lgrip');
+    if (lg) {
+      const tr = lg.closest('tr');
+      const plan = planOf(tr);
+      const { parent } = find(plan.tree, tr.dataset.line);
+      dragLine = { plan, id: tr.dataset.line, sibs: parent.children.map((k) => k.id) };
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragLine.id);
+      e.dataTransfer.setDragImage(tr.querySelector('.pl-name'), 12, 12);
+      tr.closest('table').querySelectorAll(`tr[data-anc~="${dragLine.id}"]`).forEach((r) => r.classList.add('pl-dragging'));
+      return;
+    }
     const g = e.target.closest?.('.pl-grip');
     if (!g) return;
     dragId = g.closest('[data-plan]').dataset.plan;
@@ -353,6 +396,15 @@ function wire(box) {
     g.closest('section').classList.add('pl-dragging');
   });
   box.addEventListener('dragover', (e) => {
+    if (dragLine) {
+      const s = lineSpot(e);
+      clearMarks();
+      if (!s) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (s.target !== dragLine.id) s.mark.classList.add(s.after ? 'pl-drop-after' : 'pl-drop-before');
+      return;
+    }
     const s = dropSpot(e);
     if (!s) return;
     e.preventDefault();
@@ -361,6 +413,15 @@ function wire(box) {
     if (s.sec.dataset.plan !== dragId) s.sec.classList.add(s.after ? 'pl-drop-after' : 'pl-drop-before');
   });
   box.addEventListener('drop', (e) => {
+    if (dragLine) {
+      const s = lineSpot(e);
+      const d = dragLine;
+      dragLine = null;
+      if (!s) return;
+      e.preventDefault();
+      if (moveLine(d.plan.tree, d.id, s.target, s.after)) changed(); else render();
+      return;
+    }
     const s = dropSpot(e);
     if (!s) return;
     e.preventDefault();
@@ -369,12 +430,15 @@ function wire(box) {
     if (next !== doc.plans) { doc.plans = next; changed(); } else { clearMarks(); render(); }
   });
   box.addEventListener('dragend', () => {
-    if (!dragId) return;
+    if (!dragId && !dragLine) return;
     dragId = null;
+    dragLine = null;
     clearMarks();
     box.querySelectorAll('.pl-dragging').forEach((el) => el.classList.remove('pl-dragging'));
   });
   box.addEventListener('dblclick', (e) => {
+    const u = e.target.closest('[data-uses-edit]');
+    if (u) { labelLine(planOf(u), u.dataset.usesEdit); return; }
     const t = e.target.closest('[data-rename]');
     const plan = t && planOf(t);
     if (plan) renameLine(plan, t.dataset.rename);
