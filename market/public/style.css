@@ -285,6 +285,11 @@ a:hover { color: var(--strong); }
 .pl-band.pl-exact { color: var(--faint); }
 .pl-plan { margin: 14px 0 22px; }
 .pl-head { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin-bottom: 8px; background: var(--panel-2); border-radius: 3px; }
+.pl-grip { cursor: grab; color: var(--muted); font-size: 15px; user-select: none; padding: 0 2px; }
+.pl-grip:hover { color: var(--strong); }
+.pl-dragging { opacity: 0.45; }
+.pl-drop-before { box-shadow: 0 -3px 0 0 var(--muted); }
+.pl-drop-after { box-shadow: 0 3px 0 0 var(--muted); }
 .pl-ptog { border: none; background: none; cursor: pointer; font: inherit; color: var(--muted); padding: 0; }
 .pl-ptog:hover .pl-pname { color: var(--link); }
 .pl-pname { font-size: 16px; font-weight: 700; color: var(--strong); }

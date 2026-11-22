@@ -254,3 +254,13 @@ export function shoppingList(root, id, budget, priceOf, listName) {
   }
   return { text: [cleanName(listName) || 'Plan', ...terms].join('^'), items, skipped };
 }
+
+/** Plans in a new order: `fromId` moved to just before (or after) `toId`. A new array; the same one back if nothing moves. */
+export function movePlan(plans, fromId, toId, after = false) {
+  const from = plans.find((p) => p.id === fromId);
+  if (!from || fromId === toId || !plans.some((p) => p.id === toId)) return plans;
+  const rest = plans.filter((p) => p !== from);
+  const at = rest.findIndex((p) => p.id === toId) + (after ? 1 : 0);
+  rest.splice(at, 0, from);
+  return rest.every((p, i) => p === plans[i]) ? plans : rest;
+}

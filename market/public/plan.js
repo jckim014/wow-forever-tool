@@ -5,7 +5,7 @@
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
 import {
   normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
-  toV2, newPlan,
+  toV2, newPlan, movePlan,
 } from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -110,7 +110,7 @@ function render() {
       (until you reload the page), so you can type a group's numbers one after another.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
       Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
-      Double-click a name to rename it. Click a plan's name to fold it away.</p>
+      ✎ (or double-click a name) renames a line. Click a plan's name to fold it away; drag its ⠿ to move it.</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
   renderStatus();
 }
@@ -121,6 +121,7 @@ function planHtml(plan) {
   const house = houseOf(plan);
   const open = !closedPlans.has(plan.id);
   const head = `<div class="pl-head">
+      ${doc.plans.length > 1 ? '<span class="pl-grip" draggable="true" title="Drag to move this plan up or down">⠿</span>' : ''}
       <button class="pl-ptog" data-act="toggle-plan" title="${open ? 'Fold away' : 'Open'}">${open ? '▾' : '▸'} <span class="pl-pname">${esc(plan.name)}</span></button>
       <span class="pl-psum">${moneyHtml(budget * 10000)} · ${house === 114 ? 'Horde' : 'Alliance'}</span>
       <button class="mbtn2" data-act="rename-plan">Rename</button><button class="mbtn2" data-act="delete-plan">Delete</button>
@@ -168,7 +169,7 @@ function planHtml(plan) {
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
       <td class="mleft">${thin ? `<span class="mflag" title="${shared ? `All lines of this item in this plan together (~${Math.round(totalUnits).toLocaleString()} units) buy` : 'The gold buys'} more than is listed right now">more than listed${shared ? ' (all lines)' : ''}</span>` : ''}</td>
-      <td class="pl-act">${group ? `<button class="pl-btn pl-list" data-list="${n.id}" title="Auctionator shopping list of everything in ${esc(n.name)}">List</button>` : ''}<button class="pl-btn" data-add="${n.id}" title="Add a line inside">+</button><button class="pl-btn" data-del="${n.id}" title="Remove">×</button></td>
+      <td class="pl-act">${group ? `<button class="pl-btn pl-list" data-list="${n.id}" title="Auctionator shopping list of everything in ${esc(n.name)}">List</button>` : ''}<button class="pl-btn" data-ren="${n.id}" title="Rename (or double-click the name)">✎</button><button class="pl-btn" data-add="${n.id}" title="Add a line inside">+</button><button class="pl-btn" data-del="${n.id}" title="Remove">×</button></td>
     </tr>`;
   }).join('');
   const ex = exported?.planId === plan.id ? exported : null;
@@ -203,6 +204,17 @@ function planHtml(plan) {
 }
 
 function changed() { save(); render(); }
+
+/** Rename a wallet, group or item line (✎ button or double-click on the name). */
+function renameLine(plan, id) {
+  const n = find(plan.tree, id).node;
+  const name = n && prompt('New name:', n.name);
+  if (name && name.trim()) {
+    n.name = name.trim();
+    changed();
+    refreshPrices();
+  }
+}
 
 /** One set of listeners on the tab's box; every control says what it is (data-act etc.) and which plan it's in. */
 function wire(box) {
@@ -242,9 +254,10 @@ function wire(box) {
       else if (act === 'export-close') { exported = null; render(); }
       return;
     }
-    const t = e.target.closest('[data-tog],[data-add],[data-del],[data-list]');
+    const t = e.target.closest('[data-tog],[data-ren],[data-add],[data-del],[data-list]');
     if (!t || !plan) return;
-    if (t.dataset.list) makeList(plan, t.dataset.list);
+    if (t.dataset.ren) renameLine(plan, t.dataset.ren);
+    else if (t.dataset.list) makeList(plan, t.dataset.list);
     else if (t.dataset.tog) {
       const id = t.dataset.tog;
       closed.has(id) ? closed.delete(id) : closed.add(id);
@@ -285,17 +298,50 @@ function wire(box) {
   box.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.target.dataset.k || e.target.dataset.act === 'budget')) e.target.dispatchEvent(new Event('change', { bubbles: true }));
   });
+  // Reorder plans: drag a header's grip onto another plan; the top half of that plan drops before it, the bottom half after.
+  let dragId = null;
+  const clearMarks = () => box.querySelectorAll('.pl-drop-before,.pl-drop-after').forEach((el) => el.classList.remove('pl-drop-before', 'pl-drop-after'));
+  const dropSpot = (e) => {
+    const sec = e.target.closest?.('section[data-plan]');
+    if (!sec || !dragId) return null;
+    const r = sec.getBoundingClientRect();
+    return { sec, after: e.clientY > r.top + r.height / 2 };
+  };
+  box.addEventListener('dragstart', (e) => {
+    const g = e.target.closest?.('.pl-grip');
+    if (!g) return;
+    dragId = g.closest('[data-plan]').dataset.plan;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragId);
+    e.dataTransfer.setDragImage(g.closest('.pl-head'), 12, 12);
+    g.closest('section').classList.add('pl-dragging');
+  });
+  box.addEventListener('dragover', (e) => {
+    const s = dropSpot(e);
+    if (!s) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearMarks();
+    if (s.sec.dataset.plan !== dragId) s.sec.classList.add(s.after ? 'pl-drop-after' : 'pl-drop-before');
+  });
+  box.addEventListener('drop', (e) => {
+    const s = dropSpot(e);
+    if (!s) return;
+    e.preventDefault();
+    const next = movePlan(doc.plans, dragId, s.sec.dataset.plan, s.after);
+    dragId = null;
+    if (next !== doc.plans) { doc.plans = next; changed(); } else { clearMarks(); render(); }
+  });
+  box.addEventListener('dragend', () => {
+    if (!dragId) return;
+    dragId = null;
+    clearMarks();
+    box.querySelectorAll('.pl-dragging').forEach((el) => el.classList.remove('pl-dragging'));
+  });
   box.addEventListener('dblclick', (e) => {
     const t = e.target.closest('[data-rename]');
     const plan = t && planOf(t);
-    if (!plan) return;
-    const n = find(plan.tree, t.dataset.rename).node;
-    const name = n && prompt('New name:', n.name);
-    if (name && name.trim()) {
-      n.name = name.trim();
-      changed();
-      refreshPrices();
-    }
+    if (plan) renameLine(plan, t.dataset.rename);
   });
 }
 

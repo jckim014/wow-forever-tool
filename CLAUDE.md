@@ -367,7 +367,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Plan tab** (Josh, 2026-11-20; `public/plan.js`, pure logic `public/planLib.js` tested in `planLib.test.mjs`, classes
   `pl-*`): **several plans on one page** (2026-11-21, Josh chose this over a plan picker): each a foldable section with
   its own name, budget, faction, tree, bands, starting weights and shopping lists (named "<plan>: <group>"); New plan at
-  the top with "All plans" = the sum of the budgets; Rename / Delete per plan; "more than listed" is checked per plan
+  the top with "All plans" = the sum of the budgets; Rename / Delete per plan; plans reordered by dragging the ⠿ grip in a plan's header onto another plan (top half = before, bottom half = after; Josh, 2026-11-21; `movePlan` in planLib.js, the order is the file's `plans` order); "more than listed" is checked per plan
   (Josh). File format `forever-plan` v2 `{ plans: [{ id, name, budget, house, tree, initial }] }`; a v1 file (one
   plan) is read as v2 with the plan named "Raid consumables" (`toV2`). Each plan is a speculation budget as a tree
   of wallets > groups > items, each with a weight = % of its parent
@@ -384,7 +384,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Prices: cheapest15 at the latest snapshot, Alliance/Horde switch, item looked up by exact name (`item` overrides the
   name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
-  / rename (double-click) lines, Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
+  / rename (✎ button or double-click the name) lines, Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
   per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
   quantity = units the gold buys, merged per item; no max price yet), copied to the clipboard; Josh tested the import
   in game. Saved by the server (`POST /api/plan`, whole-file replace) to `F:\ForeverAuctionData\plan.json` (format

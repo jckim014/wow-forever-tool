@@ -210,3 +210,19 @@ test('plan file v1 -> v2, and v2 validation', () => {
   assert.ok(validPlan({ ...v2, plans: [...v2.plans, p] }));
   assert.ok(!validPlan({ format: 'forever-plan', version: 2, plans: [{ name: 'no id', tree: { children: [] } }] }));
 });
+
+test('movePlan puts a plan before or after another', async () => {
+  const { movePlan } = await import('./public/planLib.js');
+  const ps = ['a', 'b', 'c', 'd'].map((id) => ({ id }));
+  const ids = (x) => x.map((p) => p.id).join('');
+  assert.equal(ids(movePlan(ps, 'd', 'a')), 'dabc');
+  assert.equal(ids(movePlan(ps, 'a', 'c', true)), 'bcad');
+  assert.equal(ids(movePlan(ps, 'a', 'c')), 'bacd');
+  assert.equal(ids(movePlan(ps, 'b', 'c', true)), 'acbd');
+  assert.equal(movePlan(ps, 'a', 'b'), ps);            // already there
+  assert.equal(movePlan(ps, 'b', 'a', true), ps);
+  assert.equal(movePlan(ps, 'c', 'b', true), ps);
+  assert.equal(movePlan(ps, 'a', 'a'), ps);
+  assert.equal(movePlan(ps, 'x', 'a'), ps);
+  assert.equal(ids(ps), 'abcd');                       // input untouched
+});
