@@ -944,6 +944,13 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   are in `data/private/shuffle-scan-2026-11-21/` (run with node from that folder after fixing paths: they were written
   for the scratchpad; common.mjs reads F: and the repo by absolute path). Josh hasn't said whether he wants it as a
   tool or page.
+2026-11-21/22 (long session): Plan tab gained drag to reorder plans and a ✎ rename button (e9bb28a), Refresh prices
+  from Josh's /bscan when newer than the hourly data (39b1429), then drag for every line within its group and "for"
+  labels (7731ff9). All pushed; Josh used each on localhost (labels: alignment bug found by him and fixed). Talk: his
+  herb positions vs Damaged Undermine Supply Crate drops; he asked for a neutral, repeatable test (confirmation-bias
+  worry), now the crate status report (see Open items; README in data/private/crate-analysis/). Josh's view after it:
+  crate herbs (Icecap, Black Lotus most) likely already pressured; Natural flask herbs (not in crates) favoured. No plan
+  changes made by Claude. Gave him the non-crate herb -> consumables list (from game-data.json recipes).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
