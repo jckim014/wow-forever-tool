@@ -381,7 +381,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   makes that row exact; a new line in an all-banded group comes in as Small. **Rows already set stay put** (Josh, 2026-11-20): a typed % of parent comes out of the siblings not yet typed since the page loaded (`setRows` in plan.js, `keep` in `setLocal`), so a group's numbers can be typed one after another; when all are set, or the set ones plus the new value pass 100, every sibling moves in proportion. A reload starts fresh (Josh: fine). A save still pending when the page closes goes out by sendBeacon. Josh's plan uses bands for items and for
   the groups inside Core; his own decisions (wallets, 80/20, 65/35, E'ko 50/50) stay exact. Pre-band file kept as
   `F:\ForeverAuctionData\plan.before-bands.json`; Reset goes back to the original precise weights (no bands).
-  Prices: cheapest15 at the latest snapshot, Alliance/Horde switch, item looked up by exact name (`item` overrides the
+  Prices: cheapest15, per faction from the newer of the latest hourly snapshot and Josh's newest /bscan of that faction
+  (Josh, 2026-11-21, "newer wins" as in the shuffle app; `market/bscan.mjs` reads every account's BavvbScan.lua under
+  WTF\Account, env FOREVER_WTF_ACCOUNTS, re-parsed only when a file changes (~0.8 s), same summarizeUnits as the
+  summaries; an item missing from a newer scan keeps its hourly price; `/api/price-sources`). **Refresh prices** button
+  re-reads every line (before it, prices loaded once per page open); the line beside it names each faction's source
+  and a price's hover says which it came from. Only the Plan tab uses scans. Alliance/Horde switch, item looked up by exact name (`item` overrides the
   name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
   / rename (✎ button or double-click the name) lines, Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**

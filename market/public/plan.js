@@ -24,6 +24,8 @@ let saveTimer = null;
 let loaded = false;
 let planFile = 'the plan file';
 const setRows = new Set(); // rows whose % of parent was typed since the page loaded: later edits in their group leave them alone
+let sources = null;      // per house { api, scan, used }: where the prices came from (/api/price-sources)
+let refreshing = false;
 let exported = null;     // the last Auctionator list made: { planId, name, text, items, skipped, copied }
 
 const lookupName = (n) => n.item ?? n.name;
@@ -49,16 +51,42 @@ export async function showPlan() {
   }
 }
 
-async function refreshPrices() {
+/** Prices for lines not priced yet; `all` = every line again (Refresh prices: a new /bscan or hourly snapshot). */
+async function refreshPrices(all = false) {
   const names = new Set();
   for (const p of doc.plans) walk(p.tree, (n) => { if (!n.children?.length) names.add(lookupName(n)); });
-  const want = [...names].filter((n) => !(n in prices));
-  if (!want.length) return;
-  try {
-    const r = await (await fetch(`/api/prices?names=${encodeURIComponent(want.join('|'))}`)).json();
-    if (!r.error) Object.assign(prices, r);
-  } catch { /* prices are extra; the plan works without them */ }
+  const want = [...names].filter((n) => all || !(n in prices));
+  if (!want.length && sources) return;
+  // Loaded apart: the source line failing (e.g. an older server without /api/price-sources) must never blank the prices.
+  const json = (url) => fetch(url).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+  const [r, src] = await Promise.all([
+    want.length ? json(`/api/prices?names=${encodeURIComponent(want.join('|'))}`) : null,
+    json('/api/price-sources'),
+  ]);
+  if (r && !r.error) Object.assign(prices, r); // prices are extra; the plan works without them
+  sources = src && !src.error ? src : sources ?? {};
   render();
+}
+
+/** "8:34 PM", or "Nov 13, 8:34 PM" when not today. */
+function when(t) {
+  const d = new Date(t * 1000);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
+function sourcesHtml() {
+  if (!sources) return '';
+  if (!Object.keys(sources).length) return 'hourly data (restart Forever Market to use your /bscan scans)';
+  return HOUSES.map((h) => {
+    const s = sources[h.id];
+    if (!s) return '';
+    const text = s.used === 'scan' ? `your scan ${when(s.scan)}` : s.api ? `hourly data ${when(s.api)}` : 'no data';
+    const tip = s.used === 'scan'
+      ? `Your /bscan of ${when(s.scan)} is newer than the latest hourly data (${s.api ? when(s.api) : 'none'}). Items not in the scan keep their hourly price.`
+      : `Latest hourly data. ${s.scan ? `Your last ${h.label} scan (${when(s.scan)}) is older.` : `No ${h.label} scan found.`}`;
+    return `<span title="${esc(tip)}">${h.label}: ${text}</span>`;
+  }).filter(Boolean).join(' · ');
 }
 
 function save() {
@@ -101,6 +129,8 @@ function render() {
   $('#plan').innerHTML = `
     <div class="mfilters">
       <button class="mbtn2" data-act="new-plan">New plan</button>
+      <button class="mbtn2" data-act="refresh-prices" title="Read prices again: your newest /bscan (after logging off or /reload) or the latest hourly data, whichever is newer, per faction"${refreshing ? ' disabled' : ''}>${refreshing ? 'Refreshing…' : 'Refresh prices'}</button>
+      <span class="mfaint pl-src">Prices: ${sourcesHtml() || '…'}</span>
       <span class="field">All plans: <strong>${moneyHtml(total * 10000)}</strong></span>
       <span id="p-save"></span>
     </div>
@@ -109,7 +139,7 @@ function render() {
       % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
       (until you reload the page), so you can type a group's numbers one after another.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
-      Every group always adds up to 100%. Prices: cheapest 15% at the latest snapshot; "~" = units the gold buys at that price; Listed = units on the AH now.
+      Every group always adds up to 100%. Prices: cheapest 15%, from your newest /bscan or the latest hourly data, whichever is newer (per faction; hover a price for its source); "~" = units the gold buys at that price; Listed = units on the AH now.
       ✎ (or double-click a name) renames a line. Click a plan's name to fold it away; drag its ⠿ to move it.</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
   renderStatus();
@@ -165,7 +195,7 @@ function planHtml(plan) {
       <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
       <td><input class="pl-in" data-k="${n.id}:whole" type="number" step="any" min="0" max="100" value="${pct(whole)}"> %</td>
       <td>${moneyHtml(Math.round(gold * 100) * 100)}</td>
-      <td>${group ? '' : each ? moneyHtml(each) : `<span class="blank" title="${p === null ? 'No AH item with this name' : 'Not listed in this faction right now'}">—</span>`}</td>
+      <td${l?.src ? ` title="${l.src === 'scan' ? `Your scan, ${when(l.t)}` : `Hourly data, ${when(l.t)}`}"` : ''}>${group ? '' : each ? moneyHtml(each) : `<span class="blank" title="${p === null ? 'No AH item with this name' : 'Not listed in this faction right now'}">—</span>`}</td>
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
       <td class="mleft">${thin ? `<span class="mflag" title="${shared ? `All lines of this item in this plan together (~${Math.round(totalUnits).toLocaleString()} units) buy` : 'The gold buys'} more than is listed right now">more than listed${shared ? ' (all lines)' : ''}</span>` : ''}</td>
@@ -224,6 +254,12 @@ function wire(box) {
     const plan = e.target.closest('[data-plan]') ? planOf(e.target) : null;
     if (a) {
       const act = a.dataset.act;
+      if (act === 'refresh-prices') {
+        refreshing = true;
+        render();
+        refreshPrices(true).finally(() => { refreshing = false; render(); });
+        return;
+      }
       if (act === 'new-plan') {
         const name = prompt('Name of the new plan:');
         if (name) { doc.plans.push(newPlan(name)); changed(); }

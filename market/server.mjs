@@ -14,6 +14,7 @@ import { spearman } from './validate.mjs';
 import { trade, steadiness } from './faction.mjs';
 import { analyse, median, MIN_DAYS, MIN_DAY_HOURS as DEFAULT_MIN_DAY_HOURS } from './timing.mjs';
 import { validPlan } from './public/planLib.js';
+import { scanReader } from './bscan.mjs';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -251,6 +252,20 @@ function writePlan(doc) {
   fs.renameSync(tmp, planFile); // whole file or nothing
   return { savedAt: doc.savedAt };
 }
+// Josh's own /bscan scans (bscan.mjs), for the Plan tab's prices: per faction, the newer of his latest scan and the
+// latest hourly snapshot wins (as in the shuffle app). An item missing from a newer scan keeps its hourly price.
+const readScans = scanReader(process.env.FOREVER_WTF_ACCOUNTS || 'F:\\World of Warcraft\\_forever_\\WTF\\Account');
+/** Per house: the latest hourly snapshot's time, the newest scan's time (or null), and which one the Plan uses. */
+function priceSources(scans = readScans()) {
+  const out = {};
+  for (const h of HOUSES) {
+    const api = getDb().prepare('SELECT max(t) t FROM snapshot_houses WHERE house = ?').get(h)?.t ?? null;
+    const sc = scans[h];
+    out[h] = { api, scan: sc ? sc.t : null, used: sc && (api === null || sc.t > api) ? 'scan' : 'api' };
+  }
+  return out;
+}
+
 /** Latest price per house for items given by name (exact, ignoring case). Of items sharing a name, the one listed
  *  most at the latest snapshot. Unknown names come back as null. */
 function pricesByName(names) {
@@ -261,12 +276,23 @@ function pricesByName(names) {
     if (!byName.has(k)) byName.set(k, []);
     byName.get(k).push(it);
   }
+  const scans = readScans();
+  const src = priceSources(scans);
+  const latestFor = (id) => {
+    const l = latest(id);
+    for (const h of HOUSES) {
+      if (l[h]) l[h].src = 'api';
+      const v = src[h].used === 'scan' ? scans[h].items.get(id) : null;
+      if (v) l[h] = { t: scans[h].t, cheapest15: v[2], lowest: v[0], units: v[3], src: 'scan' };
+    }
+    return l;
+  };
   const out = {};
   for (const n of names) {
     const cands = byName.get(String(n).toLowerCase()) ?? [];
     let best = null;
     for (const it of cands) {
-      const l = latest(it.id);
+      const l = latestFor(it.id);
       const units = (l[111]?.units ?? 0) + (l[114]?.units ?? 0);
       if (!best || units > best.units) best = { units, value: { id: it.id, icon: it.icon ?? null, quality: it.quality ?? null, latest: l } };
     }
@@ -318,6 +344,7 @@ const api = {
   },
   '/api/method-check': () => methodCheck(),
   '/api/plan': () => ({ plan: readPlan(), file: planFile }),
+  '/api/price-sources': () => priceSources(),
   '/api/prices': (params) => pricesByName((params.get('names') ?? '').split('|').filter(Boolean).slice(0, 500)),
   '/api/faction': (params) => faction(params.get('days')),
   '/api/timing': (params) => timing(params.get('days'), params.get('width')),
