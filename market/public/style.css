@@ -266,6 +266,9 @@ a:hover { color: var(--strong); }
 .pl-in { width: 64px; padding: 2px 5px; border: 1px solid var(--input-border); border-radius: 3px; font: inherit; font-size: 13px; text-align: right;
   background: var(--input); color: var(--fg); font-variant-numeric: tabular-nums; }
 .pl-gin { width: 80px; }
+.pl-click { display: inline-block; cursor: pointer; padding: 2px 5px; border: 1px solid transparent; border-radius: 3px; font-variant-numeric: tabular-nums; }
+.pl-click:hover { border-color: var(--line-2); background: var(--input); }
+.pl-click.pl-exact { color: var(--faint); }
 .pl-in:hover { border-color: var(--line-2); }
 .pl-budget { width: 100px; padding: 3px 6px; border: 2px solid var(--input-border); border-radius: 4px; font: inherit; font-size: 13px;
   background: var(--input); color: var(--fg); }

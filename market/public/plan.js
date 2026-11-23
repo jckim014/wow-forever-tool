@@ -4,7 +4,7 @@
 // prices come from the latest snapshot. Saved to F:\ForeverAuctionData\plan.json through the server.
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
 import {
-  normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
+  normalize, wholeShares, setLocal, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
   toV2, newPlan, movePlan, moveLine, setGoldKeepRest,
 } from './planLib.js';
 
@@ -138,8 +138,7 @@ function render() {
       changing a band only moves weight inside that group. Typing a % makes that line exact.<br>
       % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
       (until you reload the page), so you can type a group's numbers one after another.
-      % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
-      Gold: type a line's gold to size it like a sub-budget; every other line keeps its gold and the budget grows (or shrinks) by the difference.
+      Gold: click a line's gold and type it to size it like a sub-budget; every other line keeps its gold and the budget grows (or shrinks) by the difference.
       Every group always adds up to 100%. Prices: cheapest 15%, from your newest /bscan or the latest hourly data, whichever is newer (per faction; hover a price for its source); "~" = units the gold buys at that price; Listed = units on the AH now.
       ✎ (or double-click a name) renames a line; 🏷 adds a short label of your own after the name (what it's for). Click a plan's name to fold it away; drag its ⠿ to move it. Drag a line's ⠿ to move it within its group.</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
@@ -194,10 +193,9 @@ function planHtml(plan) {
       ${n.note ? `<span class="minfo" title="${esc(n.note)}">ⓘ</span>` : ''}</td>`;
     return `<tr class="pl-d${Math.min(depth, 3)}${group ? ' pl-grow' : ''}" data-line="${n.id}" data-anc="${anc.join(' ')}">
       ${nameCell}
-      <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, lb]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${lb}</option>`).join('')}</select></td>
-      <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
-      <td><input class="pl-in" data-k="${n.id}:whole" type="number" step="any" min="0" max="100" value="${pct(whole)}"> %</td>
-      <td><input class="pl-in pl-gin" data-k="${n.id}:gold" type="number" step="any" min="0" value="${+gold.toFixed(2)}" title="Gold for this line. Change it and every other line keeps its gold: the budget grows or shrinks by the difference"> g</td>
+      <td><span class="pl-click${n.band ? '' : ' pl-exact'}" data-bedit="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed. Click to change">${n.band ? BANDS[n.band]?.label ?? n.band : 'Exact'}</span></td>
+      <td><span class="pl-click" data-edit="${n.id}:local" data-v="${pct(n.w)}" title="% of its group. Click to type; Tab moves to the next line">${pct(n.w)} %</span></td>
+      <td><span class="pl-click" data-edit="${n.id}:gold" data-v="${+gold.toFixed(2)}" title="Click to type this line's gold. Every other line keeps its gold: the budget grows or shrinks by the difference">${moneyHtml(Math.round(gold * 100) * 100)}</span></td>
       <td${l?.src ? ` title="${l.src === 'scan' ? `Your scan, ${when(l.t)}` : `Hourly data, ${when(l.t)}`}"` : ''}>${group ? '' : each ? moneyHtml(each) : `<span class="blank" title="${p === null ? 'No AH item with this name' : 'Not listed in this faction right now'}">—</span>`}</td>
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
@@ -228,9 +226,9 @@ function planHtml(plan) {
     ${flags.length ? `<p class="mearly">More gold than the AH lists right now: ${flags.map(esc).join(', ')}. Buying them out would push the price up; spread the buying over time or lower their share.</p>` : ''}
     <div class="mfaction">
       <table class="mtable mft pl-table">
-        <tr><th class="mleft">Wallet / item</th><th class="mleft">Band</th><th>% of parent</th><th>% of whole</th><th>Gold</th><th>Price each</th><th>Buys</th><th>Listed</th><th></th><th></th></tr>
+        <tr><th class="mleft">Wallet / item</th><th class="mleft">Band</th><th>% of parent</th><th>Gold</th><th>Price each</th><th>Buys</th><th>Listed</th><th></th><th></th></tr>
         ${body}
-        <tr class="pl-total"><td class="mleft">Total</td><td></td><td></td><td>100 %</td><td>${moneyHtml(budget * 10000)}</td><td colspan="5"></td></tr>
+        <tr class="pl-total"><td class="mleft">Total</td><td></td><td></td><td>${moneyHtml(budget * 10000)}</td><td colspan="5"></td></tr>
       </table>
     </div>
   </section>`;
@@ -257,6 +255,29 @@ function labelLine(plan, id) {
   if (v === null) return;
   if (v.trim()) n.uses = v.trim(); else delete n.uses;
   changed();
+}
+
+/** Click-in edit (Josh, 2026-11-22: boxes on every row were distracting): the plain figure turns into a box with
+ *  the value selected; Enter, Tab or leaving it applies, Escape cancels. */
+function openEditor(box, key) {
+  const span = box.querySelector(`[data-edit="${key}"]`);
+  if (!span) return;
+  const gold = key.endsWith(':gold');
+  span.outerHTML = `<input class="pl-in${gold ? ' pl-gin' : ''}" data-k="${key}" data-orig="${span.dataset.v}" type="number" step="any" min="0"${gold ? '' : ' max="100"'} value="${span.dataset.v}">${gold ? '' : ' %'}`;
+  const inp = box.querySelector(`input[data-k="${key}"]`);
+  inp.focus();
+  inp.select();
+}
+
+/** Click-in band: the label turns into the band list, opened. */
+function openBand(box, plan, span) {
+  const n = find(plan.tree, span.dataset.bedit).node;
+  if (!n) return;
+  const cur = n.band ?? '';
+  span.outerHTML = `<select class="pl-band${cur ? '' : ' pl-exact'}" data-band="${n.id}" data-orig="${cur}">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, lb]) => `<option value="${k}"${cur === k ? ' selected' : ''}>${lb}</option>`).join('')}</select>`;
+  const sel = box.querySelector(`select[data-band="${n.id}"]`);
+  sel.focus();
+  try { sel.showPicker(); } catch { /* older browsers: the focused list opens on click or arrow keys */ }
 }
 
 /** One set of listeners on the tab's box; every control says what it is (data-act etc.) and which plan it's in. */
@@ -306,6 +327,10 @@ function wire(box) {
       else if (act === 'export-close') { exported = null; render(); }
       return;
     }
+    const ed = e.target.closest('[data-edit]');
+    if (ed) { openEditor(box, ed.dataset.edit); return; }
+    const be = e.target.closest('[data-bedit]');
+    if (be && plan) { openBand(box, plan, be); return; }
     const t = e.target.closest('[data-tog],[data-ren],[data-uses],[data-add],[data-del],[data-list]');
     if (!t || !plan) return;
     if (t.dataset.ren) renameLine(plan, t.dataset.ren);
@@ -338,18 +363,39 @@ function wire(box) {
     if (e.target.dataset.band) { setBand(plan.tree, e.target.dataset.band, e.target.value || null); changed(); return; }
     const k = e.target.dataset.k;
     if (!k) return;
-    const next = document.activeElement?.dataset?.k; // Tab moved focus: put it back after redrawing
     const [id, field] = k.split(':');
     const v = Number(e.target.value);
     if (!Number.isFinite(v) || v < 0) { render(); return; }
     if (field === 'local') { setLocal(plan.tree, id, v, setRows); setRows.add(id); }
     else if (field === 'gold') plan.budget = +setGoldKeepRest(plan.tree, id, v, Number(plan.budget) || 0).toFixed(4);
-    else setWhole(plan.tree, id, v);
     changed();
-    const el = next && box.querySelector(`[data-k="${next}"]`);
-    if (el) { el.focus(); el.select?.(); }
+  });
+  // A click-in box or band list left without a change goes back to the plain display (after the focus has moved, and
+  // only if a redraw hasn't already replaced it).
+  box.addEventListener('focusout', (e) => {
+    const el = e.target;
+    if (el.dataset?.orig === undefined) return;
+    setTimeout(() => { if (el.isConnected && document.activeElement !== el && el.value === el.dataset.orig) render(); }, 0);
   });
   box.addEventListener('keydown', (e) => {
+    const el = e.target;
+    if (el.dataset?.orig !== undefined) {
+      if (e.key === 'Escape') { render(); return; }
+      if (e.key === 'Enter' && el.dataset.k) {
+        if (el.value === el.dataset.orig) render(); else el.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+      if (e.key === 'Tab' && el.dataset.k) {
+        // Tab / Shift+Tab: apply this one, then open the same column on the next / previous line of this plan.
+        e.preventDefault();
+        const field = el.dataset.k.split(':')[1];
+        const cells = [...el.closest('table').querySelectorAll(`[data-edit$=":${field}"], [data-k$=":${field}"]`)];
+        const nextKey = (cells[cells.indexOf(el) + (e.shiftKey ? -1 : 1)])?.dataset.edit;
+        if (el.value === el.dataset.orig) render(); else el.dispatchEvent(new Event('change', { bubbles: true }));
+        if (nextKey) openEditor(box, nextKey);
+        return;
+      }
+    }
     if (e.key === 'Enter' && (e.target.dataset.k || e.target.dataset.act === 'budget')) e.target.dispatchEvent(new Event('change', { bubbles: true }));
   });
   // Reorder plans: drag a header's grip onto another plan; the top half of that plan drops before it, the bottom half after.

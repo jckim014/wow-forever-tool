@@ -372,12 +372,16 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   plan) is read as v2 with the plan named "Raid consumables" (`toV2`). Each plan is a speculation budget as a tree
   of wallets > groups > items, each with a weight = % of its parent
   (siblings always sum to 100). Editing **% of parent** makes the siblings make room in proportion (nothing outside the
-  group moves); editing **% of whole** makes the ancestors grow/shrink and everything outside the node scale in
-  proportion (siblings included; the inside keeps its split). Gold = budget x share; typing a line's gold sizes it like a sub-budget: every other line keeps its gold and the plan's budget grows or shrinks by the difference, the inside keeps its split (Josh, 2026-11-22; `setGoldKeepRest`).
+  group moves). The % of whole column was removed (Josh, 2026-11-22: gold covers it; `setWhole` stays in planLib for
+  the gold edit). Gold = budget x share; typing a line's gold sizes it like a sub-budget: every other line keeps its gold and the plan's budget grows or shrinks by the difference, the inside keeps its split (Josh, 2026-11-22; `setGoldKeepRest`).
+  **Click-in editing** (Josh, 2026-11-22: a box on every row was distracting): % of parent, Gold (coin colours) and Band
+  show as plain text; a click opens a box (Band: the list, opened) with the value selected; Enter, Tab (next line's
+  same column; Shift+Tab back) or leaving applies, Escape or leaving unchanged cancels (`openEditor` / `openBand` in
+  plan.js). The Budget box stays a box.
   **Bands** (Josh, 2026-11-20: rough inputs, so a few sizes instead of precise %s): per row Exact / Large 4 / Medium 2 /
   Small 1 / Token ½ (`BANDS`, fixed: Josh decided against editable band weights and custom bands for now; add four
   boxes only if a whole level feels wrong in use). In a group, exact rows keep their %, banded rows share the rest by
-  band weight (`rebalance`); a band change moves weight only inside its group; typing a % (or a % of whole on a path)
+  band weight (`rebalance`); a band change moves weight only inside its group; typing a % (or a gold amount, on its path)
   makes that row exact; a new line in an all-banded group comes in as Small. **Rows already set stay put** (Josh, 2026-11-20): a typed % of parent comes out of the siblings not yet typed since the page loaded (`setRows` in plan.js, `keep` in `setLocal`), so a group's numbers can be typed one after another; when all are set, or the set ones plus the new value pass 100, every sibling moves in proportion. A reload starts fresh (Josh: fine). A save still pending when the page closes goes out by sendBeacon. Josh's plan uses bands for items and for
   the groups inside Core; his own decisions (wallets, 80/20, 65/35, E'ko 50/50) stay exact. Pre-band file kept as
   `F:\ForeverAuctionData\plan.before-bands.json`; Reset goes back to the original precise weights (no bands).
@@ -387,7 +391,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   summaries; an item missing from a newer scan keeps its hourly price; `/api/price-sources`). **Refresh prices** button
   re-reads every line (before it, prices loaded once per page open); the line beside it names each faction's source
   and a price's hover says which it came from. Only the Plan tab uses scans. Alliance/Horde switch, item looked up by exact name (`item` overrides the
-  name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys,
+  name, e.g. "Lesser Nature Protection" -> Nature Protection Potion; `/api/prices?names=a|b`); "~ units" the gold buys (the "~" tells it apart from Listed: Josh tried without, 2026-11-22),
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
   / rename (✎ button or double-click the name) lines, a "for" label per line (the "for" button or double-click the label: free text Josh types, e.g. "Natural flasks", shown in grey after the name, display only, kept by Reset; field `uses`; 2026-11-22), Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
   per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
