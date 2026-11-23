@@ -692,7 +692,7 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   item in Forever Market via `forever-market://item/<id>` (starts Market if needed; works only on Josh's PC; carries
   only the item ID), and a **Sold / day** line shows our sale estimate for the product (sales.json, API house's
   faction, last 7 days, same figure as the Leveling view and Market; "no estimate" without the auction data folder).
-  Reagent links and the Prices view were left out for now (Claude's suggestion, Josh to give feedback). Chrome asks
+  No links on reagents or in the Prices view (Josh decided, 2026-11-23). Chrome asks
   "Open Windows Based Script Host?" on the first click: Josh ticked "Always allow jckim014.github.io..." (2026-11-21),
   which stopped it. Not used: the Chrome policy AutoLaunchProtocolsFromOrigins (needs admin under HKCU\Software\Policies
   and shows "Managed by your organization").
@@ -968,6 +968,16 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   Later that evening (talk only): Josh's gut-feel allocation reviewed (sound for rough inputs; 1/N research; the
   splits matter little, correlation and selling speed more; he concentrates on raid demand on purpose, "like an index
   fund") and his exit approach (see Open items: income drip).
+2026-11-22/23 (late session, analysis and talk; no app code): crate tests run on 6 more houses (110/113 PvP,
+  119/120, 123/124; sale estimate rebuilt from raw into a side file, identical to market.db on 111): the drop-rate
+  fingerprint shows on most houses, Large Brilliant Shard is the ceiling item on 7 of 8 (systematic, so the ceiling
+  understates crates), herb order the same everywhere, no cross-realm growth signal. Josh's own crate openings now
+  counted (7 crates; report 20261123_0828, 68 openings): one extra Essence of Air drop loosened the Alliance fit
+  (shuffled-as-good 2% -> 16%), showing how fragile 2-3-drop yields are. Details in the crate README. Talk: crafting
+  with a material he also speculates on (Guardian Stones): one stone = one decision; when gold, not stones, is the
+  limit, gold wallets are capital budgeting (sized by returns, not labels); physical separation + a target + top-up
+  rule. Josh closed it ("don't worry about guardian stones"). Recipe card Market link: no reagent / Prices-view links.
+  **Next session's main item: the portfolio view** (see Open items).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1052,21 +1062,21 @@ Open items to raise when relevant:
   confirmation bias): change it only on purpose and say so. Additions made on purpose so far (README): PRELIMINARY
   line and calibration 2b (2026-11-22). Only full Pacific days count and the yields come from the saved page, so a
   rerun without a new page or a new full day repeats the last report (delete such duplicates: they would count twice
-  for the "rising" rule). If Josh reports his own crate openings: store them in own-openings.json and add them to the
-  counts, showing yields with and without his (plan in README).
+  for the "rising" rule). Josh's own openings (2026-11-23): when he pastes crate results, append one entry per crate to
+  own-openings.json (items by ID; poor crates too; items not on Wowhead's table are listed, not counted) and rerun.
+  Other houses (2026-11-23, information only): `build_other_houses.mjs` then `other_houses.mjs` (reports/other-houses/).
 - Exit for the consumables speculation: settled in talk (2026-11-22, Josh raised it): his thesis is a lasting demand
   shift plus gold inflation over the phase, not a launch spike; exit = selling regularly to fund his daily buying
   (income drip). Steering agreed in talk: sell what has done its job, judge against what the gold would buy next (not
   entry price), speed up at the next content-patch announcement. No formal exit rules wanted; don't push them.
   Offered, not taken: a days-to-sell figure per Plan line (units held / sold per day from sales.json).
   Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
-  Seen in the mail ledger that day: no core-herb buys yet for the Raid consumables plan (~5,200g on Desti went to
-  pre-BiS leather mats); asked Josh whether he'd started buying or uses a character the addon doesn't log, no answer.
-- **Portfolio view (Josh asked, 2026-11-21: "let's work on that later"):** link his trade records to the plans: per
+  Don't raise the mail ledger's missing core-herb buys or Guardian Stones (Josh, 2026-11-23).
+- **Portfolio view: NEXT SESSION'S MAIN ITEM (Josh, 2026-11-23: current holdings compared against the investment
+  plan; asked 2026-11-21):** link his trade records to the plans: per
   item what he holds, what it cost on average, today's value and the gap to the plan's target (covers the "Bought so
   far" idea). Sources: the mail ledger on F: (BavvbScan buys/sales, every character; cost and amounts) and TSM's
   inventory data in TradeSkillMaster.lua for current bag/bank/mail holdings (contents not checked yet: look first).
-- Recipe card Market link: Josh to give feedback on whether reagent links or Prices-view links are wanted.
 - Plan tab: Parked: research for the non-alchemy placeholder (food, scrolls, stones).
   Only if they come up: editable band weights; redo the Blasted Lands split if a material's price jumps (it is a
   snapshot of 2026-11-20 Alliance prices). Settled, don't reopen: flask split, potions per night, Elixir of Sages,
