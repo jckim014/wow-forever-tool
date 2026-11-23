@@ -5,7 +5,7 @@
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
 import {
   normalize, wholeShares, setLocal, setWhole, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
-  toV2, newPlan, movePlan, moveLine,
+  toV2, newPlan, movePlan, moveLine, setGoldKeepRest,
 } from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -139,6 +139,7 @@ function render() {
       % of parent: change it and the rest of that group makes room, nothing outside the group moves; rows you have already typed stay as they are
       (until you reload the page), so you can type a group's numbers one after another.
       % of whole: change it and the groups above it grow or shrink with it, while everything else shrinks or grows in proportion.
+      Gold: type a line's gold to size it like a sub-budget; every other line keeps its gold and the budget grows (or shrinks) by the difference.
       Every group always adds up to 100%. Prices: cheapest 15%, from your newest /bscan or the latest hourly data, whichever is newer (per faction; hover a price for its source); "~" = units the gold buys at that price; Listed = units on the AH now.
       ✎ (or double-click a name) renames a line; 🏷 adds a short label of your own after the name (what it's for). Click a plan's name to fold it away; drag its ⠿ to move it. Drag a line's ⠿ to move it within its group.</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: click New plan.</p>'}`;
@@ -196,7 +197,7 @@ function planHtml(plan) {
       <td><select class="pl-band${n.band ? '' : ' pl-exact'}" data-band="${n.id}" title="Band: a size relative to the rest of this group. Exact = the % typed">${[['', 'Exact'], ...Object.entries(BANDS).map(([k, b]) => [k, b.label])].map(([k, lb]) => `<option value="${k}"${(n.band ?? '') === k ? ' selected' : ''}>${lb}</option>`).join('')}</select></td>
       <td><input class="pl-in" data-k="${n.id}:local" type="number" step="any" min="0" max="100" value="${pct(n.w)}"> %</td>
       <td><input class="pl-in" data-k="${n.id}:whole" type="number" step="any" min="0" max="100" value="${pct(whole)}"> %</td>
-      <td>${moneyHtml(Math.round(gold * 100) * 100)}</td>
+      <td><input class="pl-in pl-gin" data-k="${n.id}:gold" type="number" step="any" min="0" value="${+gold.toFixed(2)}" title="Gold for this line. Change it and every other line keeps its gold: the budget grows or shrinks by the difference"> g</td>
       <td${l?.src ? ` title="${l.src === 'scan' ? `Your scan, ${when(l.t)}` : `Hourly data, ${when(l.t)}`}"` : ''}>${group ? '' : each ? moneyHtml(each) : `<span class="blank" title="${p === null ? 'No AH item with this name' : 'Not listed in this faction right now'}">—</span>`}</td>
       <td>${units === null ? '' : `~${units >= 100 ? Math.round(units).toLocaleString() : units.toFixed(1)}`}</td>
       <td>${group || !l ? '' : l.units.toLocaleString()}</td>
@@ -342,6 +343,7 @@ function wire(box) {
     const v = Number(e.target.value);
     if (!Number.isFinite(v) || v < 0) { render(); return; }
     if (field === 'local') { setLocal(plan.tree, id, v, setRows); setRows.add(id); }
+    else if (field === 'gold') plan.budget = +setGoldKeepRest(plan.tree, id, v, Number(plan.budget) || 0).toFixed(4);
     else setWhole(plan.tree, id, v);
     changed();
     const el = next && box.querySelector(`[data-k="${next}"]`);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, wholeShares, setLocal, setWhole, setGold, remove, addChild, leaves, validPlan } from './public/planLib.js';
+import { normalize, wholeShares, setLocal, setWhole, setGold, setGoldKeepRest, remove, addChild, leaves, validPlan } from './public/planLib.js';
 
 // Small plan: Core 60 (Lotus 50: Black 60 / Death 40; Herbs 50: Dreamfoil 100), Misc 40 (E'kos 100: W 50 / F 50)
 const plan = () => normalize({
@@ -81,6 +81,25 @@ test('setWhole on a node that holds everything, deep down', () => {
 test('setGold = setWhole at the budget', () => {
   const r = setGold(plan(), 'df', 500, 1000);
   near(wholeShares(r).get('df'), 50, 'df');
+});
+
+test('setGoldKeepRest: other lines keep their gold, the budget moves by the difference', () => {
+  const r = plan();
+  const before = wholeShares(r);
+  const b = setGoldKeepRest(r, 'misc', 600, 1000); // Misc 400g -> 600g
+  near(b, 1200, 'budget up by 200');
+  const s = wholeShares(r);
+  near((b * s.get('misc')) / 100, 600, 'misc gold');
+  for (const id of ['core', 'lotus', 'bl', 'dl', 'herbs', 'df']) near((b * s.get(id)) / 100, (1000 * before.get(id)) / 100, `${id} keeps its gold`);
+  near(s.get('w') / s.get('f'), 1, 'inside keeps its split');
+  sumsTo100(r);
+  const b2 = setGoldKeepRest(r, 'bl', 0, b); // Black Lotus 180g -> 0: budget down by 180
+  near(b2, 1020, 'budget down');
+  near((b2 * wholeShares(r).get('dl')) / 100, 120, 'sibling keeps its gold');
+  sumsTo100(r);
+  const z = plan();
+  near(setGoldKeepRest(z, 'misc', 100, 0), 100, 'from a 0 budget');
+  near(wholeShares(z).get('misc'), 100, 'misc is all of it');
 });
 
 test('remove: siblings fill the share; addChild adds a 0 line, or a 100 line under a leaf', () => {

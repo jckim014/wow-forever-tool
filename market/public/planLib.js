@@ -121,6 +121,22 @@ export function setWhole(root, id, pct) {
   return normalize(root);
 }
 
+/**
+ * Sets a node's gold like a sub-budget (Josh, 2026-11-22): every other line keeps its gold and the plan's budget
+ * changes by the difference (up when the node grows, down when it shrinks); inside the node the split stays. Changes
+ * the tree in place and returns the new budget.
+ */
+export function setGoldKeepRest(root, id, gold, budget) {
+  const shares = wholeShares(root);
+  if (!shares.has(id)) return budget;
+  const b = Math.max(0, Number(budget) || 0);
+  const g = Math.max(0, Number(gold) || 0);
+  const old = (b * shares.get(id)) / 100;
+  const next = b - old + g;
+  if (next > 0) setWhole(root, id, (g / next) * 100);
+  return next;
+}
+
 /** Sets a node's gold: the same as its % of the whole at this budget. */
 export function setGold(root, id, gold, budget) {
   if (!(budget > 0)) return root;

@@ -265,6 +265,7 @@ a:hover { color: var(--strong); }
 .pl-d1.pl-grow td { background: var(--box); }
 .pl-in { width: 64px; padding: 2px 5px; border: 1px solid var(--input-border); border-radius: 3px; font: inherit; font-size: 13px; text-align: right;
   background: var(--input); color: var(--fg); font-variant-numeric: tabular-nums; }
+.pl-gin { width: 80px; }
 .pl-in:hover { border-color: var(--line-2); }
 .pl-budget { width: 100px; padding: 3px 6px; border: 2px solid var(--input-border); border-radius: 4px; font: inherit; font-size: 13px;
   background: var(--input); color: var(--fg); }

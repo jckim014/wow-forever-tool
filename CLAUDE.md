@@ -373,7 +373,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   of wallets > groups > items, each with a weight = % of its parent
   (siblings always sum to 100). Editing **% of parent** makes the siblings make room in proportion (nothing outside the
   group moves); editing **% of whole** makes the ancestors grow/shrink and everything outside the node scale in
-  proportion (siblings included; the inside keeps its split). Gold is display-only (Josh: he works in %), budget x share.
+  proportion (siblings included; the inside keeps its split). Gold = budget x share; typing a line's gold sizes it like a sub-budget: every other line keeps its gold and the plan's budget grows or shrinks by the difference, the inside keeps its split (Josh, 2026-11-22; `setGoldKeepRest`).
   **Bands** (Josh, 2026-11-20: rough inputs, so a few sizes instead of precise %s): per row Exact / Large 4 / Medium 2 /
   Small 1 / Token ½ (`BANDS`, fixed: Josh decided against editable band weights and custom bands for now; add four
   boxes only if a whole level feels wrong in use). In a group, exact rows keep their %, banded rows share the rest by
