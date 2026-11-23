@@ -955,6 +955,16 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   worry), now the crate status report (see Open items; README in data/private/crate-analysis/). Josh's view after it:
   crate herbs (Icecap, Black Lotus most) likely already pressured; Natural flask herbs (not in crates) favoured. No plan
   changes made by Claude. Gave him the non-crate herb -> consumables list (from game-data.json recipes).
+2026-11-22 (evening session): Plan tab: a line's gold is typed as a sub-budget, the budget follows (011f285); % of
+  whole column removed, "~" kept in Buys (Josh tried without: it sets Buys apart from Listed), click-in editing for
+  % of parent, Gold and Band (971ce0e). All pushed; Josh checked the gold edit ("works"), click-in checked in headless
+  Chrome on a copy of plan.json, not yet by him. Crate report: rerun gave the same figures (crate page not re-saved,
+  no new full day); added a PRELIMINARY line (main-source test with the 200-opening rule waived) and calibration 2b at
+  Josh's request (he wants results to look at now, not to bend the method). Correction told to him: agreement means
+  a SIMILAR crate share, not necessarily a big one (README "CORRECTION"). Calibration: unrelated items pass <= 2 only
+  3% of the time; the crate items with shuffled yields agree as well as the real ones in 7% (A) / 0% (H) of draws, so
+  supply follows crate drop rates. Current call: crates are a substantial driver (big minority or more), size capped
+  by the ceiling, growth not shown. Josh may open crates and report results by hand (not built yet; README).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1036,7 +1046,11 @@ Open items to raise when relevant:
   positions. Everything is in `data/private/crate-analysis/` (README.txt = why, how to rerun, fixed method, the facts
   Josh gave, findings so far; analyse.mjs; reports/). On "crate report"/"status report": Josh re-saves the Wowhead
   crate page, run the script, lead with the verdict and what changed. The method is fixed (he guards against
-  confirmation bias): change it only on purpose and say so.
+  confirmation bias): change it only on purpose and say so. Additions made on purpose so far (README): PRELIMINARY
+  line and calibration 2b (2026-11-22). Only full Pacific days count and the yields come from the saved page, so a
+  rerun without a new page or a new full day repeats the last report (delete such duplicates: they would count twice
+  for the "rising" rule). If Josh reports his own crate openings: store them in own-openings.json and add them to the
+  counts, showing yields with and without his (plan in README).
 - Exit rules for the consumables speculation: **tabled by Josh (2026-11-21): he works on them himself and will ask if
   he wants help. Don't raise them.** (A draft was shown: thirds at 2x / target / by a date, a "wrong if" line.)
   Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
