@@ -965,6 +965,9 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   3% of the time; the crate items with shuffled yields agree as well as the real ones in 7% (A) / 0% (H) of draws, so
   supply follows crate drop rates. Current call: crates are a substantial driver (big minority or more), size capped
   by the ceiling, growth not shown. Josh may open crates and report results by hand (not built yet; README).
+  Later that evening (talk only): Josh's gut-feel allocation reviewed (sound for rough inputs; 1/N research; the
+  splits matter little, correlation and selling speed more; he concentrates on raid demand on purpose, "like an index
+  fund") and his exit approach (see Open items: income drip).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1051,8 +1054,11 @@ Open items to raise when relevant:
   rerun without a new page or a new full day repeats the last report (delete such duplicates: they would count twice
   for the "rising" rule). If Josh reports his own crate openings: store them in own-openings.json and add them to the
   counts, showing yields with and without his (plan in README).
-- Exit rules for the consumables speculation: **tabled by Josh (2026-11-21): he works on them himself and will ask if
-  he wants help. Don't raise them.** (A draft was shown: thirds at 2x / target / by a date, a "wrong if" line.)
+- Exit for the consumables speculation: settled in talk (2026-11-22, Josh raised it): his thesis is a lasting demand
+  shift plus gold inflation over the phase, not a launch spike; exit = selling regularly to fund his daily buying
+  (income drip). Steering agreed in talk: sell what has done its job, judge against what the gold would buy next (not
+  entry price), speed up at the next content-patch announcement. No formal exit rules wanted; don't push them.
+  Offered, not taken: a days-to-sell figure per Plan line (units held / sold per day from sales.json).
   Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
   Seen in the mail ledger that day: no core-herb buys yet for the Raid consumables plan (~5,200g on Desti went to
   pre-BiS leather mats); asked Josh whether he'd started buying or uses a character the addon doesn't log, no answer.
