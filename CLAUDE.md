@@ -219,6 +219,12 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   `item_ids`). Indexes `prices_by_time (house, t)` and `departures_by_time` (for the Faction tab);
   `journal_size_limit` 4 MB keeps the WAL file small. Size: prices ~1.3 MB per snapshot + index ~0.6 MB + estimate
   ~0.2 MB, about 19 GB/year. Names stay in items.json, not the DB.
+- **Holdings log** (2026-11-23, for Forever Market's Portfolio tab): each sync run, `collector/holdings.mjs` appends a
+  reading for every account whose TradeSkillMaster.lua changed since its last logged one (read only) to
+  `F:\ForeverAuctionData\holdings\YYYY-MM.jsonl` (local month; `{t: TSM file time, account, items: {"Faction:itemID":
+  {place: units}}}`; places `<char>|bag/bank/mail/auction`, `<char>|pending` (unopened mail between own characters),
+  `guild:<name>`; Normal realm only; README.txt there). Failure or no TSM file = lasting toast (`conditions.holdings`).
+  `node collector/write_holdings.mjs` writes one by hand. First readings 2026-11-23 (2 accounts, ~17 KB).
 - **sales.json** (2026-11-15, for the shuffle app's Leveling view): `F:\ForeverAuctionData\sales.json`, format
   `forever-sales` v1 `{at, days: 7, houses: {111|114: {hours, items: {id: units/day}}}}` = Forever Market's estimate
   (certain + probable over the last 7 days, scaled by the snapshot-pair hours). Written by the sync after each
@@ -251,7 +257,8 @@ on F: (see Collector). Plan steps: 1 houses (done), 2 names (done), 3 database (
 (filters on both sale figures) (done), 7 Cycles tab (time-of-day patterns; done 2026-11-13, results from ~2 days of data;
 weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Tabs** (renamed by Josh 2026-11-13; on screen / code name): **Price history** / trends (step 5; older notes here say
-  "Trends"), **Faction** / faction, **Cycles** / timing (step 7), **Method check** / check, **Plan** / plan (2026-11-20).
+  "Trends"), **Faction** / faction, **Cycles** / timing (step 7), **Method check** / check, **Plan** / plan (2026-11-20),
+  **Portfolio** / portfolio (2026-11-23).
   The code keeps the old names.
 - **No build step, no packages**: `market/server.mjs` (Node http + node:sqlite, read-only DB) serves
   `market/public/` (index.html, app.js, style.css, shared.js: plain ES modules) and a JSON API: `/api/status`,
@@ -400,6 +407,38 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   `forever-plan`, see above; env FOREVER_PLAN_FILE); never in the repo (personal plan). Starting
   weights came from Josh's consumables analysis (`data/private/consumables-plan.md`, calculator
   `data/private/consumables-calc.mjs`).
+- **Portfolio tab** (Josh, 2026-11-23; `public/portfolio.js`, pure `public/portfolioLib.js` tested in
+  `portfolioLib.test.mjs`, server side `market/holdings.mjs` tested in `holdings.test.mjs`, classes `pf-*` plus the
+  Plan's `pl-*` tree look): what Josh owns, laid out exactly like his plans (same plans, wallets, groups, items, order;
+  an item added to or removed from a plan shows up or goes here). **Descriptive only** (Josh: the plans are
+  administrative tools for information and logistics, not targets; no budget, gap, share or advice). Read-only.
+  Columns: **Held** (TSM, the plan's faction), **Avg paid** (mail ledger: paid / units over buys with status ok; ⓘ
+  "bought N of the M held" when held > bought: units from before 2026-11-16, crafted, looted or farmed), **Value** (held
+  x cheapest 15% on the plan's faction from `/api/prices`, same price as the Plan, before the AH cut; group and plan
+  lines sum distinct items). Refresh button; the TSM file times are shown (TSM writes at logout or /reload; a
+  character's counts are as of its last login). Fold state per browser (`forever-market:portfolio-closed`,
+  `-sections-closed`). `GET /api/holdings` (per "Faction:itemID": tsm, shown, bought, paid, flag; plus the TSM files'
+  times), `POST /api/portfolio/accept`.
+  **TSM holdings** (checked 2026-11-23): `TradeSkillMasterDB` in each account's TradeSkillMaster.lua holds per character
+  `s@<char> - <faction> - Normal@internalData@{bag,bank,mail,auction}Quantity`, plus per faction
+  `f@<faction> - Normal@internalData@pendingMail` (mail sent between own characters, not opened yet; recipient ->
+  items) and `...@guildVaults` (guild -> items). **Don't miss pendingMail**: Josh's 3,141 Pyrite sat there (unopened
+  mail to Scarce Bavvb); without it TSM looked like it was missing most of his stock. With it, TSM matched the ledger
+  exactly (Pyrite 3,141, Bauxite 851, Elemental Earth 1,281, Lich's Index Finger 60). Only the "Normal" realm counts.
+  **TSM's known bug (Josh)**: a mailbox shows at most 100 mails. Opening a mailbox with more than that makes TSM clear
+  the recipient's pendingMail while its mail count only sees the first 100, so the rest drop out. Josh knows how to
+  avoid it. **Drops are TSM's to make** (Josh, 2026-11-23: crafting, sending to Simone, selling all lower the count,
+  correctly), so the only fallback is for that bug: per reading and character (`itemSteps` / `checkItem`), units that
+  left the character's `|pending` without turning up in its own bag/bank/mail/auction are "lost", added back to Held
+  (amber, hover names the characters and "most likely the 100-mail limit") until they turn up on that character later
+  or Josh clicks **TSM is right** (`F:\ForeverAuctionData\portfolio.json`, format `forever-portfolio` v1,
+  `accepted["Faction:itemID"] = { tsm, at }`, holds while TSM shows that count). Flagged from 5 units. No ledger
+  baseline (an earlier version compared TSM with bought - sold and flagged 51 used-up items; dropped at Josh's word).
+  **Not counted: Simone Sharpe** (Josh's crafter, THOROCKTHEBOLD; `notCounted` in portfolio.json, default
+  `NOT_COUNTED`): her bags/bank/mail/auctions and mail pending to her are left out, so what goes to her leaves the
+  portfolio and what comes back counts again. **Refresh = manual sync**: each /api/holdings call first logs any changed
+  TradeSkillMaster.lua (`updateHoldingsLog`, same as the hourly sync; readings deduped by account + file time), so
+  every file version is in the log for the check. In game: log out or /reload (TSM writes then), then Refresh.
 - CSS classes for its own views start with `m` (as the shuffle app's prefixes).
 - **Look** (Josh, 2026-11-13, "fine for now"): light theme with WoW touches. Money in coin colours (`moneyHtml` in
   shared.js: gold/silver/copper parts, padded `5g 04s 00c`), faction names in Alliance blue / Horde red (`factionHtml`),
@@ -1072,11 +1111,6 @@ Open items to raise when relevant:
   Offered, not taken: a days-to-sell figure per Plan line (units held / sold per day from sales.json).
   Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
   Don't raise the mail ledger's missing core-herb buys or Guardian Stones (Josh, 2026-11-23).
-- **Portfolio view: NEXT SESSION'S MAIN ITEM (Josh, 2026-11-23: current holdings compared against the investment
-  plan; asked 2026-11-21):** link his trade records to the plans: per
-  item what he holds, what it cost on average, today's value and the gap to the plan's target (covers the "Bought so
-  far" idea). Sources: the mail ledger on F: (BavvbScan buys/sales, every character; cost and amounts) and TSM's
-  inventory data in TradeSkillMaster.lua for current bag/bank/mail holdings (contents not checked yet: look first).
 - Plan tab: Parked: research for the non-alchemy placeholder (food, scrolls, stones).
   Only if they come up: editable band weights; redo the Blasted Lands split if a material's price jumps (it is a
   snapshot of 2026-11-20 Alliance prices). Settled, don't reopen: flask split, potions per night, Elixir of Sages,

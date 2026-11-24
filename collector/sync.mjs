@@ -25,6 +25,7 @@ import { openDb, insertSummary } from './marketDb.mjs';
 import { updateDepartures } from './departuresUpdate.mjs';
 import { writeSalesFile } from './salesFile.mjs';
 import { updateLedger } from './ledger.mjs';
+import { updateHoldingsLog } from './holdings.mjs';
 
 const REPO = 'jckim014/wow-forever-tool';
 const WORKFLOW = 'collect.yml';
@@ -375,6 +376,18 @@ if (!dryRun && !conditions.drive) {
   } catch (e) {
     conditions.ledger = `Mail ledger not updated: ${e.message}. Records stay in BavvbScan.lua for 60 days; retried every hour.`;
     log(`ledger: ${e.message}`);
+  }
+}
+
+// ---- holdings log (holdings.mjs): TSM's holdings per item and place, whenever a TradeSkillMaster.lua changed ----
+if (!dryRun && !conditions.drive) {
+  try {
+    const r = updateHoldingsLog({ wtfAccountDir, dir: path.join(dataRoot, 'holdings') });
+    if (!r.accounts) conditions.holdings = `No TradeSkillMaster.lua found under ${wtfAccountDir}: holdings aren't being logged (Forever Market's Portfolio can't spot lost units).`;
+    if (r.added) log(`holdings: ${r.added} new reading(s) from ${r.accounts} TSM file(s)`);
+  } catch (e) {
+    conditions.holdings = `Holdings log not updated: ${e.message}. Retried every hour.`;
+    log(`holdings: ${e.message}`);
   }
 }
 

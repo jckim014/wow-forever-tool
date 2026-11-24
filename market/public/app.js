@@ -6,6 +6,7 @@ import { showCheck } from './check.js';
 import { initFaction, showFaction } from './faction.js';
 import { initTiming, showTiming } from './timing.js';
 import { showPlan } from './plan.js';
+import { showPortfolio } from './portfolio.js';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -72,15 +73,17 @@ function showView(v) {
   $('#view-timing').hidden = v !== 'timing';
   $('#view-check').hidden = v !== 'check';
   $('#view-plan').hidden = v !== 'plan';
+  $('#view-portfolio').hidden = v !== 'portfolio';
   if (v === 'check') showCheck();
   if (v === 'faction') showFaction();
   if (v === 'timing') showTiming();
   if (v === 'plan') showPlan();
+  if (v === 'portfolio') showPortfolio();
   try { localStorage.setItem('forever-market:view', v); } catch { /* per-browser convenience */ }
 }
 for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => showView(b.dataset.view));
 // A link with #item=<id> (e.g. from the shuffle app) always opens Price history on that item.
-try { const v = localStorage.getItem('forever-market:view'); showView(!location.hash.includes('item=') && ['faction', 'timing', 'check', 'plan'].includes(v) ? v : 'trends'); } catch { /* default */ }
+try { const v = localStorage.getItem('forever-market:view'); showView(!location.hash.includes('item=') && ['faction', 'timing', 'check', 'plan', 'portfolio'].includes(v) ? v : 'trends'); } catch { /* default */ }
 
 // ---- search ----
 let selected = Number(new URLSearchParams(location.hash.slice(1)).get('item')) || null;

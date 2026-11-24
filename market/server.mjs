@@ -15,6 +15,7 @@ import { trade, steadiness } from './faction.mjs';
 import { analyse, median, MIN_DAYS, MIN_DAY_HOURS as DEFAULT_MIN_DAY_HOURS } from './timing.mjs';
 import { validPlan } from './public/planLib.js';
 import { scanReader } from './bscan.mjs';
+import { holdingsReader, writeAccepted } from './holdings.mjs';
 
 // TSM region sale data (TSM desktop app's file), re-read when TSM rewrites it. null when the file is missing.
 const tsmFile = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
@@ -301,6 +302,16 @@ function pricesByName(names) {
   return out;
 }
 
+// ---- Portfolio tab: holdings from TSM (holdings.mjs), what was paid from the mail ledger ----
+const wtfAccounts = process.env.FOREVER_WTF_ACCOUNTS || 'F:\\World of Warcraft\\_forever_\\WTF\\Account';
+const acceptedFile = process.env.FOREVER_PORTFOLIO_FILE || path.join(dataRoot, 'portfolio.json');
+const readHoldings = holdingsReader({
+  wtfAccountDir: wtfAccounts,
+  logDir: process.env.FOREVER_HOLDINGS_DIR || path.join(dataRoot, 'holdings'),
+  ledgerDir: process.env.FOREVER_LEDGER_DIR || path.join(dataRoot, 'ledger'),
+  portfolioFile: acceptedFile,
+});
+
 // ---- API ----
 const api = {
   '/api/status': () => {
@@ -344,6 +355,7 @@ const api = {
   },
   '/api/method-check': () => methodCheck(),
   '/api/plan': () => ({ plan: readPlan(), file: planFile }),
+  '/api/holdings': () => readHoldings(),
   '/api/price-sources': () => priceSources(),
   '/api/prices': (params) => pricesByName((params.get('names') ?? '').split('|').filter(Boolean).slice(0, 500)),
   '/api/faction': (params) => faction(params.get('days')),
@@ -380,6 +392,20 @@ const server = http.createServer((req, res) => {
       req.on('data', (c) => { body += c; if (body.length > 2e6) req.destroy(); });
       req.on('end', () => {
         try { send(200, JSON.stringify(writePlan(JSON.parse(body)))); } catch (e) { send(400, JSON.stringify({ error: e.message })); }
+      });
+      return;
+    }
+    if (url.pathname === '/api/portfolio/accept' && req.method === 'POST') {
+      lastSeen = Date.now();
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 1e4) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const { key, tsm } = JSON.parse(body);
+          if (!/^(Alliance|Horde):\d+$/.test(key) || !(tsm === null || (Number.isInteger(tsm) && tsm >= 0))) throw new Error('bad request');
+          writeAccepted(acceptedFile, key, tsm);
+          send(200, JSON.stringify({ ok: true }));
+        } catch (e) { send(400, JSON.stringify({ error: e.message })); }
       });
       return;
     }
