@@ -53,7 +53,7 @@ export async function importEditsFile(store: Store, file: File, onMessage: (m: s
   }
 }
 
-export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link, history, auctionData }: {
+export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link, history, auctionData, gameFolder }: {
   store: Store
   onMessage: (m: string) => void
   onImportPrices: (f: File) => void
@@ -61,6 +61,7 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
   link: { supported: boolean; file: string | null; onLink: () => void; onUnlink: () => void }
   history: { supported: boolean; folder: string | null; onChoose: () => void; onStop: () => void }
   auctionData: { supported: boolean; folder: string | null; onChoose: () => void; onStop: () => void }
+  gameFolder: { supported: boolean; folder: string | null; onLink: () => void; onUnlink: () => void }
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -109,6 +110,11 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
               {auctionData.folder ? 'Change auction data folder…' : 'Link auction data folder…'}
             </button>
             {auctionData.folder && <button role="menuitem" onClick={act(auctionData.onStop)}>Stop using API prices from {auctionData.folder}</button>}
+            <button role="menuitem" disabled={!gameFolder.supported} onClick={act(gameFolder.onLink)}
+              title="WoW's Interface\AddOns\BavvbScan folder: your favorites and settings go there as Favorites.lua for the in-game panel, again whenever they change">
+              {gameFolder.folder ? 'Change game addon folder…' : 'Link game addon folder…'}
+            </button>
+            {gameFolder.folder && <button role="menuitem" onClick={act(gameFolder.onUnlink)}>Stop sending favorites to the game</button>}
             <hr />
             <button role="menuitem" onClick={act(() => fileInput.current?.click())}>Import edits file…</button>
             <button role="menuitem" onClick={act(store.exportFile)}>Export edits (backup)</button>

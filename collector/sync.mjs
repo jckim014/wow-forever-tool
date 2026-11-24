@@ -24,6 +24,7 @@ import {
 import { openDb, insertSummary } from './marketDb.mjs';
 import { updateDepartures } from './departuresUpdate.mjs';
 import { writeSalesFile } from './salesFile.mjs';
+import { writeAddonPrices } from './addonPrices.mjs';
 import { updateLedger } from './ledger.mjs';
 import { updateHoldingsLog } from './holdings.mjs';
 
@@ -357,6 +358,14 @@ if (!dryRun && stored > 0) {
   } catch (e) {
     events.push({ title: 'Auction sync: sales.json not written', message: `${e.message}. Run node collector/write_sales.mjs to catch up.`, url: ACTIONS_URL });
     log(`sales.json: ${e.message}`);
+  }
+  // ApiPrices.lua for BavvbScan's in-game favorites panel (addonPrices.mjs)
+  try {
+    const n = writeAddonPrices(marketDb);
+    log(`ApiPrices.lua: ${Object.entries(n).map(([f, c]) => `${f} ${c}`).join(', ')} items`);
+  } catch (e) {
+    events.push({ title: 'Auction sync: ApiPrices.lua not written', message: `${e.message}. The in-game favorites panel keeps older hourly prices. Run node collector/write_addon_prices.mjs to catch up.`, url: ACTIONS_URL });
+    log(`ApiPrices.lua: ${e.message}`);
   }
 }
 try { marketDb?.close(); } catch { /* ignore */ }

@@ -6,6 +6,7 @@ import { useApiPrices } from './apiprices/useApiPrices'
 import { ageText, API_OLD_MS } from './apiprices/read'
 import { plural, usePageDrop, usePriceImport } from './PriceImport'
 import { usePriceHistory } from './history/usePriceHistory'
+import { useGameExport } from './ingame/useGameExport'
 import { isEmptyEdits } from './storage/doc'
 import { useEditsStore } from './storage/useEditsStore'
 import { filterRecipes, searchText, type ExitView, type RecipeFilters } from './recipes/filter'
@@ -67,6 +68,7 @@ export function App() {
   }, [])
 
   const result = useMemo(() => (game ? compute(game, config, edits, api.data) : null), [game, edits, api.data])
+  const gameExport = useGameExport(game, result, edits, edits.deTable ?? config.deTable, addMessage)
   const text = useMemo(() => new Map((result?.recipes ?? []).map((r) => [r, searchText(r)])), [result])
   const rows = useMemo(() => (result ? filterRecipes(result.recipes, filters, text) : []), [result, filters, text])
   const shopIds = useMemo(() => new Set(edits.shopping.recipes.map((r) => r.id)), [edits.shopping])
@@ -137,6 +139,7 @@ export function App() {
           link={{ supported: prices.linkSupported, file: prices.linked?.file ?? null, onLink: prices.linkFile, onUnlink: prices.unlinkFile }}
           history={{ supported: history.supported, folder: history.folder, onChoose: history.choose, onStop: history.stop }}
           auctionData={{ supported: api.supported, folder: api.folder, onChoose: api.choose, onStop: api.stop }}
+          gameFolder={{ supported: gameExport.supported, folder: gameExport.folder, onLink: gameExport.link, onUnlink: gameExport.unlink }}
         />
       </header>
       <div className="statusbar">
@@ -146,7 +149,7 @@ export function App() {
             <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
           )}
         </span>
-        {(edits.importsInfo || prices.linked || history.folder || api.folder) && (
+        {(edits.importsInfo || prices.linked || history.folder || api.folder || gameExport.folder) && (
           <span className="note prices-info">
             {api.folder && (
               <span className="papi" title={`Hourly auction data from the collector (${api.folder}), read when the app opens and every 10 minutes. Per item, the newer of this and your import is used.`}>
@@ -173,6 +176,14 @@ export function App() {
                 Linked: {prices.linked.file}
                 {prices.linked.needsPermission && <span className="status warn"> (Chrome needs your OK to read it)</span>}{' '}
                 <button className="button" onClick={() => { prices.linked?.refresh(); if (api.folder) api.refresh() }}>Refresh now</button>
+              </span>
+            )}
+            {gameExport.folder && (
+              <span className="pgame" title="Favorites.lua in the BavvbScan addon folder: your favorites and settings for the in-game panel. Sent again whenever they change; /reload in game to load it.">
+                Game: {gameExport.status === 'sent' && gameExport.sentAt
+                  ? `favorites sent ${new Date(gameExport.sentAt).toLocaleTimeString(undefined, { timeStyle: 'short' })}`
+                  : gameExport.status === 'error' ? <span className="status bad">not sent</span> : gameExport.folder}
+                {gameExport.status === 'needs-permission' && <>{' '}<button className="button" onClick={gameExport.allow}>Allow sending</button></>}
               </span>
             )}
             {history.folder && (

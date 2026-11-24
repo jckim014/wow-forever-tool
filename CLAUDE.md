@@ -225,6 +225,12 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   {place: units}}}`; places `<char>|bag/bank/mail/auction`, `<char>|pending` (unopened mail between own characters),
   `guild:<name>`; Normal realm only; README.txt there). Failure or no TSM file = lasting toast (`conditions.holdings`).
   `node collector/write_holdings.mjs` writes one by hand. First readings 2026-11-23 (2 accounts, ~17 KB).
+- **ApiPrices.lua** (2026-11-23, for BavvbScan's in-game favorites panel): after each new snapshot the sync
+  (`collector/addonPrices.mjs`; by hand `node collector/write_addon_prices.mjs`) writes
+  `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\ApiPrices.lua` (env FOREVER_ADDON_DIR): `BavvbScanApi =
+  { Alliance = { house = 111, t, items = { [id] = "lowest:median:cheapest15" } }, Horde = { house = 114, ... } }`, the
+  newest snapshot's prices (~14k items, ~440 KB). Failure (e.g. BavvbScan.toc missing there) = toast. WoW reads it at
+  login or /reload.
 - **sales.json** (2026-11-15, for the shuffle app's Leveling view): `F:\ForeverAuctionData\sales.json`, format
   `forever-sales` v1 `{at, days: 7, houses: {111|114: {hours, items: {id: units/day}}}}` = Forever Market's estimate
   (certain + probable over the last 7 days, scaled by the snapshot-pair hours). Written by the sync after each
@@ -749,6 +755,29 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   deliberately do not write back to Allow crafting (that switch only permits crafting; it can't force it, so a
   two-way link would disagree with the model). An item on several ticked lines is listed once with the total. Stored in `edits.shopping` (recipes + counts,
   ticks that differ from the default, list name); no effect on any calculation.
+- **In-game favorites panel** (Josh, 2026-11-23; BavvbScan 1.3): the Favorites tab's recipes in game, priced from the
+  character's own /bscan the moment it finishes (no /reload), the hourly API prices filling gaps. Three parts:
+  (1) the app writes `Interface\AddOns\BavvbScan\Favorites.lua` (`app/src/ingame/`: `buildExport` / `exportLua`,
+  File > Link game addon folder, handle in IndexedDB `addonDir`, rewritten by itself whenever favorites, custom or
+  vendor prices, Allow crafting, Use chains, settings or the DE table change, never for price imports; status bar
+  "Game: favorites sent ..."): favorite groups, their recipes and every reagent chain they reach, settings already
+  applied (vendor buy only if that setting is on, Allow crafting x profession toggle, loop breaks from the app),
+  DE band per product; no prices. (2) ApiPrices.lua from the sync (see Collector). (3) `addon/BavvbScan/FavCore.lua`
+  (pure Lua: the app's price rule incl. newer-wins between scan and API, intermediates, exits, best exit, cost
+  breakdown; scan prices via the same p1/p2/p3 + wall cutoff) and `FavPanel.lua` (UI). The scan counts only on the
+  faction it was taken on; the API side follows the character's faction (111/114), not Settings' API house.
+  Panel: docks to the right of `ProfessionsFrame` (the Forever client uses the retail profession window; profession
+  from C_TradeSkillUI.GetBaseProfessionInfo) when that profession has favorites, showing only those; the close button
+  hides it until that window opens again; `/bscan fav` opens it alone (all professions, draggable, position saved in
+  BavvbScanDB.favPos; again to close). Rows: name, best exit, profit (tooltip: cost and every exit); click = breakdown:
+  each reagent with source (craft / vendor / custom; scan = blank), price each and total, a crafted reagent's
+  ingredients under it, then the exits. A grey ° marks an hourly API price (hover says why). Josh's choices
+  (2026-11-23): font 13, no buy-instead / craft (off) lines, price each column, times like 6:48 PM. Groups fold (kept
+  in BavvbScanDB.favFolded). **Tests**: `app/src/ingame/parity.test.ts` runs FavCore.lua in fengari (devDependency)
+  next to compute() + recipeDetail() and requires the same numbers (made-up case always; Josh's save file, scan and
+  ApiPrices.lua when present: 15 favorites, 68 lines matched), plus FavPanel.lua under stand-ins for WoW's frame API.
+  Josh checked it in game ("working pretty well", then "looks great"). Favorites.lua and ApiPrices.lua are generated
+  and not in the repo: copying the repo's addon folder over the WoW copy leaves them alone.
 - **Favorites** (Josh, 2026-11-12; `app/src/favorites/`, classes `fav-*`): a ☆ at the left of every List row stars a
   recipe into the group "Unsorted" (made at the top if missing); a second click unstars it. The recipe card has a
   Favorites picker (Not in Favorites / a group / New group…). The Favorites tab (between List and Table) shows named
@@ -1060,7 +1089,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
