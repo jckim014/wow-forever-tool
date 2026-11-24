@@ -1164,6 +1164,14 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- **First /bscan of the day gets no answer** (2026-11-24, Josh): "server sent no auctions" on the first login only;
+  the addon then blocks a retry for 15 min. Test given to him for the next time: `/run C_AuctionHouse.ReplicateItems()`
+  a minute after the failure, then `/run print(C_AuctionHouse.GetNumReplicateItems())` 2 min later (big number =
+  first request was sent too early -> fix: wait for the AH to be ready / one automatic retry; 0 = something else
+  requested a scan first). Awaiting his result; no change until then.
+- Scans on two accounts (2026-11-24): the app links one BavvbScan.lua; Josh scans on both accounts and will switch
+  the link himself (declined linking both). Both files now save `realm = ""` (GetRealmName blank?), so imports show
+  "(_Alliance)" and history names lost the realm; noted, not raised again unless it matters.
 - **Stuck Chrome permission check** (2026-11-24, offered, Josh hasn't said yes): a ~10 s timeout around
   `queryPermission` in `apiprices/folder.ts` (`canRead`), `storage/fileStore.ts` (`hasPermission`) and the linked
   price file (`prices/linked.ts`), showing "Chrome isn't answering about <name>: link it again" instead of hanging on
