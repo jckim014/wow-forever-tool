@@ -85,13 +85,13 @@ function heldCell(r) {
 function paidCell(r) {
   if (r.group || r.noItem) return '';
   if (r.avgPaid === null) return r.held ? '<span class="blank" title="No auction purchases of it in the mail ledger">—</span>' : '';
-  const note = r.held > r.bought ? ` <span class="minfo" title="Bought ${units(r.bought)} of the ${units(r.held)} held: the rest is from before the ledger covered every character (2026-11-16), crafted, looted or farmed. The average covers the bought units only.">ⓘ</span>` : '';
-  return moneyHtml(Math.round(r.avgPaid)) + note;
+  const money = moneyHtml(Math.round(r.avgPaid));
+  return r.held > r.bought ? `<span title="Bought ${units(r.bought)} of the ${units(r.held)} held: the rest is from before the ledger covered every character (2026-11-16), crafted, looted or farmed. The average covers the bought units only.">${money}</span>` : money;
 }
 
 function valueCell(r) {
   if (r.noItem) return '';
-  if (r.group) return `${moneyHtml(Math.round(r.value))}${r.missingPrice ? ` <span class="minfo" title="${r.missingPrice} item${r.missingPrice === 1 ? '' : 's'} held with no price on this faction right now (not counted)">ⓘ</span>` : ''}`;
+  if (r.group) return r.missingPrice ? `<span title="${r.missingPrice} item${r.missingPrice === 1 ? '' : 's'} held with no price on this faction right now (not counted)">${moneyHtml(Math.round(r.value))}</span>` : moneyHtml(Math.round(r.value));
   if (!r.held) return '';
   return r.value === null ? '<span class="blank" title="Not listed on this faction right now">—</span>' : moneyHtml(Math.round(r.value));
 }
@@ -99,20 +99,22 @@ function valueCell(r) {
 function planHtml(plan) {
   const { rows, total, faction } = portfolioRows(plan, holdings.items, prices);
   const open = !closedPlans.has(plan.id);
-  const head = `<div class="pl-head">
-      <button class="pl-ptog" data-act="toggle-plan" data-plan="${plan.id}" title="${open ? 'Fold away' : 'Open'}">${open ? '▾' : '▸'} <span class="pl-pname">${esc(plan.name)}</span></button>
-      <span class="pl-psum"><span class="f${plan.house === 114 ? 114 : 111}">${faction}</span></span>
-      <span class="pf-total">Value ${moneyHtml(Math.round(total.value))}${total.flagged ? ` · <span class="pf-flag-text">${total.flagged} flagged</span>` : ''}</span>
-    </div>`;
-  if (!open) return `<section class="pl-plan">${head}</section>`;
+  const head = `<tr class="pf-phead">
+      <td class="mleft"><button class="pl-ptog" data-act="toggle-plan" data-plan="${plan.id}" title="${open ? 'Fold away' : 'Open'}">${open ? '▾' : '▸'} <span class="pl-pname">${esc(plan.name)}</span></button>
+        <span class="pl-psum"><span class="f${plan.house === 114 ? 114 : 111}">${faction}</span></span></td>
+      <td><span class="pf-lab">Held</span>${total.flagged ? ` <span class="pf-flag-text">${total.flagged} flagged</span>` : ''}</td>
+      <td><span class="pf-lab">Avg paid</span></td>
+      <td><span class="pf-lab">Value</span> ${moneyHtml(Math.round(total.value))}</td>
+    </tr>`;
+  if (!open) return `<section class="pl-plan"><table class="mtable pf-table"><tbody>${head}</tbody></table></section>`;
   const hidden = new Set();
   const body = rows.map((r) => {
     if (hidden.has(r.node.id)) return '';
     const n = r.node;
     if (r.group && closed.has(n.id)) walk(n, (c) => hidden.add(c.id));
     const p = r.group ? null : prices[lookupName(n)];
-    return `<tr class="pl-d${Math.min(r.depth, 3)}${r.group ? ' pl-grow' : ''}">
-      <td class="mleft pl-name" style="padding-left:${6 + r.depth * 22}px">
+    return `<tr class="pf-d${Math.min(r.depth, 3)}${r.group ? ' pf-grow' : ''}">
+      <td class="mleft pl-name" style="padding-left:${28 + r.depth * 22}px">
         ${r.group ? `<button class="pl-tog" data-tog="${n.id}" title="${closed.has(n.id) ? 'Open' : 'Close'}">${closed.has(n.id) ? '▸' : '▾'}</button>` : '<span class="pl-tog-sp"></span>'}
         ${r.group ? '' : p ? iconHtml(p.icon) : '<span class="micon-none"></span>'}<span class="${r.group ? 'pl-group' : `q${p?.quality ?? 1}`}"${n.item ? ` title="Counted as ${esc(n.item)}"` : ''}>${esc(n.name)}</span>
         ${n.uses ? `<span class="pl-uses">· ${esc(n.uses.length > 45 ? `${n.uses.slice(0, 43).trimEnd()}…` : n.uses)}</span>` : ''}</td>
@@ -121,9 +123,9 @@ function planHtml(plan) {
       <td>${valueCell(r)}</td>
     </tr>`;
   }).join('');
-  return `<section class="pl-plan">${head}
+  return `<section class="pl-plan">
     <table class="mtable pf-table">
-      <thead><tr><th class="mleft">Wallet / item</th><th>Held</th><th>Avg paid</th><th>Value</th></tr></thead>
+      <thead>${head}</thead>
       <tbody>${body}</tbody>
     </table></section>`;
 }

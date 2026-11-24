@@ -423,10 +423,12 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Plan's `pl-*` tree look): what Josh owns, laid out exactly like his plans (same plans, wallets, groups, items, order;
   an item added to or removed from a plan shows up or goes here). **Descriptive only** (Josh: the plans are
   administrative tools for information and logistics, not targets; no budget, gap, share or advice). Read-only.
-  Columns: **Held** (TSM, the plan's faction), **Avg paid** (mail ledger: paid / units over buys with status ok; ⓘ
-  "bought N of the M held" when held > bought: units from before 2026-11-16, crafted, looted or farmed), **Value** (held
+  Columns: **Held** (TSM, the plan's faction), **Avg paid** (mail ledger: paid / units over buys with status ok; hover
+  "bought N of the M held" when held > bought, no ⓘ so the column stays aligned: units from before 2026-11-16, crafted, looted or farmed), **Value** (held
   x cheapest 15% on the plan's faction from `/api/prices`, same price as the Plan, before the AH cut; group and plan
-  lines sum distinct items). Refresh button; the TSM file times are shown (TSM writes at logout or /reload; a
+  lines sum distinct items). Layout (Josh, 2026-11-23): one grey bar per plan (name, faction, small Held / Avg paid / Value
+  labels over their columns, total value), no separate column-header row; groups without grey bands, indented under
+  the plan, items one step further. Refresh button; the TSM file times are shown (TSM writes at logout or /reload; a
   character's counts are as of its last login). Fold state per browser (`forever-market:portfolio-closed`,
   `-sections-closed`). `GET /api/holdings` (per "Faction:itemID": tsm, shown, bought, paid, flag; plus the TSM files'
   times), `POST /api/portfolio/accept`.
