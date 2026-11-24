@@ -813,6 +813,11 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   tab. Each view's own controls come below: List/Table/Favorites share `.rfilters` (search, Exit; List/Table add Min
   profit, Hide unpriced, Hide BoP, count, then the profession chips); Prices has its own `.pfilters`. Don't put
   per-view controls back into rows 1-2.
+- **File menu** (Josh, 2026-11-24, 88e1fcc: "so I know what's what"): three headed sections, Prices (Link scan file,
+  auction data folder, Import a scan file once, Paste prices), Archive and game (price history folder, game addon
+  folder), Your edits (save file, import/export). Each link item shows "Pick: <what to choose>" and "Now: <name>" /
+  "Not linked" (Chrome gives only the name, not the path or account). No Auctionator wording anywhere in the UI;
+  the readers still accept Auctionator/Auctioneer files dropped on the page.
 - Money displayed as `1g 23s 45c`.
 - User-entered prices are called **custom** in the UI (the model and the edits file keep the name `typed`/`typedPrices`).
   Cost lines in the detail card use dot leaders from the reagent name to its price; amounts in the card's columns are
@@ -1089,6 +1094,11 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   BavvbScan.lua handles hung the same way ("Loading your edits…" stuck, no "Linked:"; edits fell back to the browser
   copy, which is safe: newer savedAt wins on reconnect). Fix: File > Change auction data folder (worked); for the
   others chrome://restart or re-pick (Open save file / Link price file). Josh's outcome on those two not reported.
+2026-11-24 (afternoon session): "the app reads no BavvbScan data, only API". Cause: nothing imported since 00:03
+  (price history and the save file untouched since then) while both accounts' BavvbScan.lua held complete 2:01 / 2:12 PM
+  scans; the stale import loses to newer API data per item, so every price showed API. Same Chrome permission hang as
+  the morning (linked file and save file never re-picked). Told Josh to re-pick both. Then the File menu clean-up (see
+  UI), pushed and live. Josh hasn't reported whether re-linking fixed it.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1172,7 +1182,8 @@ Open items to raise when relevant:
 - Scans on two accounts (2026-11-24): the app links one BavvbScan.lua; Josh scans on both accounts and will switch
   the link himself (declined linking both). Both files now save `realm = ""` (GetRealmName blank?), so imports show
   "(_Alliance)" and history names lost the realm; noted, not raised again unless it matters.
-- **Stuck Chrome permission check** (2026-11-24, offered, Josh hasn't said yes): a ~10 s timeout around
+- **Stuck Chrome permission check** (2026-11-24, offered twice that day, Josh hasn't said yes; it hit again in the
+  afternoon and made the app silently use API prices only): a ~10 s timeout around
   `queryPermission` in `apiprices/folder.ts` (`canRead`), `storage/fileStore.ts` (`hasPermission`) and the linked
   price file (`prices/linked.ts`), showing "Chrome isn't answering about <name>: link it again" instead of hanging on
   "reading…" / "Loading your edits…". Display only. If the hang recurs: re-pick the handle from the File menu.
