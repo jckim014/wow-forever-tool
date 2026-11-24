@@ -146,7 +146,7 @@ export function App() {
         <span className="sb-msg">
           {message && <span className="note">{message} <button className="link" onClick={() => setMessage(null)}>dismiss</button></span>}
           {!message && store.status.kind !== 'loading' && isEmptyEdits(edits) && !prices.linked && !api.folder && (
-            <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use the File menu (Link price file to skip this next time).</span>
+            <span className="note">No prices yet: drop BavvbScan.lua (after /bscan in game) on the page, or use File &gt; Link scan file to skip this next time.</span>
           )}
         </span>
         {(edits.importsInfo || prices.linked || history.folder || api.folder || gameExport.folder) && (
@@ -273,7 +273,7 @@ export function App() {
         </Suspense>
       )}
       {prices.dialogs}
-      {dragging && <div className="drop-overlay">Drop Auctionator.zip (or a price .csv, or an edits .json) to import</div>}
+      {dragging && <div className="drop-overlay">Drop BavvbScan.lua (or a price .csv, or an edits .json) to import</div>}
     </div>
   )
 }

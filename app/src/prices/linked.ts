@@ -39,7 +39,7 @@ export async function pickAuctionator(): Promise<ReadHandle> {
   const w = window as unknown as { showOpenFilePicker(opts: object): Promise<ReadHandle[]> }
   const [h] = await w.showOpenFilePicker({
     id: 'auctionator', multiple: false,
-    types: [{ description: 'BavvbScan, Auctioneer or Auctionator SavedVariables', accept: { 'application/octet-stream': ['.lua', '.zip'] } }],
+    types: [{ description: 'BavvbScan.lua', accept: { 'application/octet-stream': ['.lua', '.zip'] } }],
   })
   return h
 }

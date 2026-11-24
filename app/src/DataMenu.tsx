@@ -42,6 +42,19 @@ function StatusLine({ status, localOk, onReconnect }: { status: SaveStatus; loca
   }
 }
 
+/** A menu entry; `pick` says what to choose in the picker, `now` what is linked at the moment. */
+function Item({ label, pick, now, title, disabled, onClick }: {
+  label: string; pick?: string; now?: string | null; title?: string; disabled?: boolean; onClick: () => void
+}) {
+  return (
+    <button role="menuitem" disabled={disabled} onClick={onClick} title={title}>
+      {label}
+      {pick && <span className="mi-sub">Pick: {pick}</span>}
+      {pick && <span className="mi-sub">{now ? <>Now: <b>{now}</b></> : 'Not linked'}</span>}
+    </button>
+  )
+}
+
 /** Edits files (.json), from the menu or dropped on the page. */
 export async function importEditsFile(store: Store, file: File, onMessage: (m: string) => void) {
   try {
@@ -92,36 +105,43 @@ export function DataMenu({ store, onMessage, onImportPrices, onPastePrices, link
         <button className="button" onClick={() => setOpen(!open)} aria-expanded={open}>File ▾</button>
         {open && (
           <div className="menu-panel" role="menu">
-            <button role="menuitem" onClick={act(() => priceInput.current?.click())}>Import price file…</button>
-            <button role="menuitem" onClick={act(onPastePrices)}>Paste prices…</button>
-            <button role="menuitem" disabled={!link.supported} onClick={act(link.onLink)}
-              title="Pick BavvbScan.lua (or Auc-ScanData.lua / Auctionator.lua) once; the app re-reads it when it opens and on Refresh now">
-              {link.file ? 'Link a different price file…' : 'Link price file…'}
-            </button>
-            {link.file && <button role="menuitem" onClick={act(link.onUnlink)}>Unlink {link.file}</button>}
-            {!link.supported && <p className="menu-note">Linking a file needs Chrome or Edge.</p>}
-            <button role="menuitem" disabled={!history.supported} onClick={act(history.onChoose)}
-              title="Every scan you import is saved in this folder: the whole scan, zipped, and a per-item summary">
-              {history.folder ? 'Change price history folder…' : 'Keep price history in a folder…'}
-            </button>
-            {history.folder && <button role="menuitem" onClick={act(history.onStop)}>Stop keeping price history</button>}
-            <button role="menuitem" disabled={!auctionData.supported} onClick={act(auctionData.onChoose)}
-              title="The auction collector's folder (F:ForeverAuctionData): hourly API prices, used per item where newer than your import">
-              {auctionData.folder ? 'Change auction data folder…' : 'Link auction data folder…'}
-            </button>
-            {auctionData.folder && <button role="menuitem" onClick={act(auctionData.onStop)}>Stop using API prices from {auctionData.folder}</button>}
-            <button role="menuitem" disabled={!gameFolder.supported} onClick={act(gameFolder.onLink)}
-              title="WoW's Interface\AddOns\BavvbScan folder: your favorites and settings go there as Favorites.lua for the in-game panel, again whenever they change">
-              {gameFolder.folder ? 'Change game addon folder…' : 'Link game addon folder…'}
-            </button>
-            {gameFolder.folder && <button role="menuitem" onClick={act(gameFolder.onUnlink)}>Stop sending favorites to the game</button>}
+            <div className="menu-head">Prices</div>
+            <Item disabled={!link.supported} onClick={act(link.onLink)}
+              label={link.file ? 'Link a different scan file…' : 'Link scan file…'}
+              pick="WTF\Account\<account>\SavedVariables\BavvbScan.lua"
+              now={link.file} title="BavvbScan.lua of the account you last scanned on (your /bscan scans). Re-read when the app opens and on Refresh now." />
+            {link.file && <Item onClick={act(link.onUnlink)} label="Stop using the scan file" />}
+            <Item disabled={!auctionData.supported} onClick={act(auctionData.onChoose)}
+              label={auctionData.folder ? 'Change auction data folder…' : 'Link auction data folder…'}
+              pick="F:\ForeverAuctionData" now={auctionData.folder}
+              title="Hourly API prices from the collector. Per item, the newer of these and your scan is used." />
+            {auctionData.folder && <Item onClick={act(auctionData.onStop)} label="Stop using API prices" />}
+            <Item onClick={act(() => priceInput.current?.click())} label="Import a scan file once…"
+              title="Reads BavvbScan.lua (or a .zip of it) once, without linking it. Dropping it on the page does the same." />
+            <Item onClick={act(onPastePrices)} label="Paste prices…" title="Item ID, name and three price columns, from any other source" />
+            {!link.supported && <p className="menu-note">Linking files and folders needs Chrome or Edge.</p>}
             <hr />
-            <button role="menuitem" onClick={act(() => fileInput.current?.click())}>Import edits file…</button>
-            <button role="menuitem" onClick={act(store.exportFile)}>Export edits (backup)</button>
+            <div className="menu-head">Archive and game</div>
+            <Item disabled={!history.supported} onClick={act(history.onChoose)}
+              label={history.folder ? 'Change price history folder…' : 'Keep price history in a folder…'}
+              pick="wow-forever-shuffle\data\private\price-history" now={history.folder}
+              title="Every scan you import is saved here: the whole scan, zipped, and a per-item summary" />
+            {history.folder && <Item onClick={act(history.onStop)} label="Stop keeping price history" />}
+            <Item disabled={!gameFolder.supported} onClick={act(gameFolder.onLink)}
+              label={gameFolder.folder ? 'Change game addon folder…' : 'Link game addon folder…'}
+              pick="_forever_\Interface\AddOns\BavvbScan" now={gameFolder.folder}
+              title="Your favorites go there as Favorites.lua for the in-game panel, again whenever they change" />
+            {gameFolder.folder && <Item onClick={act(gameFolder.onUnlink)} label="Stop sending favorites to the game" />}
             <hr />
-            <button role="menuitem" disabled={!fileApi} onClick={act(store.createSaveFile)}>Create save file…</button>
-            <button role="menuitem" disabled={!fileApi} onClick={act(store.openSaveFile)}>Open save file…</button>
-            <button role="menuitem" disabled={!connected} onClick={act(store.disconnect)}>Stop saving to file</button>
+            <div className="menu-head">Your edits</div>
+            <Item disabled={!fileApi} onClick={act(store.openSaveFile)} label="Open save file…"
+              pick="wow-forever-shuffle\data\private\shuffle-edits.json"
+              now={connected && 'file' in store.status ? store.status.file : null}
+              title="Custom prices, settings, favorites and the rest, saved on every change" />
+            <Item disabled={!fileApi} onClick={act(store.createSaveFile)} label="Create save file…" />
+            <Item disabled={!connected} onClick={act(store.disconnect)} label="Stop saving to file" />
+            <Item onClick={act(() => fileInput.current?.click())} label="Import edits file…" />
+            <Item onClick={act(store.exportFile)} label="Export edits (backup)" />
             {!fileApi && <p className="menu-note">Saving to a file needs Chrome or Edge.</p>}
           </div>
         )}
