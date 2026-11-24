@@ -1067,9 +1067,20 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   Hide ~24g each is the big cost). He said that answered it. Sale time = t - (30 - mailDaysLeft) days.
   Outside the repo: the WoW BavvbScan folder now holds 1.3 plus Favorites.lua (copied by hand from his 4:35 PM save
   file; the live app's File > Link game addon folder takes over once he links it there) and ApiPrices.lua (sync).
-  Not yet confirmed by Josh: linking the addon folder on the live site; the sync writing ApiPrices.lua on its own
-  (confirmed: sync.log 02:56 UTC "ApiPrices.lua: Alliance 7035, Horde 6884 items"). One cloud collector run failed at
-  03:40 UTC from a5b08db (see Collector > cloud run checks out only collector/); fix pushed at sign off.
+  Josh has since linked the addon folder on the live site (confirmed 2026-11-23 late); the sync writes ApiPrices.lua
+  on its own (sync.log 02:56 UTC "ApiPrices.lua: Alliance 7035, Horde 6884 items"). Cloud collector runs failed from
+  03:40 to 05:10 UTC (a5b08db; see Collector > cloud run checks out only collector/): the fix 8d9f9a2 was committed at
+  sign off but NOT pushed (the summary wrongly said pushed), so four runs failed and those hours are lost. Pushed
+  05:24 UTC. Lesson: at sign off, check `git status -sb` for "ahead" before saying something is pushed.
+2026-11-23 (late session): Portfolio layout (fa4f2cb, pushed; Josh: "looking really good"): one grey bar per plan
+  with the column labels in it, groups unbanded and indented, no ⓘ marks in the columns (hover instead). Talk: Josh
+  defaults to an even split when topping up; told him even is fine inside the plan weights' error, the case for the
+  weights is that they encode his index-like thesis (even weights add an unchosen bet on small items), close only
+  gaps under half / over double the target, with new gold, never by selling. He's thinking it over. Selling speed is
+  not a concern for him (don't factor it in). Stranglekelp Avg paid: the ledger copies BavvbScan records only at the
+  hourly sync (:55), Portfolio Refresh doesn't; a manual `collector/sync.mjs` run fills it.
+  **Next session: check the cloud collector runs since 05:40 UTC 2026-11-24 succeeded and stored every hour**
+  (Josh asked for this tomorrow).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1191,6 +1202,7 @@ Open items to raise when relevant:
 - Wall cutoff (2026-11-14): Josh hasn't yet looked at the new figures in the apps (check steps given: Mud Snapper Horde
   ~10c, Stonescale Eel Horde ~1s 64c). If a price looks wrong, print the item's listing ladder from the raw snapshot
   first (that is how the wall was found). A cheap cluster holding over 5% of units would still set the anchor low.
+- Method check review (Josh, 2026-11-23: "worry about this later"): don't raise it until he does.
 - Forever Market: weekday patterns in Cycles (not built; need ~3 weeks of data, ~2026-12-03). Sale-rate method:
   re-run the Method check and consider tuning only once ~100+ more of Josh's TSM records exist; record any new method
   version in `market/method-history.json`. 110/113 are PvP (2026-11-13); the realms behind 119/120/121 and
@@ -1239,7 +1251,8 @@ When Josh says **"sign off"** (older wording: "save everything"), the session is
 3. Record what lives outside the repo: changes in the WoW folder (addon copies, patches), paths, in-game routines, findings.
 4. Memory: save new preferences or corrections Josh gave this session.
 5. Stop background processes (dev servers).
-6. Commit. Push only if Josh says so, but say whether unpushed commits remain.
+6. Commit. Push only if Josh says so, but say whether unpushed commits remain (check `git status -sb` for "ahead";
+   a fix "pushed at sign off" once wasn't, and the cloud collector failed for two hours).
 7. Reply with a short summary: what was recorded, the commit hash, push status.
 
 Working notes:
