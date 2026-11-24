@@ -1079,8 +1079,9 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   gaps under half / over double the target, with new gold, never by selling. He's thinking it over. Selling speed is
   not a concern for him (don't factor it in). Stranglekelp Avg paid: the ledger copies BavvbScan records only at the
   hourly sync (:55), Portfolio Refresh doesn't; a manual `collector/sync.mjs` run fills it.
-  **Next session: check the cloud collector runs since 05:40 UTC 2026-11-24 succeeded and stored every hour**
-  (Josh asked for this tomorrow).
+  Checked 2026-11-24 05:42 UTC (Josh got the failure emails): the 05:40 run succeeded and stored
+  snapshot-20261124T052520Z; the 03:40-05:10 failures were all a5b08db. Lost: Blizzard updates ~03:20 and ~04:20 UTC.
+  If a failure email names a run after 05:40 UTC 2026-11-24, it is a new problem.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
