@@ -1099,6 +1099,17 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   scans; the stale import loses to newer API data per item, so every price showed API. Same Chrome permission hang as
   the morning (linked file and save file never re-picked). Told Josh to re-pick both. Then the File menu clean-up (see
   UI), pushed and live. Josh hasn't reported whether re-linking fixed it.
+2026-11-24 (evening, advice + analysis, no code): Josh is weighing dropping Tailoring (Mooncloth ~12g/day; kept for a
+  vendor-shuffle recipe that may come with the 12-09 raid; ~300g to re-level) for Enchanting to disenchant BoP
+  Leatherworking crafts. Facts from Josh: on Forever disenchanting needs only Enchanting skill 1; he has the BoP LW
+  rare patterns (Skycaller/Defender's/Prowler's/Mender's... lines). BoP = only the crafter can DE, so Enchanting must be
+  on the leatherworker. Priced all 132 BoP LW DE-able recipes with the app's model (his save file, API 22:26 UTC
+  snapshot, col 3; script scratchpad only): profitable only at ilvl 45 -> Small Radiant (+0.27-0.30g A, +0.23 H),
+  ilvl 47 shoulders -> Large Radiant (+0.31-0.34 A, ~0 H), ilvl 30 helms -> Large Glimmering (+0.15-0.21 A, +0.04-0.12
+  H); everything else loses (ilvl 52-55 -1 to -4g). Time isn't the limit; shard demand is (~100-200g/day A, less H,
+  rough). Break-even to switch now vs after the raid: 14 x daily profit > 168 + 300 x p(recipe) (~23g/day at 50%):
+  advised switching if Tailoring is on the leatherworker; watch Radiant shard prices. My 2026-11-21 shuffle scan had
+  missed these recipes. Josh's decision not reported.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
