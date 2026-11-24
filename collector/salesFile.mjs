@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEPARTURE_HOUSES, ensureDepartureTables } from './departuresUpdate.mjs';
-import { parseRegionSale } from '../market/tsm.mjs';
+import { parseRegionSale } from './tsmRegion.mjs';
 
 export const TSM_FILE = process.env.FOREVER_TSM_FILE || 'F:\\World of Warcraft\\_forever_\\Interface\\AddOns\\TradeSkillMaster_AppHelper\\AppData.lua';
 

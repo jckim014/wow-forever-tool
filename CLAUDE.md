@@ -250,6 +250,10 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   keeps 60 days, so nothing is lost meanwhile. Seeded 2026-11-16: 2,401 entries, 11 characters, ~0.9 MB for ~3 days
   (~100 MB/year at that pace); `ledger	rade-tracker-2026-11-16.json` = copy of the trades file then. F: only, no
   second copy (Josh: nice to have, he manages it). To answer questions about past trades, read these files.
+- **The cloud run checks out only `collector/`** (sparse checkout in collect.yml) and runs its tests first: a collector
+  file importing from `market/` or elsewhere fails every cloud run, so no snapshot is stored that hour (2026-11-24 03:40
+  UTC: salesFile.mjs imported market/tsm.mjs; fixed by moving the parser into collector/). Shared code lives in
+  collector/ and market/ imports it. Check with a copy of only collector/ before pushing.
 - Secrets/keys: Blizzard client in `data/private/blizzard-api.json`, cache key in `data/private/token-cache-key.txt`;
   the same values are GitHub secrets `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `TOKEN_CACHE_KEY`.
   GitHub repo settings: fork PR workflows need approval for all external contributors.
@@ -291,7 +295,7 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Alliance blue #3d8af0 / Horde red #e0533f (validated on white and dark: CVD ΔE 26, >= 3:1; lines carry direct end
   labels and a table view exists), crosshair readout lists every house, a line breaks where a snapshot passed without
   the item listed, money axes use whole-copper ticks and compact labels ("40g"); heat maps use a gold ramp.
-- **TSM region sale data** (5a, 2026-11-13): `market/tsm.mjs` parses AUCTIONDB_REGION_SALE (Forever-US) from
+- **TSM region sale data** (5a, 2026-11-13): `collector/tsmRegion.mjs` (re-exported by `market/tsm.mjs`) parses AUCTIONDB_REGION_SALE (Forever-US) from
   `F:\World of Warcraft\_forever_\Interface\AddOns\TradeSkillMaster_AppHelper\AppData.lua` (env FOREVER_TSM_FILE), re-read when it
   changes; base 32; regionSale copper; regionSoldPerDay and regionSalePercent x1000 (Josh confirmed against TSM's
   tooltip: Linen Cloth 15,998/day, 95.4%; Runecloth 1,846, 61.5%; Arcanite Bar 2.96, 22.8%). Shown on the item page as
@@ -1051,7 +1055,19 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   with a material he also speculates on (Guardian Stones): one stone = one decision; when gold, not stones, is the
   limit, gold wallets are capital budgeting (sized by returns, not labels); physical separation + a target + top-up
   rule. Josh closed it ("don't worry about guardian stones"). Recipe card Market link: no reagent / Prices-view links.
-  **Next session's main item: the portfolio view** (see Open items).
+2026-11-23 (long session): Forever Market **Portfolio tab** + holdings log (be668b7; Josh: "looks good for now").
+  Lessons: TSM's pendingMail holds unopened mail between his characters (missing it made TSM look incomplete); views
+  on his Plans are descriptive only. A Market server started before new code returns 404 for new APIs (restart it).
+  Then **BavvbScan 1.3 in-game favorites panel** (ffb962c; Josh checked in game: "looks great"), and **sold/day
+  columns** (ours + TSM) on every recipe row (a5b08db; "working now"). All pushed. Analysis for Josh (no code): his 4
+  Leatherworking gear sales Nov 20-23 (mail ledger): 47 sales, 11,424g received, ~2,020g profit vs replacement mat
+  cost at the hour of each sale (~675g/day, 28g/h over the window; sales 4 PM-3 AM, none 8 AM-1 PM; Cured Rugged
+  Hide ~24g each is the big cost). He said that answered it. Sale time = t - (30 - mailDaysLeft) days.
+  Outside the repo: the WoW BavvbScan folder now holds 1.3 plus Favorites.lua (copied by hand from his 4:35 PM save
+  file; the live app's File > Link game addon folder takes over once he links it there) and ApiPrices.lua (sync).
+  Not yet confirmed by Josh: linking the addon folder on the live site; the sync writing ApiPrices.lua on its own
+  (confirmed: sync.log 02:56 UTC "ApiPrices.lua: Alliance 7035, Horde 6884 items"). One cloud collector run failed at
+  03:40 UTC from a5b08db (see Collector > cloud run checks out only collector/); fix pushed at sign off.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
