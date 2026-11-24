@@ -1082,6 +1082,13 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   Checked 2026-11-24 05:42 UTC (Josh got the failure emails): the 05:40 run succeeded and stored
   snapshot-20261124T052520Z; the 03:40-05:10 failures were all a5b08db. Lost: Blizzard updates ~03:20 and ~04:20 UTC.
   If a failure email names a run after 05:40 UTC 2026-11-24, it is a new problem.
+2026-11-24 (short session, no code): PC off ~3 AM-1:30 PM local; the logon sync stored the 9 waiting snapshots at
+  1:34 PM, 0 problems (Blizzard's ~15:25 UTC update is missing, refresh moved :25 -> :26 again: a skipped update).
+  The shuffle app then sat on "API: reading…": Chrome's `queryPermission` on the stored auction-folder handle never
+  returned (found with a console step-through; no error, the promise just hung). The saved save-file and linked
+  BavvbScan.lua handles hung the same way ("Loading your edits…" stuck, no "Linked:"; edits fell back to the browser
+  copy, which is safe: newer savedAt wins on reconnect). Fix: File > Change auction data folder (worked); for the
+  others chrome://restart or re-pick (Open save file / Link price file). Josh's outcome on those two not reported.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1157,6 +1164,10 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
   `/reload` cleared its 15-minute guard; tooltip errors in `!Swatter.lua` were harmless noise.
 
 Open items to raise when relevant:
+- **Stuck Chrome permission check** (2026-11-24, offered, Josh hasn't said yes): a ~10 s timeout around
+  `queryPermission` in `apiprices/folder.ts` (`canRead`), `storage/fileStore.ts` (`hasPermission`) and the linked
+  price file (`prices/linked.ts`), showing "Chrome isn't answering about <name>: link it again" instead of hanging on
+  "reading…" / "Loading your edits…". Display only. If the hang recurs: re-pick the handle from the File menu.
 - Shuffle scan (2026-11-21): settled 2026-11-22: Frilled Lichen, Stranglevine and Major Mana Potion are not sold by a
   vendor on Forever; Josh doesn't want the scan followed up. Don't raise it.
 - **Crate status reports** (2026-11-22, Josh: keep checking over time): Damaged Undermine Supply Crate vs his herb
