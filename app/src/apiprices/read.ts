@@ -46,11 +46,13 @@ export interface SalesData {
   days: number
   /** house -> hours of hourly snapshot pairs behind it, and item -> units per day */
   houses: Record<number, { hours: number; items: Map<number, number> }>
+  /** TSM's region sold/day (pooled TSM users across Forever-US, from the TSM app's AppData.lua), when the sync could read it */
+  tsm: { downloadTime: number | null; items: Map<number, number> } | null
 }
 
 /** Throws on a file that isn't the collector's sales.json. */
 export function salesFromText(text: string): SalesData {
-  const s = JSON.parse(text) as { format?: string; version?: number; at?: string; days?: number; houses?: Record<string, { hours?: number; items?: Record<string, number> }> }
+  const s = JSON.parse(text) as { format?: string; version?: number; at?: string; days?: number; houses?: Record<string, { hours?: number; items?: Record<string, number> }>; tsm?: { downloadTime?: number; items?: Record<string, number> } }
   if (s.format !== 'forever-sales' || s.version !== 1 || typeof s.at !== 'string') throw new Error('not the collector\'s sales.json (format forever-sales v1)')
   const houses: SalesData['houses'] = {}
   for (const [h, v] of Object.entries(s.houses ?? {})) {
@@ -58,7 +60,13 @@ export function salesFromText(text: string): SalesData {
     for (const [id, n] of Object.entries(v.items ?? {})) if (typeof n === 'number') items.set(Number(id), n)
     houses[Number(h)] = { hours: v.hours ?? 0, items }
   }
-  return { at: s.at, days: s.days ?? 7, houses }
+  let tsm: SalesData['tsm'] = null
+  if (s.tsm && typeof s.tsm === 'object') {
+    const items = new Map<number, number>()
+    for (const [id, n] of Object.entries(s.tsm.items ?? {})) if (typeof n === 'number') items.set(Number(id), n)
+    tsm = { downloadTime: s.tsm.downloadTime ?? null, items }
+  }
+  return { at: s.at, days: s.days ?? 7, houses, tsm }
 }
 
 /** "47 min ago", "2.5 h ago", "3 days ago". */

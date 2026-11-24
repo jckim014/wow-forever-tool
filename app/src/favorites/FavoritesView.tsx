@@ -1,7 +1,7 @@
 import { useState, type DragEvent } from 'react'
 import type { FavGroup, RecipeRow } from '../model'
 import type { ExitView } from '../recipes/filter'
-import { Card, effectiveSort, ListHead, nextSort, Row, sortRows, useOpenSet, useStable, type CardProps, type Sort } from '../recipes/RecipeList'
+import { Card, effectiveSort, ListHead, nextSort, Row, sortRows, useOpenSet, useSaleInfo, useStable, type CardProps, type Sort } from '../recipes/RecipeList'
 import { addGroup, deleteGroup, moveGroup, moveRecipe, renameGroup } from './fav'
 
 const COLLAPSED_KEY = 'wow-forever-shuffle:fav-collapsed'
@@ -34,6 +34,7 @@ export function FavoritesView({ rowsById, searching, exit, ...p }: CardProps & {
   exit: ExitView
 }) {
   const { favorites, updateFav } = p
+  const sale = useSaleInfo(p)
   const [chosenSort, setSort] = useState<Sort | null>(null)
   const sort = effectiveSort(chosenSort, exit)
   const { open, setOpen, toggle } = useOpenSet()
@@ -117,7 +118,7 @@ export function FavoritesView({ rowsById, searching, exit, ...p }: CardProps & {
         {searching && <span className="muted">Search applies: only matching favorites are shown.</span>}
       </div>
       <div className={exit !== 'all' ? 'rlist r-fav r-single' : 'rlist r-fav'}>
-        <ListHead sort={sort} exit={exit} onSort={(key) => setSort((s) => nextSort(s, key))} />
+        <ListHead sort={sort} exit={exit} onSort={(key) => setSort((s) => nextSort(s, key))} house={sale.house} />
         {favorites.groups.length === 0 && (
           <div className="rempty">
             No favorites yet. Click ☆ on a recipe in the List (it goes to Unsorted), or open a recipe and pick a group under Favorites.
@@ -125,7 +126,7 @@ export function FavoritesView({ rowsById, searching, exit, ...p }: CardProps & {
         )}
         {favorites.groups.map((g) => {
           const rows = g.recipes.map((id) => rowsById.get(id)).filter((r): r is RecipeRow => !!r)
-          const shown = sort ? sortRows(rows, sort, exit) : rows
+          const shown = sort ? sortRows(rows, sort, exit, sale) : rows
           const isCollapsed = collapsed.has(g.id)
           const dropCls = drop?.kind === 'group' && drop.id === g.id ? (drop.after ? ' fav-drop-after' : ' fav-drop-before')
             : drop?.kind === 'into' && drop.id === g.id ? ' fav-drop-into' : ''
@@ -176,7 +177,7 @@ export function FavoritesView({ rowsById, searching, exit, ...p }: CardProps & {
                     })}
                     onDragEnd={endDrag}
                   >
-                    <Row r={r} open={open.has(id)} exit={exit} onToggle={toggle} fav onStar={onStar} onGrip={canDragRows ? onGrip : undefined} />
+                    <Row r={r} open={open.has(id)} exit={exit} onToggle={toggle} fav onStar={onStar} onGrip={canDragRows ? onGrip : undefined} sale={sale} />
                     {open.has(id) && <Card r={r} p={p} />}
                   </div>
                 )

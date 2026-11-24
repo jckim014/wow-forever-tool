@@ -236,7 +236,8 @@ price"; `app/src/apiprices/`), alongside BavvbScan/imports, which stay for up-to
   (certain + probable over the last 7 days, scaled by the snapshot-pair hours). Written by the sync after each
   departures update (`collector/salesFile.mjs`; failure = toast) and by `node collector/write_sales.mjs`. The app reads
   it with the API prices (`readSales` in apiprices/folder.ts; only when its lastModified changes). First write: 6,550
-  items Alliance, 6,450 Horde, 78 h of pairs, ~3 s. Cheap relisted items look high (Linen Bag ~425/day, Red Linen Bag
+  items Alliance, 6,450 Horde, 78 h of pairs, ~3 s. Since 2026-11-23 it also carries `tsm: { region, downloadTime, items: {id: sold/day} }`, TSM's
+  region sold/day from AppData.lua (env FOREVER_TSM_FILE; left out when unreadable), for the shuffle app's rows. Cheap relisted items look high (Linen Bag ~425/day, Red Linen Bag
   ~900/day): the estimate counts some cancels/reposts as sales.
 - **Mail ledger** (Josh, 2026-11-16: the trade tracker outlived its use; he wants a background record of all his
   auction trading for bookkeeping and looking back, e.g. a strategy at the next Classic launch or in 10 years):
@@ -731,6 +732,11 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   recipe card still shows all exits, and the Table keeps all its columns (the same row filter applies). Sorting by
   Return in this mode is how Josh browses by raw vendor sell value before he has real prices. Disenchant and AH work
   the same way with DE / AH profit and value.
+- **Sale columns on every row** (Josh, 2026-11-23): List and Favorites rows show **<Faction> / day** (our estimate for
+  the product on the API house's faction, sales.json; label from Settings' API house) and **TSM / day** (TSM region
+  sold/day, sales.json's tsm part), both sortable (`SaleInfo` / `useSaleInfo` in RecipeList.tsx; "—" = no data
+  loaded, grey 0 = none seen). Hidden on narrow screens. Our estimate undercounts expensive crafted gear (Josh sold
+  ~6 Dawn Armor/day 11-20..23; the column said 2.8).
 - **Hide BoP** (toolbar checkbox, Josh, 2026-11-05): hides recipes whose product binds when picked up, in any view
   (the AH view leaves them out anyway). The recipe card's Item line shows the bind type.
 - **Recipe card links to Forever Market** (Josh, 2026-11-21): "Market ↗" after the product on the Makes line opens the

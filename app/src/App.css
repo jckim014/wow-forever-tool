@@ -98,8 +98,8 @@ body { margin: 0; }
 :root { --vendor: #5b6475; --de: #7a3fb0; --ah: #1f6fb2; --warn: #9a6400; --warn-bg: #fdf1d8; --soft: #f0f2f6; }
 .rlist { flex: 1; min-height: 300px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; --lead: 20px; }
 /* two groups: name + skill on the left, best exit + money on the right; the Skill column takes the spare width */
-.rhead, .rrow { display: grid; grid-template-columns: var(--lead) minmax(0, 320px) minmax(64px, 1fr) 150px repeat(3, 120px) 24px; align-items: center; gap: 12px; padding: 8px 14px; }
-.r-single .rhead, .r-single .rrow { grid-template-columns: var(--lead) minmax(0, 320px) minmax(64px, 1fr) repeat(3, 120px) 24px; }
+.rhead, .rrow { display: grid; grid-template-columns: var(--lead) minmax(0, 320px) minmax(64px, 1fr) 150px repeat(3, 120px) repeat(2, 96px) 24px; align-items: center; gap: 12px; padding: 8px 14px; }
+.r-single .rhead, .r-single .rrow { grid-template-columns: var(--lead) minmax(0, 320px) minmax(64px, 1fr) repeat(3, 120px) repeat(2, 96px) 24px; }
 .rhead { position: sticky; top: 0; z-index: 2; background: var(--soft); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 .rhead button { all: unset; cursor: pointer; }
 .rhead button:hover, .rhead button:focus-visible { color: var(--fg); }
@@ -160,7 +160,7 @@ body { margin: 0; }
   .rcard section + section { border-left: none; border-top: 1px solid var(--line); }
   .rhead, .rrow { grid-template-columns: var(--lead) minmax(0, 1fr) 100px 90px 20px; }
   .r-single .rhead, .r-single .rrow { grid-template-columns: var(--lead) minmax(0, 1fr) 90px 20px; }
-  .c-cost, .c-ret, .c-skill { display: none; }
+  .c-cost, .c-ret, .c-skill, .c-sold { display: none; }
   .sub-skill { display: inline; }
 }
 
