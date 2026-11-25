@@ -331,3 +331,83 @@ function C.shopping(fav, inter, entries)
   end
   return { buy = buy, vendor = vendor, unknown = unknown }
 end
+
+-- ---------- profit check and price caps for the shopping list ----------
+
+C.DEFAULT_MARGIN = 1000 -- 10s per craft (Josh, 2026-11-24)
+
+-- For each recipe on the list: the exit it is judged on (`exits[id]`, the one Josh picked, when it applies to that
+-- recipe; else Disenchant when the product can be disenchanted, else the best exit), the exits it can switch to, its value and profit per craft (the model's, as the panel's rows), and flagged = profit unknown or
+-- under `margin`. Caps: the highest price per unit for each item on the list such that, paying the cap for every
+-- AH-bought item, each recipe still makes `margin` per craft:
+--   factor = (exit value - margin - off-list reagents) / AH reagents at today's prices, cap = price x factor
+-- with the reagents taken as the list buys them (the same crafted-reagent choice as C.shopping, per one craft,
+-- unrounded) at their reagent prices; vendor items are off the list and count at their price. An item used by several
+-- recipes gets the lowest cap. A recipe under the margin (flagged) or with an unpriced reagent sets no caps.
+-- Returns { recipes = { [id] = { name, exit, exits, value, profit, flagged, factor } }, caps = { [item] = copper } }.
+function C.checkList(fav, price, inter, entries, margin, exits)
+  margin = margin or C.DEFAULT_MARGIN
+  local chained = {}
+  for _, e in ipairs(entries) do
+    local r = fav.recipes[e.id]
+    if r and r.chains and (e.count or 0) > 0 then for _, g in ipairs(r.reagents) do chained[g[1]] = true end end
+  end
+  local out, caps = {}, {}
+  for _, e in ipairs(entries) do
+    local r = fav.recipes[e.id]
+    if r and not out[e.id] then
+      local row = C.recipe(fav, price, inter, e.id)
+      local exit, names = nil, {}
+      local want = exits and exits[e.id]
+      for _, x in ipairs(row.exits) do
+        names[#names + 1] = x.name
+        if x.name == want then exit = x end
+      end
+      if not exit then for _, x in ipairs(row.exits) do if x.name == "Disenchant" then exit = x end end end
+      if not exit then for _, x in ipairs(row.exits) do if x.isBest then exit = x end end end
+      local info = { name = r.name, exit = exit and exit.name, exits = names, value = exit and exit.value, profit = exit and exit.profit }
+      info.flagged = info.profit == nil or info.profit < margin
+      -- what one craft buys, as the list buys it
+      local qty, order = {}, {}
+      local function add(id, q)
+        if not qty[id] then qty[id] = 0; order[#order + 1] = id end
+        qty[id] = qty[id] + q
+      end
+      for _, g in ipairs(r.reagents) do
+        local maker, irow = fav.inter[g[1]], inter[g[1]]
+        if maker and irow and irow.source == "Craft" and chained[g[1]] then
+          local mrec = fav.recipes[maker.recipe]
+          for _, s in ipairs(mrec.reagents) do add(s[1], g[2] * s[2] / mrec.made) end
+        else add(g[1], g[2]) end
+      end
+      local fixed, ah, priced = 0, 0, info.value ~= nil
+      for _, id in ipairs(order) do
+        local p = price(id).reagent
+        if p == nil then priced = false
+        elseif (fav.items[id] or {}).vendor then fixed = fixed + qty[id] * p
+        else ah = ah + qty[id] * p end
+      end
+      if priced and ah > 0 then
+        local f = (info.value - margin - fixed) / ah
+        info.factor = f
+        if f > 0 and not info.flagged then -- a recipe already under the margin sets no caps (it is flagged instead)
+          for _, id in ipairs(order) do
+            if not (fav.items[id] or {}).vendor then
+              local cap = math.floor(price(id).reagent * f)
+              if cap >= 1 and (caps[id] == nil or cap < caps[id]) then caps[id] = cap end
+            end
+          end
+        end
+      end
+      out[e.id] = info
+    end
+  end
+  return { recipes = out, caps = caps }
+end
+
+-- A search term with a maximum price (copper; Auctionator takes it in gold, field 10).
+function C.searchTermCapped(name, qty, cap)
+  if not cap then return C.searchTerm(name, qty) end
+  local g = string.format("%.4f", cap / 10000):gsub("0+$", ""):gsub("%.$", "")
+  return '"' .. clean(name) .. '";;;;;;;;;' .. g .. ';;#;;' .. string.format("%d", qty)
+end

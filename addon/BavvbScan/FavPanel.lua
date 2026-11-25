@@ -1,6 +1,6 @@
 -- BavvbScan favorites panel: the shuffle app's Favorites (cost, best exit, profit, and a cost breakdown per recipe)
 -- worked out in game from this character's latest /bscan, with the hourly API prices filling gaps (FavCore.lua).
--- Opens by itself to the right of the profession window when that profession has favorites, and with /bscan fav
+-- Opens by itself to the right of the profession window when that profession has favorites, and with /bsf
 -- (all professions, movable). It only shows numbers, plus a shopping list: Add in a recipe's breakdown puts it on the
 -- list with a number of crafts, Show lists what to buy, and Make list creates that list in Auctionator through
 -- Auctionator's own API (Auctionator.API.v1.CreateShoppingList; it only writes the list, nothing at the auction house).
@@ -11,13 +11,14 @@ local W, ROW, PAD, SIZE = 460, 19, 10, 13 -- SIZE: font size of the lines
 local panel, content, scroll
 local pool = {}
 local open = {}        -- recipe ID -> breakdown shown
-local mode             -- "profession" (docked) or "alone" (/bscan fav)
+local mode             -- "profession" (docked) or "alone" (/bsf)
 local profession       -- the profession window's profession, when docked
 local closedFor        -- the profession the close button hid it for (until that window opens again)
 local view = "fav"     -- "fav" (favorites) or "shop" (the shopping list)
 local addQty = {}      -- recipe ID -> crafts typed in its Add box (this session)
 local note             -- last shopping-list message, shown under the title in the list view
 local clearArmed       -- Clear was clicked once; a second click within 3 s clears
+local makeArmed        -- Make list was held back for recipes under the margin; a second click within 5 s goes ahead
 local DEFAULT_LIST = "BavvbScan"
 local MAX_COUNT = 9999
 
@@ -49,6 +50,8 @@ local function clock(t)
   if not t then return nil end
   return (date("%I:%M %p", t):gsub("^0", ""))
 end
+
+local function exitShort(name) return name == "Disenchant" and "DE" or name end
 
 local SOURCE = { custom = "custom", vendor = "vendor", craft = "craft", scan = "", api = "" }
 
@@ -207,6 +210,8 @@ function BavvbScanShop()
   local shop = BavvbScanDB.shop
   shop.recipes = shop.recipes or {}
   shop.name = shop.name or DEFAULT_LIST
+  shop.margin = shop.margin or Core.DEFAULT_MARGIN
+  shop.exits = shop.exits or {} -- recipe ID -> the exit it is judged on (kept after the recipe leaves the list)
   return shop
 end
 
@@ -247,9 +252,38 @@ local function shopRemove(rid)
   for i, e in ipairs(shop.recipes) do if e.id == rid then table.remove(shop.recipes, i); return end end
 end
 
+-- What to buy, and the profit check with its price caps (FavCore: shopping, checkList).
 local function shopping(fav)
+  local shop = BavvbScanShop()
   local res = Core.compute(fav, BavvbScanDB.scan, BavvbScanApi, UnitFactionGroup("player"), nil)
-  return Core.shopping(fav, res.inter, BavvbScanShop().recipes)
+  return Core.shopping(fav, res.inter, shop.recipes), Core.checkList(fav, res.book.price, res.inter, shop.recipes, shop.margin, shop.exits)
+end
+
+-- Names of the recipes on the list making less than the margin (or unpriced), in list order.
+local function underMargin(check)
+  local names = {}
+  for _, e in ipairs(BavvbScanShop().recipes) do
+    local c = check.recipes[e.id]
+    if c and c.flagged then names[#names + 1] = c.name end
+  end
+  return names
+end
+
+local function exitWord(c) return c.exit == "Disenchant" and "disenchant" or (c.exit or "?") end
+
+-- After each /bscan (BavvbScan.lua): name the recipes on the list that no longer make the margin.
+function BavvbScanShopCheck()
+  local fav = BavvbScanFavorites
+  if not fav or fav.format ~= "bavvbfav" or not BavvbScanDB.shop or #BavvbScanShop().recipes == 0 then return end
+  local shop = BavvbScanShop()
+  local _, check = shopping(fav)
+  for _, e in ipairs(shop.recipes) do
+    local c = check.recipes[e.id]
+    if c and c.flagged then
+      say("shopping list: " .. color(RED, c.name) .. (c.profit and (" makes " .. money(c.profit) .. " per craft on " .. exitWord(c)) or " can't be priced")
+        .. ", under your " .. money(shop.margin) .. " margin.")
+    end
+  end
 end
 
 -- Creates (or replaces) the list in Auctionator, through Auctionator's own API.
@@ -262,16 +296,28 @@ local function makeList()
   elseif not fav or fav.format ~= "bavvbfav" then
     note = color(RED, "No favorites file: nothing to list.")
   else
-    local list = shopping(fav)
+    local list, check = shopping(fav)
     local terms = {}
-    for _, l in ipairs(list.buy) do terms[#terms + 1] = Core.searchTerm(l.name, l.qty) end
+    for _, l in ipairs(list.buy) do terms[#terms + 1] = Core.searchTermCapped(l.name, l.qty, check.caps[l.item]) end
+    local under = underMargin(check)
+    if #under > 0 and not makeArmed then
+      makeArmed = true
+      C_Timer.After(5, function() makeArmed = nil end)
+      note = color(RED, table.concat(under, ", ") .. " under the margin. Make list again to include anyway.")
+      say(note)
+      BavvbScanFavRefresh()
+      return
+    end
+    makeArmed = nil
     if #terms == 0 then
       note = color(RED, "Nothing to buy on the list.")
     else
       local ok, err = pcall(api.CreateShoppingList, "BavvbScan", shop.name, terms)
       if ok then
+        local capped = 0
+        for _, l in ipairs(list.buy) do if check.caps[l.item] then capped = capped + 1 end end
         note = color(GREEN, 'Made "' .. shop.name .. '" in Auctionator: ' .. #terms .. (#terms == 1 and " item" or " items")
-          .. (#list.vendor > 0 and " (vendor items left off)" or "") .. ".")
+          .. ", " .. capped .. " with a max price" .. (#list.vendor > 0 and "; vendor items left off" or "") .. ".")
       else
         note = color(RED, "Auctionator refused the list: " .. tostring(err))
       end
@@ -306,17 +352,44 @@ local function buildShop()
     specs[1] = { left = "No favorites file: the list can't be worked out." }
     return specs
   end
+  local list, check = shopping(fav)
+  specs[#specs + 1] = { key = "margin", left = "Keep at least" .. color(GREY, "  ·  silver per craft, after the AH cut"),
+    tip = { "Margin", "Each recipe must make at least this much per craft at its exit (disenchant when the product can be disenchanted, unless you click the recipe to pick another; the AH cut is already taken off). Max prices on the list keep it there; a recipe under it shows red and is named after each /bscan." },
+    box = { get = function() return math.floor(shop.margin / 100) end, set = function(n) shop.margin = math.max(0, math.floor(n or 0)) * 100 end } }
   specs[#specs + 1] = { left = color(GOLD, "Recipes"), right = color(GREY, "crafts     "), group = true }
   for _, e in ipairs(shop.recipes) do
     local r, rid = fav.recipes[e.id], e.id
-    specs[#specs + 1] = { key = "count:" .. rid, indent = 8,
-      left = r and (r.name .. color(GREY, "  " .. r.profession)) or color(RED, "Recipe " .. rid .. ": not in Favorites now, left off"),
+    local c = check.recipes[rid]
+    local label, tip
+    if r and c then
+      label = (c.flagged and color(RED, r.name) or r.name) .. "  " .. color(GREY, c.exit and exitShort(c.exit) or "no exit") .. " "
+        .. (c.profit and profitText(c.profit) or color(RED, "unpriced"))
+      tip = { r.name, (c.exit or "No exit") .. " per craft: " .. money(c.value) .. ", profit " .. profitText(c.profit),
+        c.factor and ("AH reagents can cost up to " .. string.format("%.2f", c.factor) .. " x today's price and still keep " .. money(shop.margin) .. ".")
+          or "Sets no max prices (a reagent or the exit is unpriced)." }
+      if c.flagged then tip[#tip + 1] = color(RED, "Under the margin at today's prices.") end
+      if #c.exits > 1 then tip[#tip + 1] = color(GREY, "Click to judge it on another exit (" .. table.concat(c.exits, ", ") .. ").") end
+    end
+    -- a click moves the recipe to its next exit (Vendor, Disenchant, AH order), remembered per recipe
+    local cycle
+    if c and #c.exits > 1 then
+      cycle = function()
+        local nextName = c.exits[1]
+        for i, name in ipairs(c.exits) do if name == c.exit then nextName = c.exits[i % #c.exits + 1] end end
+        shop.exits[rid] = nextName
+        BavvbScanFavRefresh()
+      end
+    end
+    specs[#specs + 1] = { key = "count:" .. rid, indent = 8, tip = tip, onClick = cycle,
+      left = label or color(RED, "Recipe " .. rid .. ": not in Favorites now, left off"),
       box = r and { get = function() return countOf(rid) or 1 end, set = function(n) shopSet(rid, n) end } or nil,
       btn = { text = "x", width = 24, onClick = function() shopRemove(rid); BavvbScanFavRefresh() end } }
   end
-  local list = shopping(fav)
-  specs[#specs + 1] = { left = color(GOLD, "To buy") .. color(GREY, "  ·  goes on the list"), right = color(GREY, "units"), group = true }
-  for _, l in ipairs(list.buy) do specs[#specs + 1] = { left = l.name, right = qtyText(l.qty), indent = 8 } end
+  specs[#specs + 1] = { left = color(GOLD, "To buy") .. color(GREY, "  ·  goes on the list"), each = color(GREY, "max price"), right = color(GREY, "units"), group = true }
+  for _, l in ipairs(list.buy) do
+    local cap = check.caps[l.item]
+    specs[#specs + 1] = { left = l.name, each = cap and money(cap) or color(GREY, "none"), right = qtyText(l.qty), indent = 8 }
+  end
   if #list.buy == 0 then specs[#specs + 1] = { left = color(GREY, "Nothing."), indent = 8 } end
   if #list.vendor > 0 then
     specs[#specs + 1] = { left = color(GOLD, "From a vendor") .. color(GREY, "  ·  not on the list"), group = true }
@@ -342,7 +415,14 @@ local function updateBar()
     set(bar.b2, clearArmed and "Sure?" or "Clear", clearList, n > 0)
     set(bar.b3, "Back", function() view = "fav"; note = nil; BavvbScanFavRefresh() end)
   else
-    bar.text:SetText("Shopping list: " .. (n == 0 and color(GREY, "empty") or n .. (n == 1 and " recipe" or " recipes")))
+    local warn = ""
+    local fav = BavvbScanFavorites
+    if n > 0 and fav and fav.format == "bavvbfav" then
+      local _, check = shopping(fav)
+      local under = #underMargin(check)
+      if under > 0 then warn = color(RED, "  ·  " .. under .. " under margin") end
+    end
+    bar.text:SetText("Shopping list: " .. (n == 0 and color(GREY, "empty") or n .. (n == 1 and " recipe" or " recipes")) .. warn)
     bar.name:ClearFocus()
     bar.name:Hide()
     bar.b1:Hide()
@@ -353,7 +433,6 @@ end
 
 -- ---------- what the panel lists ----------
 
-local function exitShort(name) return name == "Disenchant" and "DE" or name end
 
 local function rowTip(r)
   local tip = { r.name, "Cost (cheapest path): " .. money(r.cheapest) }
@@ -591,7 +670,7 @@ local function undock()
   if panel and mode == "profession" then panel:Hide() end
 end
 
--- /bscan fav: on its own, all professions; a second /bscan fav closes it.
+-- /bsf (or /bscan fav): on its own, all professions; a second /bsf closes it.
 function BavvbScanFavToggle()
   local p = makePanel()
   if p:IsShown() and mode == "alone" then p:Hide() return end

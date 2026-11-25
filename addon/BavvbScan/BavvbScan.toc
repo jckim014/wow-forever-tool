@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: BavvbScan
-## Notes: Full auction house scans on request (/bscan) and a log of auction sales collected at the mailbox, for the shuffle app and trade tracker; an in-game favorites panel (/bscan fav).
+## Notes: Full auction house scans on request (/bscan) and a log of auction sales collected at the mailbox, for the shuffle app and trade tracker; an in-game favorites panel (/bsf).
 ## Author: Bavvb
-## Version: 1.4
+## Version: 1.5
 ## SavedVariables: BavvbScanDB
 
 FavCore.lua

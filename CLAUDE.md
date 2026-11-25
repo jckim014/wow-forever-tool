@@ -780,7 +780,7 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   faction it was taken on; the API side follows the character's faction (111/114), not Settings' API house.
   Panel: docks to the right of `ProfessionsFrame` (the Forever client uses the retail profession window; profession
   from C_TradeSkillUI.GetBaseProfessionInfo) when that profession has favorites, showing only those; the close button
-  hides it until that window opens again; `/bscan fav` opens it alone (all professions, draggable, position saved in
+  hides it until that window opens again; `/bsf` (or `/bscan fav`) opens it alone (all professions, draggable, position saved in
   BavvbScanDB.favPos; again to close). Rows: name, best exit, profit (tooltip: cost and every exit); click = breakdown:
   each reagent with source (craft / vendor / custom; scan = blank), price each and total, a crafted reagent's
   ingredients under it, then the exits. A grey ° marks an hourly API price (hover says why). Josh's choices
@@ -799,6 +799,18 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   synced with the web app. Favorites.lua now sends vendor buy prices always and `settings.useVendorBuy` (FavCore
   prices with them only when it isn't false), so vendor items stay off the list either way. parity.test.ts checks the
   list string against `auctionatorImport(shopLines(...))` on every favorite. Josh checked it in game ("working great").
+  **Profit check and max prices** (BavvbScan 1.5, Josh, 2026-11-24, for crafting to disenchant): list view has "Keep at
+  least [10] silver per craft" (`shop.margin`, copper, default `Core.DEFAULT_MARGIN` 1000; after the AH cut, which the
+  exit values already include). Each recipe is judged on one exit: `shop.exits[id]` (click the recipe in the list view:
+  Vendor -> Disenchant -> AH, only exits that apply; kept per recipe), else Disenchant when the product can be
+  disenchanted, else the best exit; profit per craft = the model's. Under the margin = red, bar "N under margin", Make
+  list holds back once (second click within 5 s goes ahead), chat names it after each /bscan (`BavvbScanShopCheck`).
+  Max price per AH item (`Core.checkList`): factor = (exit value - margin - vendor reagents) / AH reagents at today's
+  prices (reagents as the list buys them, per one craft, unrounded), cap = price x factor, the lowest over recipes;
+  same % headroom for every reagent (so paying every cap still keeps the margin; Josh asked and accepted that it
+  doesn't move room between reagents). Recipes under the margin or unpriced set no caps. Caps go in Auctionator's max
+  price field (field 10, gold: `Core.searchTermCapped`). Tested in parity.test.ts against the rule re-done from the
+  app's prices (margins 0 / 1s / 10s). `/bsf` = the panel (Josh; `/bscan fav` still works). Josh checked in game.
   Favorites.lua and ApiPrices.lua are generated
   and not in the repo: copying the repo's addon folder over the WoW copy leaves them alone.
 - **Favorites** (Josh, 2026-11-12; `app/src/favorites/`, classes `fav-*`): a ☆ at the left of every List row stars a
@@ -1164,7 +1176,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-24 with 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an

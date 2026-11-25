@@ -304,6 +304,7 @@ local function save()
     "Reload writes the file; then Refresh now in the app.")
   sound("READY_CHECK")
   if BavvbScanFavRefresh then BavvbScanFavRefresh() end -- the favorites panel uses the new scan at once
+  if BavvbScanShopCheck then BavvbScanShopCheck() end -- and names shopping-list recipes now under the margin
 end
 
 local function retry(pass)
@@ -380,6 +381,10 @@ frame:RegisterEvent("AUCTION_HOUSE_CLOSED")
 
 SLASH_BAVVBSCAN1 = "/bscan"
 SLASH_BAVVBSCAN2 = "/bavvbscan"
+-- /bsf: the favorites panel (/bscan fav still works)
+SLASH_BAVVBSCANFAV1 = "/bsf"
+SlashCmdList.BAVVBSCANFAV = function() if BavvbScanFavToggle then BavvbScanFavToggle() end end
+
 SlashCmdList.BAVVBSCAN = function(msg)
   msg = string.lower(strtrim(msg or ""))
   if msg == "" or msg == "scan" then
@@ -395,6 +400,6 @@ SlashCmdList.BAVVBSCAN = function(msg)
   elseif (msg == "mail" or msg == "mail on" or msg == "mail off") and BavvbScanMailSwitch then
     BavvbScanMailSwitch(msg:match("^mail (%a+)$"))
   else
-    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel; /bscan fav shows your shuffle app favorites with live costs and profits; /bscan sales shows the latest recorded sales; /bscan mail shows whether this character records its mail (on / off to change).")
+    say("/bscan scans the auction house (keep it open); /bscan status shows the last scan and when the next is allowed; /bscan demo shows the scan panel; /bsf shows your shuffle app favorites with live costs and profits; /bscan sales shows the latest recorded sales; /bscan mail shows whether this character records its mail (on / off to change).")
   end
 end

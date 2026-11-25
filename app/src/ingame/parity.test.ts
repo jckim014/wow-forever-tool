@@ -313,6 +313,7 @@ describe('FavPanel.lua runs', () => {
       Auctionator = { API = { v1 = { CreateShoppingList = function(caller, name, terms) made[#made + 1] = { caller = caller, name = name, terms = terms } end } } }
       local printed = {}
       print = function(s) printed[#printed + 1] = s end
+      C_Timer.After = function(d, fn) if d == 0 then fn() end end -- the 3 s / 5 s "again" resets must not fire at once
       BavvbScanFavToggle()
       BAVVB_CLICK_ALL()
       local function line(key) for _, f in ipairs(BAVVB_FRAMES) do if f.spec and f.shown and f.spec.key == key then return f end end end
@@ -325,13 +326,16 @@ describe('FavPanel.lua runs', () => {
       local barFav = BavvbScanFavPanel.bar.text.text
       BavvbScanFavPanel.bar.b2.onClick() -- Show
       local shown = BAVVB_TEXT()
+      line("count:10").spec.onClick() -- the Bag: Disenchant -> AH
+      local afterClick = BAVVB_TEXT()
       line("count:13").spec.box.set(2)
       BavvbScanFavRefresh()
-      BavvbScanFavPanel.bar.b1.onClick() -- Make list
+      BavvbScanFavPanel.bar.b1.onClick() -- Make list: held back while a recipe is under the margin
+      local held = { count = #made, text = BAVVB_TEXT()[1] }
+      BavvbScanFavPanel.bar.b1.onClick() -- again: goes ahead
       local after = BAVVB_TEXT()
-      C_Timer.After = function(d, fn) if d == 0 then fn() end end -- the 3 s "Sure?" reset must not fire at once
       BavvbScanFavPanel.bar.b2.onClick(); BavvbScanFavPanel.bar.b2.onClick() -- Clear, Sure?
-      return { saved = BavvbScanDB.shop, made = made, printed = printed, barFav = barFav, shown = shown, after = after, cleared = #BavvbScanDB.shop.recipes }`)
+      return { afterClick = afterClick, held = held, saved = BavvbScanDB.shop, made = made, printed = printed, barFav = barFav, shown = shown, after = after, cleared = #BavvbScanDB.shop.recipes }`)
     expect(out.barFav).toContain('2 recipes')
     expect(out.printed[0]).toContain('added 3 x Bag')
     expect(out.printed[2]).toContain('(now 4)')
@@ -342,10 +346,114 @@ describe('FavPanel.lua runs', () => {
     const priced = compute(game, config, { ...edits, imports: scan.result.rows, importsInfo: { source: 'BavvbScan', at: new Date().toISOString(), count: 1, dataAt: new Date(scan.scanTime * 1000).toISOString() } },
       apiFromLua(apiLua, 'Alliance'))
     const appLines = shopLines(game, priced, { recipes: [{ id: 10, count: 4 }, { id: 13, count: 2 }], ticks: {}, listName: null })
-    expect(['BavvbScan', ...out.made[0].terms].join('^')).toBe(auctionatorImport('BavvbScan', appLines))
+    // the same items and quantities as the app's list; max prices (field 10) are checked in the checkList tests
+    const noCap = (t: string) => t.split(';').map((x, i) => (i === 9 ? '' : x)).join(';')
+    expect(['BavvbScan', ...out.made[0].terms.map(noCap)].join('^')).toBe(auctionatorImport('BavvbScan', appLines))
+    expect(out.held.count).toBe(0)
+    expect(out.saved.exits['10']).toBe('AH')
+    expect(out.afterClick.some((l: string) => l.startsWith('Bag  AH'))).toBe(true)
+    expect(out.held.text).toContain('under the margin')
     expect(out.after[0]).toContain('Made "BavvbScan" in Auctionator')
     expect(out.shown.join('\n')).toContain('From a vendor')
     expect(out.cleared).toBe(0)
     if (process.env.BAVVB_PRINT) console.log(out.shown.join('\n'), '\n---\n', out.after.join('\n'), out.made[0].terms)
+  })
+})
+
+// ---------- the shopping list's profit check and price caps (FavCore.checkList) ----------
+describe('FavCore.checkList: margin per craft and max prices', () => {
+  const base: Edits = { ...emptyEdits(), deTable: [band], favorites: { groups: [{ id: 'g', name: 'A', recipes: [10, 12, 13] }] }, settings: { importColumn: 2 } }
+  const scan = readBavvbScan(new TextEncoder().encode(scanLua))
+  const edits: Edits = { ...base, imports: scan.result.rows, importsInfo: { source: 'BavvbScan', at: new Date().toISOString(), count: 1, dataAt: new Date(scan.scanTime * 1000).toISOString() } }
+  const result = compute(game, config, edits, apiFromLua(apiLua, 'Alliance'))
+  const favLua = exportLua(buildExport(game, result, edits, [band]), 0)
+  const entries = [{ id: 10, count: 2 }, { id: 12, count: 1 }, { id: 13, count: 5 }]
+
+  /** The rule written out again from the app's own prices: factor = (exit value - margin - vendor reagents) / AH reagents. */
+  function expected(margin: number) {
+    const chained = new Set<number>()
+    for (const e of entries) for (const g of game.recipes.find((r) => r.id === e.id)!.reagents) chained.add(g.item)
+    const recipes: Record<string, unknown> = {}
+    const caps: Record<string, number> = {}
+    for (const e of entries) {
+      const row = result.recipes.find((r) => r.recipe.id === e.id)!
+      const value = row.deBand ? row.deValue : row.bestValue
+      const profit = row.deBand ? row.profitDE : row.profitBest
+      const qty = new Map<number, number>()
+      for (const g of row.recipe.reagents) {
+        const inter = result.intermediates.get(g.item)
+        if (inter && inter.source === 'Craft' && chained.has(g.item)) {
+          for (const s of inter.recipe.reagents) qty.set(s.item, (qty.get(s.item) ?? 0) + (g.qty * s.qty) / inter.qtyMade)
+        } else qty.set(g.item, (qty.get(g.item) ?? 0) + g.qty)
+      }
+      let fixed = 0, ah = 0, priced = value !== null
+      for (const [id, q] of qty) {
+        const p = result.prices(id)
+        if (p.reagent === null) priced = false
+        else if (p.vendorBuy !== null) fixed += q * p.reagent
+        else ah += q * p.reagent
+      }
+      const factor = priced && ah > 0 ? (value! - margin - fixed) / ah : null
+      const flagged = profit === null || profit < margin
+      if (factor !== null && factor > 0 && !flagged) {
+        for (const [id] of qty) {
+          const p = result.prices(id)
+          if (p.vendorBuy !== null) continue
+          const cap = Math.floor(p.reagent! * factor)
+          if (cap >= 1 && (caps[id] === undefined || cap < caps[id])) caps[id] = cap
+        }
+      }
+      recipes[e.id] = { value, profit, flagged, factor }
+    }
+    return { recipes, caps }
+  }
+
+  for (const margin of [0, 100, 1000]) {
+    it(`margin ${margin}c`, () => {
+      const got = runLua([CORE, favLua, scanLua, apiLua], `
+        local res = BavvbScanFavCore.compute(BavvbScanFavorites, BavvbScanDB.scan, BavvbScanApi, "Alliance")
+        return BavvbScanFavCore.checkList(BavvbScanFavorites, res.book.price, res.inter, ${toLuaEntries(entries)}, ${margin})`)
+      const want = expected(margin)
+      for (const [id, w] of Object.entries(want.recipes) as [string, any][]) {
+        const g = got.recipes[id]
+        same(g.value, w.value, `${id} value`)
+        same(g.profit, w.profit, `${id} profit`)
+        same(g.flagged, w.flagged, `${id} flagged`)
+        same(g.factor, w.factor, `${id} factor`)
+      }
+      expect(got.caps).toEqual(want.caps)
+      if (process.env.BAVVB_PRINT) console.log(margin, JSON.stringify(got))
+    })
+  }
+
+  it('a capped search term puts the max price in gold in field 10', () => {
+    const got = runLua([CORE], `return { BavvbScanFavCore.searchTermCapped("Rugged Leather", 40, 3250), BavvbScanFavCore.searchTermCapped("Cloth", 5, 12345), BavvbScanFavCore.searchTermCapped("X", 1, nil) }`)
+    expect(got).toEqual(['"Rugged Leather";;;;;;;;;0.325;;#;;40', '"Cloth";;;;;;;;;1.2345;;#;;5', '"X";;;;;;;;;;;#;;1'])
+    expect(got[0].split(';')[9]).toBe('0.325')
+  })
+})
+
+describe('FavCore.checkList: the exit picked per recipe', () => {
+  const base: Edits = { ...emptyEdits(), deTable: [band], favorites: { groups: [{ id: 'g', name: 'A', recipes: [10, 12, 13] }] }, settings: { importColumn: 2 } }
+  const scan = readBavvbScan(new TextEncoder().encode(scanLua))
+  const edits: Edits = { ...base, imports: scan.result.rows, importsInfo: { source: 'BavvbScan', at: new Date().toISOString(), count: 1, dataAt: new Date(scan.scanTime * 1000).toISOString() } }
+  const result = compute(game, config, edits, apiFromLua(apiLua, 'Alliance'))
+  const favLua = exportLua(buildExport(game, result, edits, [band]), 0)
+  const row = (id: number) => result.recipes.find((r) => r.recipe.id === id)!
+
+  it('AH for the Bag; AH for the Robe (binds on pickup) falls back to Disenchant; none picked = Disenchant, else best', () => {
+    const got = runLua([CORE, favLua, scanLua, apiLua], `
+      local res = BavvbScanFavCore.compute(BavvbScanFavorites, BavvbScanDB.scan, BavvbScanApi, "Alliance")
+      local entries = { { id = 10, count = 1 }, { id = 12, count = 1 }, { id = 13, count = 1 } }
+      local picked = BavvbScanFavCore.checkList(BavvbScanFavorites, res.book.price, res.inter, entries, 1000, { [10] = "AH", [12] = "AH" })
+      local plain = BavvbScanFavCore.checkList(BavvbScanFavorites, res.book.price, res.inter, entries, 1000, nil)
+      return { picked = picked.recipes, plain = plain.recipes }`)
+    expect(got.picked['10']).toMatchObject({ exit: 'AH', exits: ['Vendor', 'Disenchant', 'AH'] })
+    same(got.picked['10'].value, row(10).ahValue, 'Bag AH value')
+    same(got.picked['10'].profit, row(10).profitAH, 'Bag AH profit')
+    expect(got.picked['12']).toMatchObject({ exit: 'Disenchant', exits: ['Vendor', 'Disenchant'] })
+    same(got.picked['12'].profit, row(12).profitDE, 'Robe DE profit')
+    expect(got.plain['10'].exit).toBe('Disenchant')
+    expect(got.plain['13'].exit).toBe(row(13).bestExitName)
   })
 })
