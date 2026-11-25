@@ -71,6 +71,21 @@ function latest(item) {
 }
 
 /**
+ * Reference price per house: the median of the hourly cheapest 15% over the REF_DAYS before the newest snapshot
+ * (Josh, 2026-11-25: a stable value measure for Portfolio and the Plan's lists; hourly API data only, never /bscans,
+ * so his own buying out a market or one odd hour barely moves it). Null where the item had no price in the window.
+ */
+export const REF_DAYS = 7;
+function refPrice(item) {
+  const d = getDb();
+  const since = d.prepare('SELECT max(t) t FROM snapshots').get().t - REF_DAYS * 86400;
+  const q = d.prepare('SELECT cheapest15 c FROM prices WHERE item = ? AND house = ? AND t >= ? AND cheapest15 > 0');
+  const out = {};
+  for (const h of HOUSES) out[h] = median(q.all(item, h, since).map((r) => r.c));
+  return out;
+}
+
+/**
  * Our sale-rate estimate (collector/departures.mjs) over the last `days`: per house units per day that left the AH
  * early (certain = partial commodity buys; probable = vanished with 2+ h left, not a likely repost), and the hours of
  * snapshot pairs it rests on. null when the departure tables don't exist yet.
@@ -267,8 +282,8 @@ function priceSources(scans = readScans()) {
   return out;
 }
 
-/** Latest price per house for items given by name (exact, ignoring case). Of items sharing a name, the one listed
- *  most at the latest snapshot. Unknown names come back as null. */
+/** Latest price per house for items given by name (exact, ignoring case), plus `ref` = the reference price per house
+ *  (refPrice). Of items sharing a name, the one listed most at the latest snapshot. Unknown names come back as null. */
 function pricesByName(names) {
   getItems();
   const byName = new Map();
@@ -297,6 +312,7 @@ function pricesByName(names) {
       const units = (l[111]?.units ?? 0) + (l[114]?.units ?? 0);
       if (!best || units > best.units) best = { units, value: { id: it.id, icon: it.icon ?? null, quality: it.quality ?? null, latest: l } };
     }
+    if (best) best.value.ref = refPrice(best.value.id);
     out[n] = best?.value ?? null;
   }
   return out;

@@ -4,11 +4,15 @@
 export const lookupName = (n) => n.item ?? n.name;
 export const FACTION_OF = { 111: 'Alliance', 114: 'Horde' };
 
+/** The value measure for an /api/prices entry: its 7-day reference price on that house, else its latest cheapest 15%. */
+export const refPriceOf = (p, house) => p?.ref?.[house] ?? p?.latest?.[house]?.cheapest15 ?? null;
+
 /**
  * One plan -> rows depth-first: { node, depth, group, key, held, tsm, bought, avgPaid, price, value, flag, missingPrice }.
  * holdings: { "Faction:itemID": { tsm, shown, bought, paid, flag } } (/api/holdings); prices: name -> { id, latest:
- * { 111: { cheapest15 }, 114: ... } } | null (/api/prices). Value = units held x cheapest 15% on the plan's faction
- * (before the AH cut). A group's value counts each item once, even when it sits on several of its lines.
+ * { 111: { cheapest15 }, 114: ... }, ref: { 111: copper, 114: ... } } | null (/api/prices). Value = units held x the
+ * reference price on the plan's faction (7-day median of the hourly cheapest 15%; Josh, 2026-11-25), else the latest
+ * cheapest 15% when the item had no hourly price in that week (before the AH cut). A group's value counts each item once, even when it sits on several of its lines.
  */
 export function portfolioRows(plan, holdings, prices) {
   const house = plan.house === 114 ? 114 : 111;
@@ -20,7 +24,7 @@ export function portfolioRows(plan, holdings, prices) {
     const key = id ? `${faction}:${id}` : null;
     const h = key ? holdings?.[key] : null;
     const held = h ? h.shown : 0;
-    const price = p?.latest?.[house]?.cheapest15 ?? null;
+    const price = refPriceOf(p, house);
     return {
       key, held, tsm: h ? h.tsm : 0, bought: h?.bought ?? 0, flag: h?.flag ?? null,
       avgPaid: h?.bought > 0 ? h.paid / h.bought : null,

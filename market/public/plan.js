@@ -3,6 +3,7 @@
 // % of the whole are editable (planLib.js says what each edit does to the rest); the budget turns shares into gold;
 // prices come from the latest snapshot. Saved to F:\ForeverAuctionData\plan.json through the server.
 import { moneyHtml, iconHtml, HOUSES } from './shared.js';
+import { refPriceOf } from './portfolioLib.js';
 import {
   normalize, wholeShares, setLocal, remove, addChild, walk, validPlan, shoppingList, find, BANDS, setBand,
   toV2, newPlan, movePlan, moveLine, setGoldKeepRest,
@@ -218,7 +219,7 @@ function planHtml(plan) {
     ${ex ? `<div class="pl-export">
       <div><strong>Auctionator list "${esc(ex.name)}"</strong>: ${ex.items.length} item${ex.items.length === 1 ? '' : 's'}${ex.copied ? ', copied' : ''}.
         In game: Auctionator's Shopping tab, Import, paste. Importing a list with the same name replaces it.
-        Quantities = units the gold buys at today's ${house === 114 ? 'Horde' : 'Alliance'} prices.
+        Quantities = units the gold buys at the 7-day ${house === 114 ? 'Horde' : 'Alliance'} price (median of the hourly cheapest 15% over the last week); max price = that price + 50%.
         ${ex.skipped.length ? `<br>Left out (no price, or the gold buys less than one): ${ex.skipped.map(esc).join(', ')}` : ''}</div>
       <textarea class="pl-export-text" readonly rows="2">${esc(ex.text)}</textarea>
       <div><button class="mbtn2" data-act="copy">Copy again</button> <button class="mbtn2" data-act="export-close">Close</button></div>
@@ -499,7 +500,7 @@ async function makeList(plan, id) {
   const house = houseOf(plan);
   const node = id ? find(plan.tree, id).node : null;
   const name = node ? `${plan.name}: ${node.name}` : plan.name;
-  const priceOf = (itemName) => prices[itemName]?.latest?.[house]?.cheapest15 ?? null;
+  const priceOf = (itemName) => refPriceOf(prices[itemName], house); // 7-day reference price, steadier than today's
   exported = { planId: plan.id, name, ...shoppingList(plan.tree, id, Number(plan.budget) || 0, priceOf, name), copied: false };
   await copyList();
 }

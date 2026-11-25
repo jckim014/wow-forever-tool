@@ -65,7 +65,7 @@ function render() {
     </div>
     <p class="mhint2">Your holdings, organised like your plans. Held: every character's bags, bank, mailbox and auctions, mail sent between your characters that isn't opened yet, and guild banks
       (from TSM, on the plan's faction). Crafting, sending things away and selling lower it, as they should; ${esc((holdings.notCounted ?? []).join(', ') || 'nobody')} isn't counted (what goes there leaves, what comes back counts again). Avg paid: what you paid per unit for your auction purchases (mail ledger, since 2026-11-16 on every character).
-      Value: held × today's price (cheapest 15%, as in the Plan), before the AH cut. Refresh reads TSM again: log out or /reload in game first (TSM saves its counts then). Amber = units TSM lost to the 100-mail mailbox limit, still counted (hover for details).</p>
+      Value: held × the 7-day price (median of the hourly cheapest 15% over the last week; steadier than today's price, and your own buying or a /bscan doesn't move it), before the AH cut. Refresh reads TSM again: log out or /reload in game first (TSM saves its counts then). Amber = units TSM lost to the 100-mail mailbox limit, still counted (hover for details).</p>
     ${doc.plans.length ? doc.plans.map(planHtml).join('') : '<p class="mempty">No plans yet: make one in the Plan tab.</p>'}`;
 }
 
@@ -89,11 +89,14 @@ function paidCell(r) {
   return r.held > r.bought ? `<span title="Bought ${units(r.bought)} of the ${units(r.held)} held: the rest is from before the ledger covered every character (2026-11-16), crafted, looted or farmed. The average covers the bought units only.">${money}</span>` : money;
 }
 
+/** Copper as plain text for hovers, e.g. 1g 05s 20c. */
+const moneyText = (c) => { c = Math.round(c); const g = Math.floor(c / 10000), s = Math.floor(c / 100) % 100, cc = c % 100; return g ? `${g}g ${String(s).padStart(2, '0')}s ${String(cc).padStart(2, '0')}c` : s ? `${s}s ${String(cc).padStart(2, '0')}c` : `${cc}c`; };
+
 function valueCell(r) {
   if (r.noItem) return '';
   if (r.group) return r.missingPrice ? `<span title="${r.missingPrice} item${r.missingPrice === 1 ? '' : 's'} held with no price on this faction right now (not counted)">${moneyHtml(Math.round(r.value))}</span>` : moneyHtml(Math.round(r.value));
   if (!r.held) return '';
-  return r.value === null ? '<span class="blank" title="Not listed on this faction right now">—</span>' : moneyHtml(Math.round(r.value));
+  return r.value === null ? '<span class="blank" title="No price on this faction">—</span>' : `<span title="${r.held} × ${moneyText(r.price)} (7-day price)">${moneyHtml(Math.round(r.value))}</span>`;
 }
 
 function planHtml(plan) {

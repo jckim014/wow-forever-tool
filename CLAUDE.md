@@ -413,7 +413,8 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   Listed, and "more than listed" when an item's gold across all its lines buys more than is listed. Add (+) / remove (x)
   / rename (✎ button or double-click the name) lines, a "for" label per line (the "for" button or double-click the label: free text Josh types, e.g. "Natural flasks", shown in grey after the name, display only, kept by Reset; field `uses`; 2026-11-22), Add wallet, Reset to starting weights (`initial` in the file; budget kept). **List**
   per group and **Shopping list (all)**: Auctionator import string (same format as the shuffle app's Shopping view;
-  quantity = units the gold buys, merged per item; no max price yet), copied to the clipboard; Josh tested the import
+  quantity = units the gold buys at the 7-day price, merged per item; max price (Auctionator's 10th field) = 7-day price x 1.5
+  (`MAX_ABOVE`; Josh, 2026-11-25: his tolerance was ~50% above today's price across cheap and dear items)), copied to the clipboard; Josh tested the import
   in game. Saved by the server (`POST /api/plan`, whole-file replace) to `F:\ForeverAuctionData\plan.json` (format
   `forever-plan`, see above; env FOREVER_PLAN_FILE); never in the repo (personal plan). Starting
   weights came from Josh's consumables analysis (`data/private/consumables-plan.md`, calculator
@@ -425,7 +426,11 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   administrative tools for information and logistics, not targets; no budget, gap, share or advice). Read-only.
   Columns: **Held** (TSM, the plan's faction), **Avg paid** (mail ledger: paid / units over buys with status ok; hover
   "bought N of the M held" when held > bought, no ⓘ so the column stays aligned: units from before 2026-11-16, crafted, looted or farmed), **Value** (held
-  x cheapest 15% on the plan's faction from `/api/prices`, same price as the Plan, before the AH cut; group and plan
+  x the **7-day price** on the plan's faction, before the AH cut; **7-day price** (Josh, 2026-11-25, a stable value
+  measure after his own buying cleared markets and a /bscan valued Blindweed at 0.86g vs ~0.15g) = median of the hourly
+  cheapest 15% over the 7 days before the newest snapshot, hourly API data only, never /bscans (`refPrice` in server.mjs,
+  `ref` in `/api/prices`, `refPriceOf` in portfolioLib.js; falls back to the latest cheapest 15% when the item had no
+  hourly price that week). The Plan table's own price column still shows today's (newer of scan and hourly); group and plan
   lines sum distinct items). Layout (Josh, 2026-11-23): one grey bar per plan (name, faction, small Held / Avg paid / Value
   labels over their columns, total value), no separate column-header row; groups without grey bands, indented under
   the plan, items one step further. Refresh button; the TSM file times are shown (TSM writes at logout or /reload; a
@@ -1271,7 +1276,7 @@ Open items to raise when relevant:
   (income drip). Steering agreed in talk: sell what has done its job, judge against what the gold would buy next (not
   entry price), speed up at the next content-patch announcement. No formal exit rules wanted; don't push them.
   Offered, not taken: a days-to-sell figure per Plan line (units held / sold per day from sales.json).
-  Josh declined (2026-11-22): a maximum price per item on the Plan's lists, and a "Bought so far" column.
+  Josh declined (2026-11-22): a "Bought so far" column. (A max price on the Plan's lists was declined then, built 2026-11-25.)
   Don't raise the mail ledger's missing core-herb buys or Guardian Stones (Josh, 2026-11-23).
 - Plan tab: Parked: research for the non-alchemy placeholder (food, scrolls, stones).
   Only if they come up: editable band weights; redo the Blasted Lands split if a material's price jumps (it is a

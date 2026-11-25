@@ -130,12 +130,14 @@ test('shoppingList: units the gold buys per item, merged across lines, Auctionat
   const price = { 'Dreamfoil': 1300, 'Black Lotus': 90000, 'Nature Protection Potion': 300 }; // copper
   const all = shoppingList(r, null, 100, (n) => price[n] ?? null, 'Plan');
   // budget 100g: Dreamfoil 25g + 25g = 50g -> 384 at 13s; Black Lotus 25g -> 2 at 9g; NP potion 12.5g -> 416 at 3s
-  assert.equal(all.text, 'Plan^"Dreamfoil";;;;;;;;;;;#;;384^"Black Lotus";;;;;;;;;;;#;;2^"Nature Protection Potion";;;;;;;;;;;#;;416');
+  assert.equal(all.text, 'Plan^"Dreamfoil";;;;;;;;;0.195;;#;;384^"Black Lotus";;;;;;;;;13.5;;#;;2^"Nature Protection Potion";;;;;;;;;0.045;;#;;416');
   assert.deepEqual(all.skipped, ['Placeholder']);
   const np = shoppingList(r, 'b', 100, (n) => price[n] ?? null, 'Plan: NP');
-  assert.equal(np.text, 'Plan: NP^"Dreamfoil";;;;;;;;;;;#;;192^"Nature Protection Potion";;;;;;;;;;;#;;416');
+  assert.equal(np.text, 'Plan: NP^"Dreamfoil";;;;;;;;;0.195;;#;;192^"Nature Protection Potion";;;;;;;;;0.045;;#;;416');
   const one = shoppingList(r, 'bl', 1, (n) => price[n] ?? null, 'x'); // 0.25g buys no Black Lotus
   assert.deepEqual(one.items, []); assert.deepEqual(one.skipped, ['Black Lotus']);
+  // the max price is the same field BavvbScan's lists use (FavCore.lua searchTermCapped): 1s 03c x 1.5 -> 1s 55c (rounded copper)
+  assert.equal(shoppingList(normalize({ children: [{ id: 'z', name: 'Z', w: 100 }] }), null, 1, () => 103, 'L').text, 'L^"Z";;;;;;;;;0.0155;;#;;97');
 });
 
 import { setBand, rebalance, rebalanceAll, BANDS } from './public/planLib.js';

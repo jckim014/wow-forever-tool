@@ -48,3 +48,11 @@ test('Horde plan uses Horde holdings and prices', () => {
   assert.equal(rows[1].value, 5);
   assert.equal(rows[1].avgPaid, null);
 });
+
+import { refPriceOf } from './public/portfolioLib.js';
+test('refPriceOf: the 7-day reference price wins, the latest cheapest 15% only when there is none', () => {
+  const p = { latest: { 111: { cheapest15: 8600 }, 114: { cheapest15: 1700 } }, ref: { 111: 1500, 114: null } };
+  assert.equal(refPriceOf(p, 111), 1500); // a cleared market's 86s doesn't count
+  assert.equal(refPriceOf(p, 114), 1700); // no hourly price that week: today's
+  assert.equal(refPriceOf(null, 111), null);
+});

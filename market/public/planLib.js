@@ -237,6 +237,12 @@ export function newPlan(name, id = newId()) {
   return { id, name: String(name || 'New plan').trim() || 'New plan', budget: 0, house: 111, tree, initial: structuredClone(tree) };
 }
 
+/** Max price on the Plan's Auctionator lists, as a share above today's price. */
+export const MAX_ABOVE = 0.5;
+
+/** A copper amount as Auctionator's gold field: up to 4 decimals (= whole copper), no trailing zeros. */
+export const goldField = (copper) => (Math.round(copper) / 10000).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+
 // Auctionator's own separators; a name containing them would break the list.
 const cleanName = (s) => String(s).replace(/[\^;"\r\n]/g, ' ').trim();
 
@@ -245,6 +251,8 @@ const cleanName = (s) => String(s).replace(/[\^;"\r\n]/g, ' ').trim();
  * an exact-name search with a quantity (14 ";" fields, tier "#": the same format as the shuffle app's Shopping view,
  * app/src/shopping/list.ts). Quantity = units the line's gold buys at `priceOf(name)` (copper each), rounded down;
  * an item on several lines gets their sum. Lines without a price, or whose gold buys less than one, are skipped.
+ * Each term carries a max price (Auctionator's 10th field, in gold, as in BavvbScan's FavCore.lua searchTermCapped)
+ * = today's price x (1 + MAX_ABOVE), rounded to the copper (Josh, 2026-11-25: 50% above today's price).
  */
 export function shoppingList(root, id, budget, priceOf, listName) {
   const start = id ? find(root, id).node : root;
@@ -265,8 +273,9 @@ export function shoppingList(root, id, budget, priceOf, listName) {
     const each = priceOf(name);
     const qty = each > 0 ? Math.floor((gold.get(name) * 10000) / each) : 0;
     if (qty < 1) { skipped.push(name); continue; }
-    items.push({ name, qty });
-    terms.push([`"${cleanName(name)}"`, '', '', '', '', '', '', '', '', '', '', '#', '', String(qty)].join(';'));
+    const max = Math.round(each * (1 + MAX_ABOVE));
+    items.push({ name, qty, max });
+    terms.push([`"${cleanName(name)}"`, '', '', '', '', '', '', '', '', goldField(max), '', '#', '', String(qty)].join(';'));
   }
   return { text: [cleanName(listName) || 'Plan', ...terms].join('^'), items, skipped };
 }
