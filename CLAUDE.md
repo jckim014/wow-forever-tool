@@ -1149,6 +1149,16 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   version. His favorites weren't reaching the game: the Chrome permission hang again (Favorites.lua last written
   11-23 19:49, save file 11-24 00:04); he re-linked the game addon folder (Favorites.lua rewritten 18:06); the save
   file was still dated 00:04 at 18:07, re-pick asked, outcome not confirmed (check its date next time).
+2026-11-24 (night session, crate analysis only; files in data/private/crate-analysis, nothing committed there):
+  Josh's 49 more crate openings added (56 of his own; not via the Wowhead client, separate data). His saved Wowhead
+  page was a stale cached copy twice (61 openings); the live page had 116, typed from his screenshots into
+  wowhead-table.json. Report 20261125_0249 (172 openings): agreement 1.38 A, 2b 4%; ceiling 11.6k/day A; growth
+  passes on Alliance but not Horde, so "not shown". Preliminary view told to Josh: crates shape the supply of their
+  goods (high confidence), share size uncertain, crates one strong factor in price falls but not the whole story
+  (Gromsblood flat, Plaguebloom -47%). Notable non-herbs: Devilsaur Leather (-29%, Josh: normally 10g+ at this
+  phase), Winterfall Firewater, Righteous Orb, Essence of Air. Report now has herb price changes and a Notable
+  section; Josh wants Alliance only and minor discrepancies skipped (memory). The Session line (BavvbScan, from the
+  11-24 evening) is still uncommitted, still unchecked in game.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1250,6 +1260,12 @@ Open items to raise when relevant:
   for the "rising" rule). Josh's own openings (2026-11-23): when he pastes crate results, append one entry per crate to
   own-openings.json (items by ID; poor crates too; items not on Wowhead's table are listed, not counted) and rerun.
   Other houses (2026-11-23, information only): `build_other_houses.mjs` then `other_houses.mjs` (reports/other-houses/).
+  Report focus (Josh, 2026-11-24): Alliance only (Horde stays computed; mention it only when it bears on the
+  reliability of the crate data); herbs first, then other crate items only where the effect is strong (section 5,
+  "Notable"). A saved Wowhead page can be a stale cached copy: if Josh says the count is higher, type the table from
+  his screenshot into `wowhead-table.json` (used while it has more openings than the page). His openings are separate
+  from Wowhead's (no Wowhead client). Preliminary view at 172 openings: crates shape supply of the goods they drop;
+  share size still uncertain; growth not shown.
 - Exit for the consumables speculation: settled in talk (2026-11-22, Josh raised it): his thesis is a lasting demand
   shift plus gold inflation over the phase, not a launch spike; exit = selling regularly to fund his daily buying
   (income drip). Steering agreed in talk: sell what has done its job, judge against what the gold would buy next (not
