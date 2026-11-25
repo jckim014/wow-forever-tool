@@ -788,7 +788,18 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   in BavvbScanDB.favFolded). **Tests**: `app/src/ingame/parity.test.ts` runs FavCore.lua in fengari (devDependency)
   next to compute() + recipeDetail() and requires the same numbers (made-up case always; Josh's save file, scan and
   ApiPrices.lua when present: 15 favorites, 68 lines matched), plus FavPanel.lua under stand-ins for WoW's frame API.
-  Josh checked it in game ("working pretty well", then "looks great"). Favorites.lua and ApiPrices.lua are generated
+  Josh checked it in game ("working pretty well", then "looks great").
+  **Shopping list** (BavvbScan 1.4, Josh, 2026-11-24): each breakdown ends with "Shopping list · crafts [1] [Add]"
+  (default 1, any number; Add again adds to the count); a bar at the bottom ("Shopping list: N recipes", Show, Clear
+  with a 3 s "Sure?"); Show = the list view (recipes with count box and x; To buy = `Core.shopping` in FavCore.lua,
+  the web app's Shopping view with default ticks: merged, a crafted reagent replaced by its ingredients for
+  ceil(need / made) crafts, one level; From a vendor = left off), list name box (default "BavvbScan"), Make list =
+  `Auctionator.API.v1.CreateShoppingList("BavvbScan", name, terms)` (replaces a same-name list; Josh chose direct
+  creation over a paste string). Saved in `BavvbScanDB.shop = { name, recipes = { {id, count} } }`, per account, not
+  synced with the web app. Favorites.lua now sends vendor buy prices always and `settings.useVendorBuy` (FavCore
+  prices with them only when it isn't false), so vendor items stay off the list either way. parity.test.ts checks the
+  list string against `auctionatorImport(shopLines(...))` on every favorite. Josh checked it in game ("working great").
+  Favorites.lua and ApiPrices.lua are generated
   and not in the repo: copying the repo's addon folder over the WoW copy leaves them alone.
 - **Favorites** (Josh, 2026-11-12; `app/src/favorites/`, classes `fav-*`): a ☆ at the left of every List row stars a
   recipe into the group "Unsorted" (made at the top if missing); a second click unstars it. The recipe card has a
@@ -1153,7 +1164,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-24 with 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an

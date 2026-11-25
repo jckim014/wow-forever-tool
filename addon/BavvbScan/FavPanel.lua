@@ -1,7 +1,10 @@
 -- BavvbScan favorites panel: the shuffle app's Favorites (cost, best exit, profit, and a cost breakdown per recipe)
 -- worked out in game from this character's latest /bscan, with the hourly API prices filling gaps (FavCore.lua).
 -- Opens by itself to the right of the profession window when that profession has favorites, and with /bscan fav
--- (all professions, movable). Read-only: it only shows numbers.
+-- (all professions, movable). It only shows numbers, plus a shopping list: Add in a recipe's breakdown puts it on the
+-- list with a number of crafts, Show lists what to buy, and Make list creates that list in Auctionator through
+-- Auctionator's own API (Auctionator.API.v1.CreateShoppingList; it only writes the list, nothing at the auction house).
+-- The list is kept in BavvbScanDB.shop = { name, recipes = { {id, count} } }.
 
 local Core = BavvbScanFavCore
 local W, ROW, PAD, SIZE = 460, 19, 10, 13 -- SIZE: font size of the lines
@@ -11,6 +14,12 @@ local open = {}        -- recipe ID -> breakdown shown
 local mode             -- "profession" (docked) or "alone" (/bscan fav)
 local profession       -- the profession window's profession, when docked
 local closedFor        -- the profession the close button hid it for (until that window opens again)
+local view = "fav"     -- "fav" (favorites) or "shop" (the shopping list)
+local addQty = {}      -- recipe ID -> crafts typed in its Add box (this session)
+local note             -- last shopping-list message, shown under the title in the list view
+local clearArmed       -- Clear was clicked once; a second click within 3 s clears
+local DEFAULT_LIST = "BavvbScan"
+local MAX_COUNT = 9999
 
 local GOLD, GREY, GREEN, RED, WHITE = "ffd100", "8c8c8c", "40ff40", "ff5050", "ffffff"
 local function color(hex, s) return "|cff" .. hex .. s .. "|r" end
@@ -139,13 +148,207 @@ local function makePanel()
   end)
   scroll = CreateFrame("ScrollFrame", "BavvbScanFavScroll", p, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", PAD - 4, -52)
-  scroll:SetPoint("BOTTOMRIGHT", -28, PAD)
+  scroll:SetPoint("BOTTOMRIGHT", -28, PAD + 30)
+  -- the shopping-list bar along the bottom
+  local bar = CreateFrame("Frame", nil, p)
+  bar:SetPoint("BOTTOMLEFT", PAD, PAD)
+  bar:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+  bar:SetHeight(24)
+  local rule = bar:CreateTexture(nil, "BORDER")
+  rule:SetPoint("TOPLEFT", 0, 4)
+  rule:SetPoint("TOPRIGHT", 0, 4)
+  rule:SetHeight(1)
+  rule:SetColorTexture(0.45, 0.38, 0.2, 0.6)
+  bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  bar.text:SetFont(STANDARD_TEXT_FONT, SIZE, "")
+  bar.text:SetPoint("LEFT", 0, 0)
+  bar.text:SetJustifyH("LEFT")
+  local function button(w)
+    local b = CreateFrame("Button", nil, bar, "UIPanelButtonTemplate")
+    b:SetSize(w, 22)
+    b:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
+    return b
+  end
+  bar.b3 = button(56)
+  bar.b3:SetPoint("RIGHT", 0, 0)
+  bar.b2 = button(56)
+  bar.b2:SetPoint("RIGHT", bar.b3, "LEFT", -4, 0)
+  bar.b1 = button(76)
+  bar.b1:SetPoint("RIGHT", bar.b2, "LEFT", -4, 0)
+  bar.name = CreateFrame("EditBox", nil, bar, "InputBoxTemplate")
+  bar.name:SetSize(130, 20)
+  bar.name:SetAutoFocus(false)
+  bar.name:SetMaxLetters(40)
+  bar.name:SetPoint("RIGHT", bar.b1, "LEFT", -10, 0)
+  bar.name:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  bar.name:SetScript("OnEscapePressed", function(self) self.cancel = true; self:ClearFocus() end)
+  bar.name:SetScript("OnEditFocusLost", function(self)
+    local cancel = self.cancel
+    self.cancel = nil
+    if not cancel then
+      local t = ((self:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+      BavvbScanShop().name = t ~= "" and t or DEFAULT_LIST
+    end
+    C_Timer.After(0, BavvbScanFavRefresh)
+  end)
+  p.bar = bar
   content = CreateFrame("Frame", nil, scroll)
   content:SetSize(W - PAD - 28, 10)
   scroll:SetScrollChild(content)
   p:Hide()
   panel = p
   return p
+end
+
+-- ---------- shopping list ----------
+
+function BavvbScanShop()
+  BavvbScanDB.shop = BavvbScanDB.shop or {}
+  local shop = BavvbScanDB.shop
+  shop.recipes = shop.recipes or {}
+  shop.name = shop.name or DEFAULT_LIST
+  return shop
+end
+
+local function countOf(rid)
+  for _, e in ipairs(BavvbScanShop().recipes) do if e.id == rid then return e.count end end
+  return nil
+end
+
+local function clampCount(n)
+  n = math.floor(tonumber(n) or 1)
+  if n < 1 then n = 1 end
+  if n > MAX_COUNT then n = MAX_COUNT end
+  return n
+end
+
+local function say(msg) print("|cffffd100BavvbScan|r: " .. msg) end
+
+local function shopAdd(rid, n, name)
+  n = clampCount(n)
+  local shop = BavvbScanShop()
+  for _, e in ipairs(shop.recipes) do
+    if e.id == rid then
+      e.count = clampCount(e.count + n)
+      say("added " .. n .. " x " .. name .. " to the shopping list (now " .. e.count .. ").")
+      return
+    end
+  end
+  shop.recipes[#shop.recipes + 1] = { id = rid, count = n }
+  say("added " .. n .. " x " .. name .. " to the shopping list.")
+end
+
+local function shopSet(rid, n)
+  for _, e in ipairs(BavvbScanShop().recipes) do if e.id == rid then e.count = clampCount(n or e.count) end end
+end
+
+local function shopRemove(rid)
+  local shop = BavvbScanShop()
+  for i, e in ipairs(shop.recipes) do if e.id == rid then table.remove(shop.recipes, i); return end end
+end
+
+local function shopping(fav)
+  local res = Core.compute(fav, BavvbScanDB.scan, BavvbScanApi, UnitFactionGroup("player"), nil)
+  return Core.shopping(fav, res.inter, BavvbScanShop().recipes)
+end
+
+-- Creates (or replaces) the list in Auctionator, through Auctionator's own API.
+local function makeList()
+  local fav = BavvbScanFavorites
+  local shop = BavvbScanShop()
+  local api = Auctionator and Auctionator.API and Auctionator.API.v1
+  if not api or not api.CreateShoppingList then
+    note = color(RED, "Auctionator isn't loaded: enable it in the AddOns list.")
+  elseif not fav or fav.format ~= "bavvbfav" then
+    note = color(RED, "No favorites file: nothing to list.")
+  else
+    local list = shopping(fav)
+    local terms = {}
+    for _, l in ipairs(list.buy) do terms[#terms + 1] = Core.searchTerm(l.name, l.qty) end
+    if #terms == 0 then
+      note = color(RED, "Nothing to buy on the list.")
+    else
+      local ok, err = pcall(api.CreateShoppingList, "BavvbScan", shop.name, terms)
+      if ok then
+        note = color(GREEN, 'Made "' .. shop.name .. '" in Auctionator: ' .. #terms .. (#terms == 1 and " item" or " items")
+          .. (#list.vendor > 0 and " (vendor items left off)" or "") .. ".")
+      else
+        note = color(RED, "Auctionator refused the list: " .. tostring(err))
+      end
+    end
+  end
+  say(note)
+  BavvbScanFavRefresh()
+end
+
+local function clearList()
+  if not clearArmed then
+    clearArmed = true
+    C_Timer.After(3, function() clearArmed = nil; BavvbScanFavRefresh() end)
+  else
+    clearArmed = nil
+    BavvbScanShop().recipes = {}
+    note = nil
+  end
+  BavvbScanFavRefresh()
+end
+
+local function buildShop()
+  local fav = BavvbScanFavorites
+  local shop = BavvbScanShop()
+  local specs = {}
+  if #shop.recipes == 0 then
+    specs[1] = { left = "Nothing on the list yet." }
+    specs[2] = { left = color(GREY, "Open a recipe in Favorites and press Add.") }
+    return specs
+  end
+  if not fav or fav.format ~= "bavvbfav" then
+    specs[1] = { left = "No favorites file: the list can't be worked out." }
+    return specs
+  end
+  specs[#specs + 1] = { left = color(GOLD, "Recipes"), right = color(GREY, "crafts     "), group = true }
+  for _, e in ipairs(shop.recipes) do
+    local r, rid = fav.recipes[e.id], e.id
+    specs[#specs + 1] = { key = "count:" .. rid, indent = 8,
+      left = r and (r.name .. color(GREY, "  " .. r.profession)) or color(RED, "Recipe " .. rid .. ": not in Favorites now, left off"),
+      box = r and { get = function() return countOf(rid) or 1 end, set = function(n) shopSet(rid, n) end } or nil,
+      btn = { text = "x", width = 24, onClick = function() shopRemove(rid); BavvbScanFavRefresh() end } }
+  end
+  local list = shopping(fav)
+  specs[#specs + 1] = { left = color(GOLD, "To buy") .. color(GREY, "  ·  goes on the list"), right = color(GREY, "units"), group = true }
+  for _, l in ipairs(list.buy) do specs[#specs + 1] = { left = l.name, right = qtyText(l.qty), indent = 8 } end
+  if #list.buy == 0 then specs[#specs + 1] = { left = color(GREY, "Nothing."), indent = 8 } end
+  if #list.vendor > 0 then
+    specs[#specs + 1] = { left = color(GOLD, "From a vendor") .. color(GREY, "  ·  not on the list"), group = true }
+    for _, l in ipairs(list.vendor) do specs[#specs + 1] = { left = color(GREY, l.name), right = color(GREY, qtyText(l.qty)), indent = 8 } end
+  end
+  return specs
+end
+
+local function updateBar()
+  local bar = panel.bar
+  local n = #BavvbScanShop().recipes
+  local function set(b, text, fn, enabled)
+    b:SetText(text)
+    b.onClick = fn
+    if enabled == false then b:Disable() else b:Enable() end
+    b:Show()
+  end
+  if view == "shop" then
+    bar.text:SetText("List name")
+    if not bar.name:HasFocus() then bar.name:SetText(BavvbScanShop().name) end
+    bar.name:Show()
+    set(bar.b1, "Make list", makeList, n > 0)
+    set(bar.b2, clearArmed and "Sure?" or "Clear", clearList, n > 0)
+    set(bar.b3, "Back", function() view = "fav"; note = nil; BavvbScanFavRefresh() end)
+  else
+    bar.text:SetText("Shopping list: " .. (n == 0 and color(GREY, "empty") or n .. (n == 1 and " recipe" or " recipes")))
+    bar.name:ClearFocus()
+    bar.name:Hide()
+    bar.b1:Hide()
+    set(bar.b2, "Show", function() view = "shop"; BavvbScanFavRefresh() end)
+    set(bar.b3, clearArmed and "Sure?" or "Clear", clearList, n > 0)
+  end
 end
 
 -- ---------- what the panel lists ----------
@@ -190,6 +393,22 @@ local function addBreakdown(specs, r, book)
     parts[#parts + 1] = exitShort(e.name) .. " " .. priced(e.value, src) .. (e.isBest and color(GOLD, "*") or "")
   end
   specs[#specs + 1] = { left = table.concat(parts, color(GREY, "  ·  ")), indent = 14, tip = anyApi and { "Exits", fallback } or nil }
+  local rid, have = r.id, countOf(r.id)
+  specs[#specs + 1] = { key = "add:" .. rid, indent = 14,
+    left = "Shopping list" .. (have and color(GREY, " (on it: " .. have .. ")") or "") .. color(GREY, "  ·  crafts"),
+    tip = { "Shopping list", "Adds this recipe with the number of crafts in the box (1 unless you type more). Show, at the bottom, lists what to buy and makes the Auctionator list." },
+    box = { get = function() return addQty[rid] or 1 end, set = function(n) addQty[rid] = clampCount(n) end },
+    btn = { text = "Add", onClick = function(line)
+      -- a number still being typed counts (clicking a button doesn't always end the typing first)
+      if line.box and line.box:HasFocus() then
+        addQty[rid] = clampCount(line.box:GetText())
+        line.box.editing = nil
+        line.box:ClearFocus()
+      end
+      shopAdd(rid, addQty[rid] or 1, r.name)
+      addQty[rid] = nil
+      BavvbScanFavRefresh()
+    end } }
 end
 
 local function build()
@@ -227,6 +446,8 @@ local function layout(specs)
   local y = 0
   for i, s in ipairs(specs) do
     local b = pool[i] or makeLine(i)
+    -- a box being typed in keeps its text only while the same line (key) stays on it
+    if b.box and b.box:HasFocus() and (not s.box or b.box.editKey ~= s.key) then b.box:ClearFocus() end
     b.spec = s
     local h = s.group and ROW + 4 or ROW
     b:SetHeight(h)
@@ -242,15 +463,70 @@ local function layout(specs)
     b.mid:SetText(s.mid or "")
     b.each:SetText(s.each or "")
     b.right:SetText(s.right or "")
+    -- a number box and/or a button on the right (shopping list lines)
+    if s.box then
+      if not b.box then
+        b.box = CreateFrame("EditBox", nil, b, "InputBoxTemplate")
+        b.box:SetSize(44, ROW - 2)
+        b.box:SetAutoFocus(false)
+        b.box:SetNumeric(true)
+        b.box:SetMaxLetters(4)
+        b.box:SetJustifyH("RIGHT")
+        b.box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+        b.box:SetScript("OnEscapePressed", function(self) self.cancel = true; self:ClearFocus() end)
+        b.box:SetScript("OnEditFocusGained", function(self)
+          local spec = self:GetParent().spec
+          self.editing, self.editKey = spec and spec.box, spec and spec.key
+        end)
+        b.box:SetScript("OnEditFocusLost", function(self)
+          local editing, cancel = self.editing, self.cancel
+          self.editing, self.editKey, self.cancel = nil, nil, nil
+          if editing and not cancel then editing.set(tonumber(self:GetText() or "")) end
+          C_Timer.After(0, BavvbScanFavRefresh) -- not now: this can run in the middle of a layout
+        end)
+      end
+      b.box:ClearAllPoints()
+      b.box:SetPoint("RIGHT", b, "RIGHT", -(s.btn and 66 or 4), 0)
+      if not b.box:HasFocus() then b.box:SetText(tostring(s.box.get())) end
+      b.box:Show()
+      b.left:SetPoint("RIGHT", b.box, "LEFT", -8, 0)
+    elseif b.box then b.box:ClearFocus(); b.box:Hide() end
+    if s.btn then
+      if not b.btn then
+        b.btn = CreateFrame("Button", nil, b, "UIPanelButtonTemplate")
+        b.btn:SetHeight(ROW)
+        b.btn:SetScript("OnClick", function(self)
+          local spec = self:GetParent().spec
+          if spec and spec.btn then spec.btn.onClick(self:GetParent()) end
+        end)
+      end
+      b.btn:ClearAllPoints()
+      b.btn:SetPoint("RIGHT", b, "RIGHT", -2, 0)
+      b.btn:SetWidth(s.btn.width or 56)
+      b.btn:SetText(s.btn.text)
+      b.btn:Show()
+      if not s.box then b.left:SetPoint("RIGHT", b.btn, "LEFT", -8, 0) end
+    elseif b.btn then b.btn:Hide() end
     b:Show()
     y = y + h
   end
-  for i = #specs + 1, #pool do pool[i]:Hide(); pool[i].spec = nil end
+  for i = #specs + 1, #pool do
+    local b = pool[i]
+    if b.box then b.box:ClearFocus() end
+    b:Hide(); b.spec = nil
+  end
   content:SetHeight(math.max(y, 10))
 end
 
 function BavvbScanFavRefresh()
   if not panel or not panel:IsShown() then return end
+  updateBar()
+  if view == "shop" then
+    layout(buildShop())
+    panel.title:SetText("Shopping list " .. color(GREY, "· all professions"))
+    panel.sub:SetText(note or "Units for the crafts above, on the cheapest path.")
+    return
+  end
   local specs, book, fav = build()
   layout(specs)
   local shown = mode == "profession" and profession or "all professions"

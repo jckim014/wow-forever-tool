@@ -6,7 +6,7 @@
 --   BavvbScanDB.scan    (this character's latest /bscan, live in memory from the moment it is saved)
 --   BavvbScanApi        (ApiPrices.lua, written by the hourly PC sync: newest API prices per faction)
 -- The rules are the shuffle app's (CLAUDE.md, Model): reagent price = custom, else vendor buy price (only exported when
--- that setting is on), else imported; selling price = custom, else imported; imported = the scan or the hourly API
+-- that setting is on; older files only carry it then), else imported; selling price = custom, else imported; imported = the scan or the hourly API
 -- price, the newer of the two winning per item where both have it (a tie goes to the scan). Money in copper; nil =
 -- unpriced, never zero.
 
@@ -104,7 +104,7 @@ function C.priceBook(fav, scan, api, faction)
     if av and (apiNewer or not sv) then imp, impSrc = av, "api" elseif sv then imp, impSrc = sv, "scan" end
     p = { imported = imp, importedSource = impSrc }
     if it.typed then p.reagent, p.reagentSource = it.typed, "custom"
-    elseif it.vendor then p.reagent, p.reagentSource = it.vendor, "vendor"
+    elseif it.vendor and s.useVendorBuy ~= false then p.reagent, p.reagentSource = it.vendor, "vendor"
     elseif imp then p.reagent, p.reagentSource = imp, impSrc end
     if it.typed then p.selling, p.sellingSource = it.typed, "custom"
     elseif imp then p.selling, p.sellingSource = imp, impSrc end
@@ -276,4 +276,58 @@ function C.compute(fav, scan, api, faction, profession)
     if #rows > 0 then groups[#groups + 1] = { name = g.name, rows = rows } end
   end
   return { groups = groups, book = book, inter = inter }
+end
+
+-- ---------- shopping list ----------
+
+-- Auctionator's own separators; a name containing them would break the list.
+local function clean(s)
+  s = s:gsub('[%^;"\r\n]', " ")
+  s = s:gsub("^%s+", ""):gsub("%s+$", "")
+  return s
+end
+
+-- One Auctionator search term (Source/Search/Advanced.lua; the app's auctionatorImport): exact name in quotes, 14
+-- fields split by ";", tier "#" (none), quantity last.
+function C.searchTerm(name, qty)
+  return '"' .. clean(name) .. '";;;;;;;;;;;#;;' .. string.format("%d", qty)
+end
+
+-- What to buy for `entries` ({ {id = recipe ID, count = crafts}, ... }), the app's Shopping view with its default
+-- ticks (shopLines + auctionatorImport): reagents merged by item; a reagent the cheapest path crafts (source Craft, and
+-- some chosen recipe has Use chains on) is replaced by its maker's ingredients for ceil(needed / made) crafts (one
+-- level, as the app); anything a vendor sells is left off and listed apart. Returns { buy = { {item, name, qty} },
+-- vendor = { ... }, unknown = { recipe IDs not in Favorites.lua } }, in the app's order.
+function C.shopping(fav, inter, entries)
+  local need, order, chained, unknown = {}, {}, {}, {}
+  for _, e in ipairs(entries) do
+    local r = fav.recipes[e.id]
+    if not r then unknown[#unknown + 1] = e.id
+    elseif (e.count or 0) > 0 then
+      for _, g in ipairs(r.reagents) do
+        if not need[g[1]] then need[g[1]] = 0; order[#order + 1] = g[1] end
+        need[g[1]] = need[g[1]] + g[2] * e.count
+        if r.chains then chained[g[1]] = true end
+      end
+    end
+  end
+  local buy, vendor, at = {}, {}, {}
+  local function add(id, qty)
+    local it = fav.items[id] or {}
+    local list = it.vendor and vendor or buy
+    local key = (it.vendor and "v" or "b") .. id
+    if at[key] then at[key].qty = at[key].qty + qty
+    else at[key] = { item = id, name = it.name or ("Item " .. id), qty = qty }; list[#list + 1] = at[key] end
+  end
+  for _, id in ipairs(order) do
+    local row, maker = inter[id], fav.inter[id]
+    if maker and row and row.source == "Craft" and chained[id] then
+      local mrec = fav.recipes[maker.recipe]
+      local crafts = math.ceil(need[id] / mrec.made)
+      for _, s in ipairs(mrec.reagents) do add(s[1], crafts * s[2]) end
+    else
+      add(id, need[id])
+    end
+  end
+  return { buy = buy, vendor = vendor, unknown = unknown }
 end

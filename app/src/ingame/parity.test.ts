@@ -10,7 +10,10 @@ import defaults from '../../../data/config/defaults.json'
 import deTableJson from '../../../data/config/de-table.json'
 import { compute, emptyEdits, makeConfig, normalizeEdits, recipeDetail, type ApiPrices, type DeBand, type Edits, type GameData, type ImportRow, type Settings } from '../model'
 import { readBavvbScan } from '../prices/bavvbscan'
+import { auctionatorImport, shopLines } from '../shopping/list'
 import { buildExport, exportLua } from './export'
+
+const toLuaEntries = (e: { id: number; count: number }[]) => '{' + e.map((x) => `{ id = ${x.id}, count = ${x.count} }`).join(', ') + '}'
 
 const ROOT = resolve(__dirname, '../../..')
 const CORE = readFileSync(resolve(ROOT, 'addon/BavvbScan/FavCore.lua'), 'utf8')
@@ -118,7 +121,20 @@ function compare(game: GameData, base: Edits, scanRaw: Uint8Array, scanLua: stri
       lines++
     })
   }
-  return { recipes: out.length, lines, out }
+
+  // the shopping list: every favorite with 1-3 crafts, as the app's Shopping view with its default ticks
+  const entries = expected.map((id, i) => ({ id, count: (i % 3) + 1 }))
+  const shop = runLua([CORE, favLua, scanLua, apiLua], `
+    ${apiT !== undefined ? `BavvbScanApi.${faction}.t = ${apiT}` : ''}
+    local res = BavvbScanFavCore.compute(BavvbScanFavorites, BavvbScanDB.scan, BavvbScanApi, "${faction}")
+    local list = BavvbScanFavCore.shopping(BavvbScanFavorites, res.inter, ${toLuaEntries(entries)})
+    local terms = { "L" }
+    for _, l in ipairs(list.buy) do terms[#terms + 1] = BavvbScanFavCore.searchTerm(l.name, l.qty) end
+    return { terms = table.concat(terms, "^"), vendor = #list.vendor, unknown = #list.unknown }`)
+  const appLines = shopLines(game, result, { recipes: entries, ticks: {}, listName: null })
+  expect(shop.terms).toBe(auctionatorImport('L', appLines))
+  expect(shop.unknown).toBe(0)
+  return { recipes: out.length, lines, out, shop }
 }
 
 // ---------- made-up case ----------
@@ -221,6 +237,8 @@ local function obj(kind)
     if k == "IsShown" then return function(self) return self.shown end end
     if k == "SetScript" or k == "HookScript" then return function(self, name, fn) self.scripts[name] = fn end end
     if k == "SetText" then return function(self, s) self.text = s end end
+    if k == "GetText" then return function(self) return self.text end end
+    if k == "GetParent" then return function(self) return self.parent end end
     if k == "CreateFontString" or k == "CreateTexture" then return function(self) return obj("region") end end
     if k == "GetHeight" or k == "GetWidth" then return function() return 500 end end
     if k == "GetLeft" or k == "GetTop" then return function() return 100 end end
@@ -230,6 +248,7 @@ local function obj(kind)
 end
 function CreateFrame(kind, name, parent, template)
   local f = obj(kind)
+  f.parent = parent
   f.shown = kind ~= "Frame" or name == nil
   frames[#frames + 1] = f
   if name then _G[name] = f end
@@ -286,5 +305,47 @@ describe('FavPanel.lua runs', () => {
     expect(out.alone.some((l: string) => l.startsWith('Potion'))).toBe(true)
     expect(out.cookingShown).toBe(true) // /bscan fav stays open on its own; a profession without favorites doesn't dock
     if (process.env.BAVVB_PRINT) console.log(out.open.join('\n'))
+  })
+
+  it('shopping list: Add with a typed count, Show, change a count, Make list in Auctionator, Clear', () => {
+    const out = runLua([WOW_STUBS, CORE, favLua, scanLua, apiLua, 'BavvbScanDB.favFolded = nil', PANEL], `
+      local made = {}
+      Auctionator = { API = { v1 = { CreateShoppingList = function(caller, name, terms) made[#made + 1] = { caller = caller, name = name, terms = terms } end } } }
+      local printed = {}
+      print = function(s) printed[#printed + 1] = s end
+      BavvbScanFavToggle()
+      BAVVB_CLICK_ALL()
+      local function line(key) for _, f in ipairs(BAVVB_FRAMES) do if f.spec and f.shown and f.spec.key == key then return f end end end
+      local bag = line("add:10")
+      bag.box.text = "3"; bag.box.HasFocus = function() return true end -- typed, not yet left the box
+      bag.spec.btn.onClick(bag)
+      bag.box.HasFocus = function() return false end
+      line("add:13").spec.btn.onClick(line("add:13"))
+      line("add:10").spec.btn.onClick(line("add:10")) -- again: adds 1 more
+      local barFav = BavvbScanFavPanel.bar.text.text
+      BavvbScanFavPanel.bar.b2.onClick() -- Show
+      local shown = BAVVB_TEXT()
+      line("count:13").spec.box.set(2)
+      BavvbScanFavRefresh()
+      BavvbScanFavPanel.bar.b1.onClick() -- Make list
+      local after = BAVVB_TEXT()
+      C_Timer.After = function(d, fn) if d == 0 then fn() end end -- the 3 s "Sure?" reset must not fire at once
+      BavvbScanFavPanel.bar.b2.onClick(); BavvbScanFavPanel.bar.b2.onClick() -- Clear, Sure?
+      return { saved = BavvbScanDB.shop, made = made, printed = printed, barFav = barFav, shown = shown, after = after, cleared = #BavvbScanDB.shop.recipes }`)
+    expect(out.barFav).toContain('2 recipes')
+    expect(out.printed[0]).toContain('added 3 x Bag')
+    expect(out.printed[2]).toContain('(now 4)')
+    expect(out.made).toHaveLength(1)
+    expect(out.made[0]).toMatchObject({ caller: 'BavvbScan', name: 'BavvbScan' })
+    // the app priced as the panel is (the scan is newer than the API here)
+    const scan = readBavvbScan(new TextEncoder().encode(scanLua))
+    const priced = compute(game, config, { ...edits, imports: scan.result.rows, importsInfo: { source: 'BavvbScan', at: new Date().toISOString(), count: 1, dataAt: new Date(scan.scanTime * 1000).toISOString() } },
+      apiFromLua(apiLua, 'Alliance'))
+    const appLines = shopLines(game, priced, { recipes: [{ id: 10, count: 4 }, { id: 13, count: 2 }], ticks: {}, listName: null })
+    expect(['BavvbScan', ...out.made[0].terms].join('^')).toBe(auctionatorImport('BavvbScan', appLines))
+    expect(out.after[0]).toContain('Made "BavvbScan" in Auctionator')
+    expect(out.shown.join('\n')).toContain('From a vendor')
+    expect(out.cleared).toBe(0)
+    if (process.env.BAVVB_PRINT) console.log(out.shown.join('\n'), '\n---\n', out.after.join('\n'), out.made[0].terms)
   })
 })

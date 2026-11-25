@@ -52,7 +52,8 @@ describe('buildExport', () => {
     expect(x.recipes[10].chains).toBe(false)
     expect(x.settings).toMatchObject({ ahCut: 0.1, deMult: 1, column: 3 })
     const off = run({ settings: { useVendorBuy: false } })
-    expect(off.items[4].vendor).toBeUndefined()
+    expect(off.items[4].vendor).toBe(100) // still sent, for the shopping list; the price rule reads settings.useVendorBuy
+    expect(off.settings.useVendorBuy).toBe(false)
   })
 })
 

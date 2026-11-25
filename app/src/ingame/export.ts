@@ -3,7 +3,8 @@
 // NOT in this file; settings and edits are applied here so the addon only does the price-dependent math:
 // - favorite groups and recipes, plus the maker recipe of every craftable reagent they reach (any depth)
 // - per intermediate: Allow crafting x the profession's chain toggle, and the loop breaks the app found
-// - per item: name, vendor sell price, vendor buy price (only if Use vendor buy price is on), custom price
+// - per item: name, vendor sell price, vendor buy price (priced only if Use vendor buy price is on: settings.useVendorBuy;
+//   the shopping list leaves vendor-sold items off either way, as the app's Shopping view), custom price
 // - per product: bind type and its disenchant band (by index), so the addon needs no item levels
 // Pure; written by useGameExport.
 import { deBandFor, deMultiplier } from '../model/recipes'
@@ -22,7 +23,7 @@ export interface ExportItem {
 export interface GameExport {
   format: 'bavvbfav'
   version: 1
-  settings: { ahCut: number; deMult: number; useImports: boolean; useApi: boolean; column: number }
+  settings: { ahCut: number; deMult: number; useImports: boolean; useApi: boolean; column: number; useVendorBuy: boolean }
   groups: { name: string; recipes: number[] }[]
   recipes: Record<number, { name: string; profession: string; product: number; made: number; chains: boolean; reagents: [number, number][] }>
   inter: Record<number, { recipe: number; craft: boolean; breaks: number[] }>
@@ -84,7 +85,7 @@ export function buildExport(game: GameData, result: ModelResult, edits: Edits, d
     const it = game.items[String(id)]
     const e: ExportItem = { name: it?.name ?? `Item ${id}` }
     if (it?.sell != null) e.sell = it.sell
-    const vb = s.useVendorBuy ? vendorBuyPrice(game, edits, id) : null
+    const vb = vendorBuyPrice(game, edits, id)
     if (vb != null) e.vendor = vb
     const typed = edits.typedPrices[String(id)]
     if (typed != null) e.typed = typed
@@ -98,7 +99,7 @@ export function buildExport(game: GameData, result: ModelResult, edits: Edits, d
 
   return {
     format: 'bavvbfav', version: 1,
-    settings: { ahCut: s.ahCut, deMult: deMultiplier(s), useImports: s.useImports, useApi: s.useApiPrices, column: s.importColumn },
+    settings: { ahCut: s.ahCut, deMult: deMultiplier(s), useImports: s.useImports, useApi: s.useApiPrices, column: s.importColumn, useVendorBuy: s.useVendorBuy },
     groups, recipes, inter, items, bands,
   }
 }
