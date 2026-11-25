@@ -350,6 +350,7 @@ describe('FavPanel.lua runs', () => {
     const noCap = (t: string) => t.split(';').map((x, i) => (i === 9 ? '' : x)).join(';')
     expect(['BavvbScan', ...out.made[0].terms.map(noCap)].join('^')).toBe(auctionatorImport('BavvbScan', appLines))
     expect(out.held.count).toBe(0)
+    expect(out.shown.some((l: string) => l.startsWith('Session'))).toBe(true)
     expect(out.saved.exits['10']).toBe('AH')
     expect(out.afterClick.some((l: string) => l.startsWith('Bag  AH'))).toBe(true)
     expect(out.held.text).toContain('under the margin')
@@ -425,6 +426,21 @@ describe('FavCore.checkList: margin per craft and max prices', () => {
       if (process.env.BAVVB_PRINT) console.log(margin, JSON.stringify(got))
     })
   }
+
+  it('session: crafts x profit per craft; paying every max price keeps the margin on capped recipes', () => {
+    const got = runLua([CORE, favLua, scanLua, apiLua], `
+      local res = BavvbScanFavCore.compute(BavvbScanFavorites, BavvbScanDB.scan, BavvbScanApi, "Alliance")
+      local entries = ${toLuaEntries(entries)}
+      local check = BavvbScanFavCore.checkList(BavvbScanFavorites, res.book.price, res.inter, entries, 100)
+      return BavvbScanFavCore.session(check, entries, 100)`)
+    const row = (id: number) => result.recipes.find((r) => r.recipe.id === id)!
+    // Bag x2 and Robe x1 on disenchant (both over 1s, capped), Potion x5 on its best exit (under the margin)
+    const p10 = row(10).profitDE!, p12 = row(12).profitDE!, p13 = row(13).profitBest!
+    expect(p13).toBeLessThan(100)
+    same(got.expected, 2 * p10 + p12 + 5 * p13, 'expected')
+    same(got.floor, 2 * 100 + 100 + 5 * p13, 'floor')
+    expect(got.unpriced).toBe(0)
+  })
 
   it('a capped search term puts the max price in gold in field 10', () => {
     const got = runLua([CORE], `return { BavvbScanFavCore.searchTermCapped("Rugged Leather", 40, 3250), BavvbScanFavCore.searchTermCapped("Cloth", 5, 12345), BavvbScanFavCore.searchTermCapped("X", 1, nil) }`)

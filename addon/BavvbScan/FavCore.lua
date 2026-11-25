@@ -411,3 +411,25 @@ function C.searchTermCapped(name, qty, cap)
   local g = string.format("%.4f", cap / 10000):gsub("0+$", ""):gsub("%.$", "")
   return '"' .. clean(name) .. '";;;;;;;;;' .. g .. ';;#;;' .. string.format("%d", qty)
 end
+
+-- The list as one crafting session, from C.checkList: expected = sum of crafts x profit per craft on each recipe's
+-- exit at today's prices; floor = the same if every AH item is bought at its max price (a recipe that sets caps then
+-- keeps exactly the margin per craft; one under the margin or with nothing capped keeps its own profit). Recipes
+-- without a profit are left out and counted. Returns { expected, floor, unpriced }.
+function C.session(check, entries, margin)
+  margin = margin or C.DEFAULT_MARGIN
+  local expected, floor, unpriced = 0, 0, 0
+  for _, e in ipairs(entries) do
+    local c = check.recipes[e.id]
+    local n = e.count or 0
+    if c and n > 0 then
+      if c.profit == nil then unpriced = unpriced + 1
+      else
+        expected = expected + n * c.profit
+        local capped = c.factor ~= nil and c.factor > 0 and not c.flagged
+        floor = floor + n * (capped and margin or c.profit)
+      end
+    end
+  end
+  return { expected = expected, floor = floor, unpriced = unpriced }
+end

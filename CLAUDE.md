@@ -816,6 +816,10 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   doesn't move room between reagents). Recipes under the margin or unpriced set no caps. Caps go in Auctionator's max
   price field (field 10, gold: `Core.searchTermCapped`). Tested in parity.test.ts against the rule re-done from the
   app's prices (margins 0 / 1s / 10s). `/bsf` = the panel (Josh; `/bscan fav` still works). Josh checked in game.
+  **Session line** (list view, 2026-11-24, checked in game and committed 2026-11-25): "Session" = expected profit of the
+  whole list at today's prices (crafts x profit per craft, each recipe on its exit; unpriced recipes left out and
+  counted) and "At least, paying every max price" (each capped recipe then keeps exactly the margin; `Core.session`,
+  tested in parity.test.ts).
   Favorites.lua and ApiPrices.lua are generated
   and not in the repo: copying the repo's addon folder over the WoW copy leaves them alone.
 - **Favorites** (Josh, 2026-11-12; `app/src/favorites/`, classes `fav-*`): a ☆ at the left of every List row stars a
@@ -1144,9 +1148,8 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   craft (10s, his choice of a fixed amount over a %), exit per recipe with a click switch, max prices in Auctionator,
   warnings, and `/bsf` (0ad9170, committed, NOT pushed). Josh checked both in game ("working great", "everything looks
   like it's working well"). Then the **Session** line in the list view (expected profit = crafts x profit per craft;
-  "At least" = paying every max price; `Core.session`, tested): built, tests pass, copied to the WoW folder, but NOT
-  committed (Josh hadn't checked it in game before sign off): working tree holds FavCore.lua, FavPanel.lua,
-  parity.test.ts. Commit it once he says it works. Explained to him: caps give every AH reagent the same % headroom
+  "At least" = paying every max price; `Core.session`, tested): built 11-24; Josh checked it in game and it was
+  committed 2026-11-25. Explained to him: caps give every AH reagent the same % headroom
   (paying every cap keeps the margin; doesn't move room between reagents; scaled from today's cheapest-15% prices, so
   a reagent oddly cheap/dear in the scan gets a tight/loose cap); the scan and the list are per account, a scan counts
   only on its own faction, Favorites.lua and ApiPrices.lua are shared. Offered, not taken: actual (after-the-fact)
@@ -1162,8 +1165,7 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   goods (high confidence), share size uncertain, crates one strong factor in price falls but not the whole story
   (Gromsblood flat, Plaguebloom -47%). Notable non-herbs: Devilsaur Leather (-29%, Josh: normally 10g+ at this
   phase), Winterfall Firewater, Righteous Orb, Essence of Air. Report now has herb price changes and a Notable
-  section; Josh wants Alliance only and minor discrepancies skipped (memory). The Session line (BavvbScan, from the
-  11-24 evening) is still uncommitted, still unchecked in game.
+  section; Josh wants Alliance only and minor discrepancies skipped (memory).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1207,7 +1209,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc; plus the uncommitted Session line in FavCore/FavPanel) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc; plus the Session line in FavCore/FavPanel, committed 2026-11-25) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an

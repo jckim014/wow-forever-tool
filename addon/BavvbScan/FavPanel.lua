@@ -385,6 +385,13 @@ local function buildShop()
       box = r and { get = function() return countOf(rid) or 1 end, set = function(n) shopSet(rid, n) end } or nil,
       btn = { text = "x", width = 24, onClick = function() shopRemove(rid); BavvbScanFavRefresh() end } }
   end
+  -- the whole list as one session (FavCore.session)
+  local sess = Core.session(check, shop.recipes, shop.margin)
+  specs[#specs + 1] = { key = "session", left = color(GOLD, "Session") .. color(GREY, "  ·  expected at today's prices"
+      .. (sess.unpriced > 0 and (", " .. sess.unpriced .. " unpriced left out") or "")), right = profitText(sess.expected), group = true,
+    tip = { "Session", "Profit per craft x crafts, added up over the list, each recipe on its exit.",
+      "If you pay every max price: at least " .. profitText(sess.floor) .. " (each capped recipe keeps the margin)." } }
+  specs[#specs + 1] = { left = color(GREY, "At least, paying every max price"), right = profitText(sess.floor), indent = 8 }
   specs[#specs + 1] = { left = color(GOLD, "To buy") .. color(GREY, "  ·  goes on the list"), each = color(GREY, "max price"), right = color(GREY, "units"), group = true }
   for _, l in ipairs(list.buy) do
     local cap = check.caps[l.item]
