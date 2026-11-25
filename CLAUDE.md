@@ -1133,6 +1133,22 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   rough). Break-even to switch now vs after the raid: 14 x daily profit > 168 + 300 x p(recipe) (~23g/day at 50%):
   advised switching if Tailoring is on the leatherworker; watch Radiant shard prices. My 2026-11-21 shuffle scan had
   missed these recipes. Josh's decision not reported.
+2026-11-24 (late evening session): BavvbScan in-game shopping list, built with Josh step by step (see UI > In-game
+  favorites panel): 1.4 shopping list made in Auctionator directly (e6ea92d, pushed and live: Favorites.lua now always
+  carries vendor buy prices + settings.useVendorBuy), then 1.5 for his crafting-to-disenchant shuffles: margin per
+  craft (10s, his choice of a fixed amount over a %), exit per recipe with a click switch, max prices in Auctionator,
+  warnings, and `/bsf` (0ad9170, committed, NOT pushed). Josh checked both in game ("working great", "everything looks
+  like it's working well"). Then the **Session** line in the list view (expected profit = crafts x profit per craft;
+  "At least" = paying every max price; `Core.session`, tested): built, tests pass, copied to the WoW folder, but NOT
+  committed (Josh hadn't checked it in game before sign off): working tree holds FavCore.lua, FavPanel.lua,
+  parity.test.ts. Commit it once he says it works. Explained to him: caps give every AH reagent the same % headroom
+  (paying every cap keeps the margin; doesn't move room between reagents; scaled from today's cheapest-15% prices, so
+  a reagent oddly cheap/dear in the scan gets a tight/loose cap); the scan and the list are per account, a scan counts
+  only on its own faction, Favorites.lua and ApiPrices.lua are shared. Offered, not taken: actual (after-the-fact)
+  session profit from the mail ledger (needs session start/stop; shards sell over days): Josh chose the expected
+  version. His favorites weren't reaching the game: the Chrome permission hang again (Favorites.lua last written
+  11-23 19:49, save file 11-24 00:04); he re-linked the game addon folder (Favorites.lua rewritten 18:06); the save
+  file was still dated 00:04 at 18:07, re-pick asked, outcome not confirmed (check its date next time).
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1176,7 +1192,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc; plus the uncommitted Session line in FavCore/FavPanel) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
@@ -1216,7 +1232,8 @@ Open items to raise when relevant:
 - Scans on two accounts (2026-11-24): the app links one BavvbScan.lua; Josh scans on both accounts and will switch
   the link himself (declined linking both). Both files now save `realm = ""` (GetRealmName blank?), so imports show
   "(_Alliance)" and history names lost the realm; noted, not raised again unless it matters.
-- **Stuck Chrome permission check** (2026-11-24, offered twice that day, Josh hasn't said yes; it hit again in the
+- **Stuck Chrome permission check** (2026-11-24, offered three times that day, Josh hasn't said yes; it hit a third
+  time that evening: Favorites.lua and the save file stopped being written; it hit again in the
   afternoon and made the app silently use API prices only): a ~10 s timeout around
   `queryPermission` in `apiprices/folder.ts` (`canRead`), `storage/fileStore.ts` (`hasPermission`) and the linked
   price file (`prices/linked.ts`), showing "Chrome isn't answering about <name>: link it again" instead of hanging on
