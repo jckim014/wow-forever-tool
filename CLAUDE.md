@@ -1188,6 +1188,9 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   Portfolio Value and list amounts (652cb73); BavvbScan Session line committed after his in-game check (2b86c75);
   Portfolio % of group with green/red drift (see Portfolio). Rebalancing rule told to him: act only when a line is
   under half / over double (now coloured); new gold fills gaps, overweights from gains are where to sell first.
+2026-11-26 (short session): /bsf favorites rows now show the product's AH listing price (per unit, before the cut)
+  with the best-exit profit in brackets (f5b6fbe, pushed; FavPanel.lua copied to the WoW folder; Josh: "this is good").
+  First try put it on the breakdown's exits line: "summary line" meant the unopened row. Restate such requests first.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two
@@ -1231,7 +1234,7 @@ game, check the term format in `app/src/shopping/list.ts` against `Auctionator/S
 - Addon upkeep: the copy in `F:\World of Warcraft\_forever_\Interface\AddOns\BavvbScan\` is refreshed by hand after
   any change to `addon/BavvbScan/` (a `/reload` loads it, even new files and .toc changes:
   Josh, 2026-11-14; no restart needed).
-  Copied 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc; plus the Session line in FavCore/FavPanel, committed 2026-11-25) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
+  Copied 2026-11-26 (FavPanel.lua: listing price on rows); 2026-11-24 with 1.5 (margin, max prices, exit switch, /bsf: FavCore, FavPanel, BavvbScan.lua, toc; plus the Session line in FavCore/FavPanel, committed 2026-11-25) and 1.4 (shopping list: FavCore.lua, FavPanel.lua, toc); 2026-11-23 with 1.3 (favorites panel: FavCore.lua, FavPanel.lua, toc lists the two generated files); 2026-11-11 with the scan panel; 2026-11-14 with Sales.lua (1.1), 2026-11-15 with 1.2 (matching fixes), last copy 2026-11-16 (every character records, short chat line). A fengari harness for Sales.lua (mock mailbox, gold, bags; 156 checks; rebuilt 2026-11-15
   as 10 matching scenarios / 31 checks on BavvbScanSalesCore with a CreateFrame stub) lived in the scratchpad and is
   gone; rebuild it the same way before changing Sales.lua. To check the page on Josh's real files without a browser:
   a throwaway script in app/src/trades running readMailLog + mergeLogs + plan via `npx vite-node` (delete after). `.gitignore` ignores `*.lua` (SavedVariables copies) with an
