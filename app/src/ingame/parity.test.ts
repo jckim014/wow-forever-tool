@@ -298,7 +298,7 @@ describe('FavPanel.lua runs', () => {
       BAVVB_EVENT("TRADE_SKILL_SHOW")
       return { docked = docked, open = open, alone = alone, cookingShown = BavvbScanFavPanel:IsShown() }`)
     expect(out.docked[0]).toMatch(/^Favorites · Tailoring {2}\| {2}scan \d{1,2}:\d\d [AP]M {2}· {2}hourly \d{1,2}:\d\d [AP]M {2}· {2}favorites sent \w+ \d+ \d{1,2}:\d\d [AP]M$/)
-    expect(out.docked.slice(1)).toEqual(['- A  []  ', 'Bag  [AH]  +1g 83s', 'Robe  [Vendor]  -4s 85c'])
+    expect(out.docked.slice(1)).toEqual(['- A  []  ', 'Bag  [AH]  2g 00s | (+1g 83s)', 'Robe  [Vendor]  (-4s 85c)'])
     expect(out.open.length).toBeGreaterThan(10)
     expect(out.open.join('\n')).not.toContain('buy instead')
     expect(out.open.some((l: string) => / \| /.test(l))).toBe(true) // price each

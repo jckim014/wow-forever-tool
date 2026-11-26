@@ -793,7 +793,7 @@ The core is a clean, fast way to view and filter everything the Recipes tab show
   Panel: docks to the right of `ProfessionsFrame` (the Forever client uses the retail profession window; profession
   from C_TradeSkillUI.GetBaseProfessionInfo) when that profession has favorites, showing only those; the close button
   hides it until that window opens again; `/bsf` (or `/bscan fav`) opens it alone (all professions, draggable, position saved in
-  BavvbScanDB.favPos; again to close). Rows: name, best exit, profit (tooltip: cost and every exit); click = breakdown:
+  BavvbScanDB.favPos; again to close). Rows: name, best exit, the product's AH listing price (per unit, before the cut; 2026-11-26) and the profit at the best exit in brackets (tooltip: cost and every exit); click = breakdown:
   each reagent with source (craft / vendor / custom; scan = blank), price each and total, a crafted reagent's
   ingredients under it, then the exits. A grey ° marks an hourly API price (hover says why). Josh's choices
   (2026-11-23): font 13, no buy-instead / craft (off) lines, price each column, times like 6:48 PM. Groups fold (kept

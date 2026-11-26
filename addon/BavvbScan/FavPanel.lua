@@ -518,7 +518,9 @@ local function build()
     if not folded then
       for _, r in ipairs(g.rows) do
         specs[#specs + 1] = { left = r.name, mid = color(GREY, r.bestExitName and exitShort(r.bestExitName) or "unpriced"),
-          right = profitText(r.profitBest), indent = 8, tip = rowTip(r),
+          -- the product's AH listing price (per unit, before the cut), then the profit at the best exit in brackets
+          each = r.ahPrice and priced(r.ahPrice, r.ahSource) or nil,
+          right = color(GREY, "(") .. profitText(r.profitBest) .. color(GREY, ")"), indent = 8, tip = rowTip(r),
           onClick = function() open[r.id] = not open[r.id] or nil; BavvbScanFavRefresh() end }
         if open[r.id] then addBreakdown(specs, r, res.book) end
       end
