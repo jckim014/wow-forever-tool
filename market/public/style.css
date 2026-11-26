@@ -21,6 +21,8 @@
   --accent: #a71a19;      /* Wowhead red: selected tab bar, buttons */
   --accent-hover: #da2020;
   --warn: #f0a640;
+  --over: #5cc46a;        /* Portfolio: held above the plan weight (green, Josh) */
+  --under: #e0625a;       /* Portfolio: held below the plan weight (red, Josh) */
   --warn-bg: #322c1c;     /* Wowhead "out of date" box */
   --warn-line: #5a4a2a;
   /* money: TSM's coin colours */
@@ -68,6 +70,8 @@
   --accent: #a71a19;
   --accent-hover: #da2020;
   --warn: #8a5a00;
+  --over: #23843a;
+  --under: #c0392b;
   --warn-bg: #fff8e6;
   --warn-line: #e0c48a;
   --coin-g: #a87b00;
@@ -317,5 +321,12 @@ tr.pl-drop-after > td { box-shadow: inset 0 -3px 0 0 var(--muted); }
 .pf-table tbody td:last-child { padding-right: 8px; }
 .pf-flag { color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 2px; padding: 0 4px; cursor: help; font-weight: 600; }
 .pf-flag-text { color: var(--warn); font-size: 12px; }
+.pf-share { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pf-drift { display: inline-block; min-width: 3.2em; margin-left: 6px; text-align: right; font-size: 12px; }
+/* over (green) / under (red) the plan weight once 5 points off (Josh, 2026-11-25) */
+.pf-drift.pf-ok { color: var(--muted); opacity: 0.75; }
+.pf-drift.pf-over { color: var(--over); }
+.pf-drift.pf-under { color: var(--under); }
 .pf-accept { margin-left: 6px; padding: 0 6px; border: 1px solid var(--line-2); border-radius: 2px; background: var(--panel-2); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; }
 .pf-accept:hover { border-color: var(--focus); color: var(--strong); }
+.pf-noweight { color: var(--muted); opacity: 0.6; }

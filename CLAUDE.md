@@ -422,8 +422,9 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
 - **Portfolio tab** (Josh, 2026-11-23; `public/portfolio.js`, pure `public/portfolioLib.js` tested in
   `portfolioLib.test.mjs`, server side `market/holdings.mjs` tested in `holdings.test.mjs`, classes `pf-*` plus the
   Plan's `pl-*` tree look): what Josh owns, laid out exactly like his plans (same plans, wallets, groups, items, order;
-  an item added to or removed from a plan shows up or goes here). **Descriptive only** (Josh: the plans are
-  administrative tools for information and logistics, not targets; no budget, gap, share or advice). Read-only.
+  an item added to or removed from a plan shows up or goes here). Built descriptive only (2026-11-23: "the plans are
+  administrative tools ..., not targets"); on 2026-11-25 Josh chose to balance his holdings to his weights and asked
+  for the drift marker below. Still no advice or automatic actions. Read-only.
   Columns: **Held** (TSM, the plan's faction), **Avg paid** (mail ledger: paid / units over buys with status ok; hover
   "bought N of the M held" when held > bought, no ⓘ so the column stays aligned: units from before 2026-11-16, crafted, looted or farmed), **Value** (held
   x the **7-day price** on the plan's faction, before the AH cut; **7-day price** (Josh, 2026-11-25, a stable value
@@ -431,7 +432,13 @@ weekday patterns not built, need ~3 weeks of data). All revisable (Josh).
   cheapest 15% over the 7 days before the newest snapshot, hourly API data only, never /bscans (`refPrice` in server.mjs,
   `ref` in `/api/prices`, `refPriceOf` in portfolioLib.js; falls back to the latest cheapest 15% when the item had no
   hourly price that week). The Plan table's own price column still shows today's (newer of scan and hourly); group and plan
-  lines sum distinct items). Layout (Josh, 2026-11-23): one grey bar per plan (name, faction, small Held / Avg paid / Value
+  lines sum distinct items), **% of group** (Josh, 2026-11-25; `shareOfParent` / `drift` in portfolioLib.js, tested):
+  each line's value as a % of the line above it (item of its group, group of its wallet or plan), then the difference
+  from the plan weight in points, green when over and red when under once 5+ points off (`DRIFT_POINTS`) or under half
+  / over double the weight (so small lines are caught), grey otherwise; no bold. Lines with weight 0 (one-offs kept
+  outside the weights, e.g. Firefin Snapper, Writs, the Leveling recipes) show "–" and are left out of their group's
+  base, so weighted neighbours compare with their weights directly (their gold still counts in Value). Hover: the
+  weight and the ratio. Layout (Josh, 2026-11-23): one grey bar per plan (name, faction, small Held / Avg paid / Value
   labels over their columns, total value), no separate column-header row; groups without grey bands, indented under
   the plan, items one step further. Refresh button; the TSM file times are shown (TSM writes at logout or /reload; a
   character's counts are as of its last login). Fold state per browser (`forever-market:portfolio-closed`,
@@ -1166,6 +1173,21 @@ math and the shopping. He asked for a portfolio view later (see Open items).
   (Gromsblood flat, Plaguebloom -47%). Notable non-herbs: Devilsaur Leather (-29%, Josh: normally 10g+ at this
   phase), Winterfall Firewater, Righteous Orb, Essence of Air. Report now has herb price changes and a Notable
   section; Josh wants Alliance only and minor discrepancies skipped (memory).
+2026-11-25 (long session, talk + Market changes): money psychology (Josh holds ~2,000g liquid, needs 1,000g: a
+  full recraft of his items ties up ~1,000g, and he wants room for snap opportunities; settled on a ~1,000g floor
+  and sweeping the excess into the plans by a standing rule, not daily decisions). Then a portfolio review and his
+  raid-consumables weights, worked out with him: herbs (Blindweed ~50%, Dreamfoil 20, Plaguebloom 15, Wintersbite and
+  Arthas' Tears 7.5 each; Silversage, Gromsblood, Icecap out by his crate/supply rule), flasks (discussed Death Lotus
+  30 / Demonsage 52 / Marefoil 18 given Death Lotus's 40g vendor cap; his plan still showed 25/50/25 at the end, his
+  call). His reasoning, kept in memory (josh-supply-crunch-view): a spike needs demand shock against limited supply,
+  bots favour instances so open-world herbs are supply-limited, crate items need a very strong use; Frenzy vs Major
+  Mana share the potion cooldown on mana-using physical DPS (warriors/rogues a minority), so Dreamfoil + Major Mana
+  hedge Frenzy; low potion use overall is a "disaster case" he doesn't plan for. He bought catch-up lists I built by
+  hand (Auctionator strings with +50% caps) and cleared Alliance Blindweed/Demonsage on the way (don't comment on his
+  market impact: memory). Market changes, all pushed: max price on the Plan's lists (+50%) and the 7-day price for
+  Portfolio Value and list amounts (652cb73); BavvbScan Session line committed after his in-game check (2b86c75);
+  Portfolio % of group with green/red drift (see Portfolio). Rebalancing rule told to him: act only when a line is
+  under half / over double (now coloured); new gold fills gaps, overweights from gains are where to sell first.
 Unconfirmed from the 11-17 morning (raise only if relevant to what he is doing): a big sales mailbox through BavvbScan 1.2,
 Xfaction Bavvb / Jeder on 1.2, Xfaction Two's and Xfaction Horde's first records, a Skinning Knife gold send end to
 end ("1 gold sent", History row, no knife in stock, seller's gold matched later), the Faction tab without the two

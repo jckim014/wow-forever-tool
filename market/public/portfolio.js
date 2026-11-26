@@ -3,7 +3,7 @@
 // Held comes from TSM (bags, bank, mailbox, AH listings, unopened mail between his characters, guild banks); what he
 // paid from the mail ledger; units TSM seems to have lost are kept and flagged (market/holdings.mjs).
 import { moneyHtml, iconHtml } from './shared.js';
-import { portfolioRows, lookupName } from './portfolioLib.js';
+import { portfolioRows, lookupName, drift } from './portfolioLib.js';
 import { walk, validPlan, toV2 } from './planLib.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -99,6 +99,20 @@ function valueCell(r) {
   return r.value === null ? '<span class="blank" title="No price on this faction">—</span>' : `<span title="${r.held} × ${moneyText(r.price)} (7-day price)">${moneyHtml(Math.round(r.value))}</span>`;
 }
 
+const pct = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1));
+
+/** Held share of the parent line, then how far it is from the plan's weight (drift in portfolioLib.js). */
+function shareCell(r) {
+  if (r.noItem || r.share === null || (!r.group && !r.held)) return Number(r.node.w) > 0 ? '' : '<span class="pf-noweight" title="No weight in the plan: left out of the % and of the group total">–</span>';
+  const target = Number(r.node.w);
+  const d = drift(r.share, target);
+  const share = `${pct(r.share)}%`;
+  if (!d) return '';
+  const sign = d.diff >= 0 ? '+' : '−';
+  const tip = `Plan weight ${pct(target)}% of the line above · held ${pct(r.share)}% (${d.ratio.toFixed(2)}× the weight)`;
+  return `<span title="${tip}">${share}<span class="pf-drift pf-${d.level}">${sign}${pct(Math.abs(d.diff))}</span></span>`;
+}
+
 function planHtml(plan) {
   const { rows, total, faction } = portfolioRows(plan, holdings.items, prices);
   const open = !closedPlans.has(plan.id);
@@ -108,6 +122,7 @@ function planHtml(plan) {
       <td><span class="pf-lab">Held</span>${total.flagged ? ` <span class="pf-flag-text">${total.flagged} flagged</span>` : ''}</td>
       <td><span class="pf-lab">Avg paid</span></td>
       <td><span class="pf-lab">Value</span> ${moneyHtml(Math.round(total.value))}</td>
+      <td class="pf-share"><span class="pf-lab" title="Each line's value as a share of the line it sits in (an item's group, a group's plan), then the difference from the plan's weight in points. Green: over the weight, red: under it, once 5 or more points off or over double / under half the weight; grey otherwise. Lines with no weight (0%) are left out.">% of group</span></td>
     </tr>`;
   if (!open) return `<section class="pl-plan"><table class="mtable pf-table"><tbody>${head}</tbody></table></section>`;
   const hidden = new Set();
@@ -124,6 +139,7 @@ function planHtml(plan) {
       <td>${r.group ? (r.flagged ? `<span class="pf-flag-text" title="Items in it with a flagged count">${r.flagged} flagged</span>` : '') : heldCell(r)}</td>
       <td>${paidCell(r)}</td>
       <td>${valueCell(r)}</td>
+      <td class="pf-share">${shareCell(r)}</td>
     </tr>`;
   }).join('');
   return `<section class="pl-plan">

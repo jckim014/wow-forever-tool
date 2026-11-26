@@ -56,3 +56,32 @@ test('refPriceOf: the 7-day reference price wins, the latest cheapest 15% only w
   assert.equal(refPriceOf(p, 114), 1700); // no hourly price that week: today's
   assert.equal(refPriceOf(null, 111), null);
 });
+
+import { shareOfParent } from './public/portfolioLib.js';
+test('shareOfParent: an item as % of its group, a group as % of the plan; 0-weight lines left out', () => {
+  const W = (w) => ({ w });
+  const rows = [
+    { depth: 0, group: true, value: 330, node: W(60) },
+    { depth: 1, group: false, value: 200, node: W(60) }, { depth: 1, group: false, value: 100, node: W(40) },
+    { depth: 1, group: false, value: 30, node: W(0) },  // a one-off: no share, not in the group's base
+    { depth: 0, group: true, value: 100, node: W(40) },
+    { depth: 1, group: false, value: null, node: W(50) }, { depth: 1, group: false, value: 100, node: W(50) },
+  ];
+  shareOfParent(rows);
+  // group 1 counts 300 (not 330) against group 2's 100
+  assert.deepEqual(rows.map((r) => r.share === null ? null : Math.round(r.share)), [75, 67, 33, null, 25, null, 100]);
+});
+
+import { drift } from './public/portfolioLib.js';
+test('drift: coloured from 5 points off the weight, or under half / over double, over or under', () => {
+  assert.equal(drift(54.9, 50).level, 'ok');
+  assert.equal(drift(55, 50).level, 'over');
+  assert.equal(drift(40, 50).level, 'under');
+  assert.equal(drift(3, 7.5).level, 'under');     // only 4.5 points, but under half
+  assert.equal(drift(4, 7.5).level, 'ok');        // 3.5 points, 0.53x
+  assert.equal(drift(0.4, 5).level, 'under');     // a 5% line can never be 5 points under
+  assert.equal(drift(4.5, 2).level, 'over');      // 2.5 points, but over double
+  assert.equal(Math.round(drift(60, 50).diff), 10);
+  assert.equal(drift(11, 0), null);               // no target: an item kept outside the weights
+  assert.equal(drift(null, 50), null);
+});
