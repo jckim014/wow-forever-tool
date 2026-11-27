@@ -289,6 +289,15 @@ describe('FavPanel.lua runs', () => {
       BAVVB_EVENT("ADDON_LOADED", "Blizzard_Professions")
       BAVVB_EVENT("TRADE_SKILL_SHOW")
       local docked = BAVVB_TEXT()
+      -- the exit word on a row switches its exit, and the shopping list's choice is the same one
+      local function row(name) for _, f in ipairs(BAVVB_FRAMES) do if f.spec and f.shown and f.spec.left == name then return f end end end
+      row("Bag").spec.exitClick() -- Disenchant -> AH
+      local switched = BAVVB_TEXT()
+      local picked = BavvbScanDB.shop.exits[10]
+      row("Robe").spec.exitClick() -- Vendor, Disenchant: -> Vendor
+      local robe = BAVVB_TEXT()
+      BavvbScanDB.shop.exits = {}
+      BavvbScanFavRefresh()
       BAVVB_CLICK_ALL()
       local open = BAVVB_TEXT()
       BavvbScanFavToggle()
@@ -296,9 +305,14 @@ describe('FavPanel.lua runs', () => {
       BAVVB_EVENT("TRADE_SKILL_CLOSE")
       BAVVB_PROF = "Cooking"
       BAVVB_EVENT("TRADE_SKILL_SHOW")
-      return { docked = docked, open = open, alone = alone, cookingShown = BavvbScanFavPanel:IsShown() }`)
+      return { docked = docked, switched = switched, picked = picked, robe = robe, open = open, alone = alone, cookingShown = BavvbScanFavPanel:IsShown() }`)
     expect(out.docked[0]).toMatch(/^Favorites · Tailoring {2}\| {2}scan \d{1,2}:\d\d [AP]M {2}· {2}hourly \d{1,2}:\d\d [AP]M {2}· {2}favorites sent \w+ \d+ \d{1,2}:\d\d [AP]M$/)
-    expect(out.docked.slice(1)).toEqual(['- A  []  ', 'Bag  [AH]  2g 00s | (+1g 83s)', 'Robe  [Vendor]  (-4s 85c)'])
+    // rows show the exit they are judged on: Disenchant when the product can be disenchanted (unpriced here), as the
+    // shopping list; the exit word switches it
+    expect(out.docked.slice(1)).toEqual(['- A  []  ', 'Bag  [DE]  2g 00s | (-)', 'Robe  [DE]  (-)'])
+    expect(out.switched.slice(1)).toEqual(['- A  []  ', 'Bag  [AH]  2g 00s | (+1g 83s)', 'Robe  [DE]  (-)'])
+    expect(out.picked).toBe('AH')
+    expect(out.robe.slice(1)).toEqual(['- A  []  ', 'Bag  [AH]  2g 00s | (+1g 83s)', 'Robe  [Vendor]  (-4s 85c)'])
     expect(out.open.length).toBeGreaterThan(10)
     expect(out.open.join('\n')).not.toContain('buy instead')
     expect(out.open.some((l: string) => / \| /.test(l))).toBe(true) // price each

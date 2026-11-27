@@ -108,6 +108,26 @@ local function makeLine(i)
   b:SetScript("OnClick", function(self)
     if self.spec and self.spec.onClick then self.spec.onClick() end
   end)
+  -- the exit word on a favorites row: its own click (switch exit) and tooltip
+  b.exitBtn = CreateFrame("Button", nil, b)
+  b.exitBtn:SetAllPoints(b.mid)
+  b.exitBtn:SetScript("OnEnter", function(self)
+    local spec = self:GetParent().spec
+    self:GetParent().hl:Show()
+    if spec and spec.exitTip then
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      for n, line in ipairs(spec.exitTip) do
+        if n == 1 then GameTooltip:SetText(line) else GameTooltip:AddLine(line, 0.9, 0.9, 0.9, true) end
+      end
+      GameTooltip:Show()
+    end
+  end)
+  b.exitBtn:SetScript("OnLeave", function(self) self:GetParent().hl:Hide(); GameTooltip:Hide() end)
+  b.exitBtn:SetScript("OnClick", function(self)
+    local spec = self:GetParent().spec
+    if spec and spec.exitClick then spec.exitClick() end
+  end)
+  b.exitBtn:Hide()
   pool[i] = b
   return b
 end
@@ -252,6 +272,16 @@ local function shopRemove(rid)
   for i, e in ipairs(shop.recipes) do if e.id == rid then table.remove(shop.recipes, i); return end end
 end
 
+-- Moves a recipe to its next exit (Vendor, Disenchant, AH order, only those that apply), remembered per recipe;
+-- the favorites rows and the shopping list share it.
+local function cycleExit(rid, names, current)
+  if #names < 2 then return end
+  local nextName = names[1]
+  for i, name in ipairs(names) do if name == current then nextName = names[i % #names + 1] end end
+  BavvbScanShop().exits[rid] = nextName
+  BavvbScanFavRefresh()
+end
+
 -- What to buy, and the profit check with its price caps (FavCore: shopping, checkList).
 local function shopping(fav)
   local shop = BavvbScanShop()
@@ -370,16 +400,9 @@ local function buildShop()
       if c.flagged then tip[#tip + 1] = color(RED, "Under the margin at today's prices.") end
       if #c.exits > 1 then tip[#tip + 1] = color(GREY, "Click to judge it on another exit (" .. table.concat(c.exits, ", ") .. ").") end
     end
-    -- a click moves the recipe to its next exit (Vendor, Disenchant, AH order), remembered per recipe
+    -- a click moves the recipe to its next exit
     local cycle
-    if c and #c.exits > 1 then
-      cycle = function()
-        local nextName = c.exits[1]
-        for i, name in ipairs(c.exits) do if name == c.exit then nextName = c.exits[i % #c.exits + 1] end end
-        shop.exits[rid] = nextName
-        BavvbScanFavRefresh()
-      end
-    end
+    if c and #c.exits > 1 then cycle = function() cycleExit(rid, c.exits, c.exit) end end
     specs[#specs + 1] = { key = "count:" .. rid, indent = 8, tip = tip, onClick = cycle,
       left = label or color(RED, "Recipe " .. rid .. ": not in Favorites now, left off"),
       box = r and { get = function() return countOf(rid) or 1 end, set = function(n) shopSet(rid, n) end } or nil,
@@ -441,17 +464,18 @@ end
 -- ---------- what the panel lists ----------
 
 
-local function rowTip(r)
+local function rowTip(r, used)
   local tip = { r.name, "Cost (cheapest path): " .. money(r.cheapest) }
   for _, e in ipairs(r.exits) do
-    tip[#tip + 1] = exitShort(e.name) .. ": " .. money(e.value) .. "   profit " .. profitText(e.profit) .. (e.isBest and "  " .. color(GOLD, "best") or "")
+    tip[#tip + 1] = (e == used and "> " or "   ") .. exitShort(e.name) .. ": " .. money(e.value) .. "   profit " .. profitText(e.profit)
+      .. (e == used and "  " .. color(GOLD, "used") or "") .. (e.isBest and "  " .. color(GOLD, "best") or "")
   end
   if #r.unpriced > 0 then tip[#tip + 1] = color(GREY, table.concat(r.unpriced, ", ") .. " unpriced") end
   tip[#tip + 1] = color(GREY, "Click for the cost breakdown.")
   return tip
 end
 
-local function addBreakdown(specs, r, book)
+local function addBreakdown(specs, r, book, used)
   local fallback = apiTip(book)
   specs[#specs + 1] = { left = color(GREY, "Cost" .. (r.made ~= 1 and " (makes " .. qtyText(r.made) .. ")" or "")), right = money(r.cheapest), indent = 14 }
   for _, l in ipairs(r.lines) do
@@ -476,7 +500,7 @@ local function addBreakdown(specs, r, book)
     if e.name == "AH" then src = r.ahSource end
     if e.name == "Disenchant" then for _, m in ipairs(r.deMaterials or {}) do if m.source == "api" then src = "api" end end end
     if src == "api" then anyApi = true end
-    parts[#parts + 1] = exitShort(e.name) .. " " .. priced(e.value, src) .. (e.isBest and color(GOLD, "*") or "")
+    parts[#parts + 1] = (e == used and color(GOLD, "> ") or "") .. exitShort(e.name) .. " " .. priced(e.value, src) .. (e.isBest and color(GOLD, "*") or "")
   end
   specs[#specs + 1] = { left = table.concat(parts, color(GREY, "  ·  ")), indent = 14, tip = anyApi and { "Exits", fallback } or nil }
   local rid, have = r.id, countOf(r.id)
@@ -517,12 +541,22 @@ local function build()
     end }
     if not folded then
       for _, r in ipairs(g.rows) do
-        specs[#specs + 1] = { left = r.name, mid = color(GREY, r.bestExitName and exitShort(r.bestExitName) or "unpriced"),
-          -- the product's AH listing price (per unit, before the cut), then the profit at the best exit in brackets
+        -- the exit it is judged on: the one picked (here or in the shopping list), else as the shopping list does
+        local used, names = Core.exitOf(r, BavvbScanShop().exits[r.id])
+        local exitTip = { "Exit: " .. (used and used.name or "none") }
+        if used and used.value == nil then exitTip[#exitTip + 1] = color(RED, "Unpriced right now.") end
+        for _, e in ipairs(r.exits) do
+          if e.isBest and e ~= used then exitTip[#exitTip + 1] = "Best: " .. e.name .. ", profit " .. profitText(e.profit) end
+        end
+        if #names > 1 then exitTip[#exitTip + 1] = color(GREY, "Click to switch (" .. table.concat(names, ", ") .. "). The shopping list uses the same exit.") end
+        local rid = r.id
+        specs[#specs + 1] = { left = r.name, mid = color(GREY, used and exitShort(used.name) or "no exit"),
+          -- the product's AH listing price (per unit, before the cut), then the profit at that exit in brackets
           each = r.ahPrice and priced(r.ahPrice, r.ahSource) or nil,
-          right = color(GREY, "(") .. profitText(r.profitBest) .. color(GREY, ")"), indent = 8, tip = rowTip(r),
-          onClick = function() open[r.id] = not open[r.id] or nil; BavvbScanFavRefresh() end }
-        if open[r.id] then addBreakdown(specs, r, res.book) end
+          right = color(GREY, "(") .. profitText(used and used.profit) .. color(GREY, ")"), indent = 8, tip = rowTip(r, used),
+          exitTip = exitTip, exitClick = #names > 1 and function() cycleExit(rid, names, used and used.name) end or nil,
+          onClick = function() open[rid] = not open[rid] or nil; BavvbScanFavRefresh() end }
+        if open[r.id] then addBreakdown(specs, r, res.book, used) end
       end
     end
   end
@@ -551,6 +585,7 @@ local function layout(specs)
     b.mid:SetText(s.mid or "")
     b.each:SetText(s.each or "")
     b.right:SetText(s.right or "")
+    if s.exitTip then b.exitBtn:Show() else b.exitBtn:Hide() end
     -- a number box and/or a button on the right (shopping list lines)
     if s.box then
       if not b.box then

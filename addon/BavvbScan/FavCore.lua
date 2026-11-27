@@ -336,6 +336,20 @@ end
 
 C.DEFAULT_MARGIN = 1000 -- 10s per craft (Josh, 2026-11-24)
 
+-- The exit a recipe is judged on, in the favorites rows and the shopping list alike: `want` (the one Josh picked)
+-- when it applies to that recipe, else Disenchant when the product can be disenchanted, else the best exit.
+-- Returns that exit (or nil) and the names of every exit that applies, in Vendor, Disenchant, AH order.
+function C.exitOf(row, want)
+  local exit, names = nil, {}
+  for _, x in ipairs(row.exits) do
+    names[#names + 1] = x.name
+    if x.name == want then exit = x end
+  end
+  if not exit then for _, x in ipairs(row.exits) do if x.name == "Disenchant" then exit = x end end end
+  if not exit then for _, x in ipairs(row.exits) do if x.isBest then exit = x end end end
+  return exit, names
+end
+
 -- For each recipe on the list: the exit it is judged on (`exits[id]`, the one Josh picked, when it applies to that
 -- recipe; else Disenchant when the product can be disenchanted, else the best exit), the exits it can switch to, its value and profit per craft (the model's, as the panel's rows), and flagged = profit unknown or
 -- under `margin`. Caps: the highest price per unit for each item on the list such that, paying the cap for every
@@ -357,14 +371,7 @@ function C.checkList(fav, price, inter, entries, margin, exits)
     local r = fav.recipes[e.id]
     if r and not out[e.id] then
       local row = C.recipe(fav, price, inter, e.id)
-      local exit, names = nil, {}
-      local want = exits and exits[e.id]
-      for _, x in ipairs(row.exits) do
-        names[#names + 1] = x.name
-        if x.name == want then exit = x end
-      end
-      if not exit then for _, x in ipairs(row.exits) do if x.name == "Disenchant" then exit = x end end end
-      if not exit then for _, x in ipairs(row.exits) do if x.isBest then exit = x end end end
+      local exit, names = C.exitOf(row, exits and exits[e.id])
       local info = { name = r.name, exit = exit and exit.name, exits = names, value = exit and exit.value, profit = exit and exit.profit }
       info.flagged = info.profit == nil or info.profit < margin
       -- what one craft buys, as the list buys it
